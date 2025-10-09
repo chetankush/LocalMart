@@ -35,91 +35,106 @@ const Navbar = () => {
   };
 
   return (
-    <header className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
-      <Link href="/" className="text-2xl font-bold">
-        LocalMart
-      </Link>
-      <div className="flex gap-4 items-center">
-        <Link href="/" className="hover:text-blue-600 transition-colors">
-          Browse Stores
+    <header className="bg-gray-950 text-white">
+      <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
+        <Link href="/" className="text-2xl font-bold text-white">
+          LocalMart
         </Link>
-
-        {!loading && user && (
-          <Link href="/my-orders" className="hover:text-blue-600 transition-colors cursor-pointer">
-            My Orders
+        <div className="flex gap-4 items-center">
+          <Link
+            href="/stores"
+            className="hover:text-blue-400 transition-colors text-white"
+          >
+            Browse Stores
           </Link>
-        )}
 
-        <CartIcon />
+          {!loading && user && (
+            <Link
+              href="/my-orders"
+              className="hover:text-blue-400 transition-colors cursor-pointer text-white"
+            >
+              My Orders
+            </Link>
+          )}
 
-        {!loading && (
-          <>
-            {!user ? (
-              <Link href="/sign-in">
-                <Button>Sign In</Button>
-              </Link>
-            ) : (
-              <div className="relative">
-                <button
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                    {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
-                  </div>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${
-                      showDropdown ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+          <Link
+            href="/become-vendor"
+            className="px-3 py-1.5 bg-transparent border border-green-600 text-green-600 rounded-full text-sm font-medium hover:bg-green-600 hover:text-white transition-colors"
+          >
+            Add Your Store
+          </Link>
+
+          <CartIcon />
+
+          {!loading && (
+            <>
+              {!user ? (
+                <Link href="/sign-in">
+                  <Button>Sign In</Button>
+                </Link>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200">
-                    <div className="px-4 py-2 border-b border-gray-200">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {user.email || user.phone}
-                      </p>
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                      {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
                     </div>
-                    {isApprovedVendor ? (
-                      <Link
-                        href="/vendor/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Vendor Dashboard
-                      </Link>
-                    ) : (
-                      <Link
-                        href="/become-vendor"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        Become a Vendor
-                      </Link>
-                    )}
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    <svg
+                      className={`w-4 h-4 transition-transform ${
+                        showDropdown ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg py-2 z-50 border border-gray-700">
+                      <div className="px-4 py-2 border-b border-gray-700">
+                        <p className="text-sm font-medium text-white truncate">
+                          {user.email || user.phone}
+                        </p>
+                      </div>
+                      {isApprovedVendor ? (
+                        <Link
+                          href="/vendor/dashboard"
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          Vendor Dashboard
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/become-vendor"
+                          className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                          onClick={() => setShowDropdown(false)}
+                        >
+                          Become a Vendor
+                        </Link>
+                      )}
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

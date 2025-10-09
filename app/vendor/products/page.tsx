@@ -149,7 +149,7 @@ export default async function VendorProductsPage() {
                           <div className="flex items-center">
                             <div className="h-12 w-12 flex-shrink-0 relative rounded-md overflow-hidden">
                               <Image
-                                src={firstImage}
+                                src={firstImage as string}
                                 alt={product.name}
                                 fill
                                 className="object-cover"

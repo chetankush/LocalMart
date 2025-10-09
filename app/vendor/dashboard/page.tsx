@@ -1,10 +1,10 @@
-import { requireRole } from '@/src/shared/utils/auth';
-import { prisma } from '@/src/core/infrastructure/database/prisma/client';
-import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { requireRole } from "@/src/shared/utils/auth";
+import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function VendorDashboardPage() {
-  const user = await requireRole(['VENDOR']);
+  const user = await requireRole(["VENDOR"]);
 
   // Check if vendor request was approved and vendor profile exists
   const vendor = await prisma.vendor.findUnique({
@@ -12,11 +12,11 @@ export default async function VendorDashboardPage() {
     include: {
       products: {
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       },
       orders: {
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -24,33 +24,35 @@ export default async function VendorDashboardPage() {
   if (!vendor) {
     // Check if they have a pending request
     const vendorRequest = await prisma.vendorRequest.findFirst({
-      where: { email: user.email || '' },
-      orderBy: { createdAt: 'desc' },
+      where: { email: user.email || "" },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (vendorRequest?.status === 'PENDING') {
-      redirect('/vendor/pending');
-    } else if (vendorRequest?.status === 'REJECTED') {
-      redirect('/vendor/rejected');
+    if (vendorRequest?.status === "PENDING") {
+      redirect("/vendor/pending");
+    } else if (vendorRequest?.status === "REJECTED") {
+      redirect("/vendor/rejected");
     } else {
-      redirect('/vendor/onboarding');
+      redirect("/vendor/onboarding");
     }
   }
 
   // Get statistics
   const stats = {
-    totalProducts: await prisma.product.count({ where: { vendorId: vendor.id } }),
+    totalProducts: await prisma.product.count({
+      where: { vendorId: vendor.id },
+    }),
     totalOrders: await prisma.order.count({ where: { vendorId: vendor.id } }),
     pendingOrders: await prisma.order.count({
       where: {
         vendorId: vendor.id,
-        status: 'PENDING',
+        status: "PENDING",
       },
     }),
     completedOrders: await prisma.order.count({
       where: {
         vendorId: vendor.id,
-        status: 'DELIVERED',
+        status: "DELIVERED",
       },
     }),
   };
@@ -62,16 +64,18 @@ export default async function VendorDashboardPage() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{vendor.businessName}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {vendor.businessName}
+              </h1>
               <p className="text-sm text-gray-600">
-                Status:{' '}
+                Status:{" "}
                 <span
                   className={`font-semibold ${
-                    vendor.status === 'ACTIVE'
-                      ? 'text-green-600'
-                      : vendor.status === 'PENDING_APPROVAL'
-                      ? 'text-yellow-600'
-                      : 'text-red-600'
+                    vendor.status === "ACTIVE"
+                      ? "text-green-600"
+                      : vendor.status === "PENDING_APPROVAL"
+                      ? "text-yellow-600"
+                      : "text-red-600"
                   }`}
                 >
                   {vendor.status}
@@ -79,6 +83,12 @@ export default async function VendorDashboardPage() {
               </p>
             </div>
             <div className="flex gap-3">
+              <Link
+                href="/vendor/orders"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Orders
+              </Link>
               <Link
                 href="/vendor/products/new"
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -98,7 +108,7 @@ export default async function VendorDashboardPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Pending Approval Notice */}
-        {vendor.status === 'PENDING_APPROVAL' && (
+        {vendor.status === "PENDING_APPROVAL" && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -119,7 +129,8 @@ export default async function VendorDashboardPage() {
                   Awaiting Approval
                 </h3>
                 <p className="mt-1 text-sm text-yellow-700">
-                  Your store is under review. You can add products now, but they will only be visible to customers after approval.
+                  Your store is under review. You can add products now, but they
+                  will only be visible to customers after approval.
                 </p>
               </div>
             </div>
@@ -130,22 +141,30 @@ export default async function VendorDashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="text-sm text-gray-600 mb-1">Total Products</div>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalProducts}</div>
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.totalProducts}
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="text-sm text-gray-600 mb-1">Total Orders</div>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalOrders}</div>
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.totalOrders}
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="text-sm text-gray-600 mb-1">Pending Orders</div>
-            <div className="text-3xl font-bold text-yellow-600">{stats.pendingOrders}</div>
+            <div className="text-3xl font-bold text-yellow-600">
+              {stats.pendingOrders}
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-6">
             <div className="text-sm text-gray-600 mb-1">Completed</div>
-            <div className="text-3xl font-bold text-green-600">{stats.completedOrders}</div>
+            <div className="text-3xl font-bold text-green-600">
+              {stats.completedOrders}
+            </div>
           </div>
         </div>
 
@@ -154,7 +173,9 @@ export default async function VendorDashboardPage() {
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Products</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Recent Products
+                </h2>
                 <Link
                   href="/vendor/products"
                   className="text-sm text-blue-600 hover:text-blue-700"
@@ -167,21 +188,27 @@ export default async function VendorDashboardPage() {
               {vendor.products.length > 0 ? (
                 <div className="space-y-4">
                   {vendor.products.map((product) => (
-                    <div key={product.id} className="flex justify-between items-center">
+                    <div
+                      key={product.id}
+                      className="flex justify-between items-center"
+                    >
                       <div>
-                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div className="font-medium text-gray-900">
+                          {product.name}
+                        </div>
                         <div className="text-sm text-gray-600">
-                          ₹{product.price.toString()} • Stock: {product.stockQuantity}
+                          ₹{product.price.toString()} • Stock:{" "}
+                          {product.stockQuantity}
                         </div>
                       </div>
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
                           product.isActive
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-800"
                         }`}
                       >
-                        {product.isActive ? 'Active' : 'Inactive'}
+                        {product.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
                   ))}
@@ -204,7 +231,9 @@ export default async function VendorDashboardPage() {
           <div className="bg-white rounded-lg shadow">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Recent Orders
+                </h2>
                 <Link
                   href="/vendor/orders"
                   className="text-sm text-blue-600 hover:text-blue-700"
@@ -217,20 +246,25 @@ export default async function VendorDashboardPage() {
               {vendor.orders.length > 0 ? (
                 <div className="space-y-4">
                   {vendor.orders.map((order) => (
-                    <div key={order.id} className="flex justify-between items-center">
+                    <div
+                      key={order.id}
+                      className="flex justify-between items-center"
+                    >
                       <div>
-                        <div className="font-medium text-gray-900">{order.orderNumber}</div>
+                        <div className="font-medium text-gray-900">
+                          {order.orderNumber}
+                        </div>
                         <div className="text-sm text-gray-600">
                           ₹{order.totalAmount.toString()}
                         </div>
                       </div>
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
-                          order.status === 'DELIVERED'
-                            ? 'bg-green-100 text-green-800'
-                            : order.status === 'PENDING'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
+                          order.status === "DELIVERED"
+                            ? "bg-green-100 text-green-800"
+                            : order.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-blue-100 text-blue-800"
                         }`}
                       >
                         {order.status}

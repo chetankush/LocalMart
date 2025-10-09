@@ -8,8 +8,18 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
 
     const vendors = await prisma.vendor.findMany({
-      where: status ? { status } : undefined,
-      include: {
+      where: status ? { status: status as any } : undefined,
+      select: {
+        id: true,
+        businessName: true,
+        businessType: true,
+        storeDescription: true,
+        storeLogo: true,
+        city: true,
+        locality: true,
+        status: true,
+        isActive: true,
+        createdAt: true,
         user: {
           select: {
             email: true,

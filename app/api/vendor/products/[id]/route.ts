@@ -59,7 +59,22 @@ export async function PATCH(
     // Get existing product
     const existingProduct = await prisma.product.findUnique({
       where: { id: params.id },
-      include: { vendor: true },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            userId: true,
+            businessName: true,
+            businessType: true,
+            storeDescription: true,
+            storeLogo: true,
+            city: true,
+            locality: true,
+            status: true,
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!existingProduct) {
@@ -120,7 +135,22 @@ export async function DELETE(
     // Get existing product
     const existingProduct = await prisma.product.findUnique({
       where: { id: params.id },
-      include: { vendor: true },
+      include: {
+        vendor: {
+          select: {
+            id: true,
+            userId: true,
+            businessName: true,
+            businessType: true,
+            storeDescription: true,
+            storeLogo: true,
+            city: true,
+            locality: true,
+            status: true,
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (!existingProduct) {

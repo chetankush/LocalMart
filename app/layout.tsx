@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/supabase/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
 
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import CartSidebar from "@/components/cart/CartSidebar";
 import "./globals.css";
 
@@ -35,7 +36,8 @@ export default function RootLayout({
         <StoreProvider>
           <AuthProvider>
             <Navbar />
-            {children}
+            <main className="min-h-screen">{children}</main>
+            <Footer />
             <CartSidebar />
           </AuthProvider>
         </StoreProvider>
