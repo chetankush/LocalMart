@@ -1,0 +1,144 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/src/shared/utils/auth";
+import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+
+// GET - List all products for vendor
+export async function GET(request: NextRequest) {
+  try {
+    const user = await requireRole(["VENDOR"]);
+
+    // Get vendor profile
+    const vendor = await prisma.vendor.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!vendor) {
+      return NextResponse.json(
+        { success: false, error: "Vendor profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get products
+    const products = await prisma.product.findMany({
+      where: { vendorId: vendor.id },
+      include: {
+        category: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Products fetch error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch products" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Create new product
+export async function POST(request: NextRequest) {
+  try {
+    const user = await requireRole(["VENDOR"]);
+
+    const body = await request.json();
+    const {
+      vendorId,
+      name,
+      description,
+      categoryId,
+      images,
+      price,
+      compareAtPrice,
+      sku,
+      stockQuantity,
+      lowStockThreshold,
+      weight,
+      isActive,
+    } = body;
+
+    // Validate required fields
+    if (
+      !name ||
+      !description ||
+      !categoryId ||
+      !images ||
+      images.length === 0 ||
+      !price
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Verify vendor ownership
+    const vendor = await prisma.vendor.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!vendor || vendor.id !== vendorId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 403 }
+      );
+    }
+
+    // Generate slug from name
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "") +
+      "-" +
+      Date.now();
+
+    // Create product
+    const product = await prisma.product.create({
+      data: {
+        vendorId,
+        categoryId,
+        name,
+        slug,
+        description,
+        images,
+        price,
+        compareAtPrice: compareAtPrice || null,
+        sku: sku || null,
+        stockQuantity: stockQuantity || 0,
+        lowStockThreshold: lowStockThreshold || 10,
+        weight: weight || null,
+        isActive: isActive !== undefined ? isActive : true,
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Product created successfully",
+      data: product,
+    });
+  } catch (error: any) {
+    console.error("Product creation error:", error);
+
+    // Handle unique constraint violation (SKU)
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { success: false, error: "SKU already exists" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Failed to create product" },
+      { status: 500 }
+    );
+  }
+}

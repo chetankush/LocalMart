@@ -1,0 +1,495 @@
+// LocalMart - Hyperlocal Multi-Vendor Marketplace Platform
+// Vendor-Managed Delivery Model
+// Database Schema for 100K+ users scalability
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ================================
+// ENUMS
+// ================================
+
+enum Role {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum VendorStatus {
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum BusinessType {
+  GROCERY
+  RESTAURANT
+  PHARMACY
+  ELECTRONICS
+  FASHION
+  HOME_SERVICES
+  OTHER
+}
+
+// ================================
+// USER MANAGEMENT
+// ================================
+
+model VendorRequest {
+  id              String   @id @default(uuid())
+  fullName        String
+  email           String
+  phone           String
+  businessName    String
+  businessType    BusinessType
+  city            String
+  address         String   @db.Text
+  description     String?  @db.Text
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  rejectionReason String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@map("vendor_requests")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique // Email for email auth (null for phone-only users)
+  phone     String?  @unique // Phone for phone auth (null for email-only users)
+  fullName  String
+  role      Role     @default(CUSTOMER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vendor    Vendor?
+  orders    Order[]    @relation("CustomerOrders")
+  addresses Address[]
+  reviews   Review[]
+  cart      CartItem[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+// ================================
+// VENDOR MANAGEMENT
+// ================================
+
+model Vendor {
+  id                  String       @id @default(uuid())
+  userId              String       @unique
+  businessName        String
+  businessType        BusinessType
+  gstNumber           String?
+  businessLicense     String?
+  storeDescription    String?      @db.Text
+  storeLogo           String?
+
+  // Location Information
+  city                String       // City name (e.g., "Guna")
+  state               String       @default("Madhya Pradesh") // State name
+  locality            String?      // Area/Locality within city
+  pincode             String?      // PIN code
+
+  // Delivery Configuration (JSONB for flexibility)
+  deliveryAreas       Json // { zones: [{name, radius, coordinates}] }
+  deliveryCharges     Json // { zones: [{zoneId, charge, minOrder}] }
+  deliveryTimeWindows Json? // { slots: [{day, startTime, endTime}] }
+  minOrderAmount      Decimal      @default(0) @db.Decimal(10, 2)
+  maxDeliveryDistance Int?         // in kilometers
+  deliveryPolicy      String?      @db.Text
+
+  // Vendor Status
+  status              VendorStatus @default(PENDING_APPROVAL)
+  isActive            Boolean      @default(true)
+  canDeliver          Boolean      @default(true)
+
+  // Commission Settings
+  commissionRate      Decimal      @default(0.04) @db.Decimal(5, 4) // Default 4%
+  subscriptionPlan    String?      @default("BASIC") // BASIC, PREMIUM, ENTERPRISE
+
+  // Contact Information
+  contactEmail        String
+  contactPhone        String
+  businessAddress     Json // { street, city, state, zip, coordinates }
+
+  // Business Hours
+  businessHours       Json? // { [day]: { open, close, isOpen } }
+
+  // Verification
+  isVerified          Boolean      @default(false)
+  verifiedAt          DateTime?
+  rejectionReason     String?      @db.Text
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  // Relations
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products           Product[]
+  orders             Order[]       @relation("VendorOrders")
+  analytics          VendorAnalytics[]
+  reviews            Review[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([businessType])
+  @@index([isActive, canDeliver])
+  @@index([city])
+  @@index([city, state])
+  @@map("vendors")
+}
+
+// ================================
+// PRODUCT MANAGEMENT
+// ================================
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
+  icon        String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  products    Product[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("categories")
+}
+
+model Product {
+  id                String   @id @default(uuid())
+  vendorId          String
+  categoryId        String
+
+  name              String
+  slug              String
+  description       String   @db.Text
+  images            Json     // Array of image URLs
+
+  // Pricing
+  price             Decimal  @db.Decimal(10, 2)
+  compareAtPrice    Decimal? @db.Decimal(10, 2) // Original price for discounts
+  cost              Decimal? @db.Decimal(10, 2) // Vendor's cost
+
+  // Inventory
+  sku               String?  @unique
+  stockQuantity     Int      @default(0)
+  lowStockThreshold Int?     @default(10)
+
+  // Product Details
+  weight            Decimal? @db.Decimal(10, 2) // in kg
+  dimensions        Json?    // { length, width, height }
+
+  // Delivery Specific
+  requiresSpecialHandling Boolean @default(false)
+  handlingInstructions    String? @db.Text
+  areaWiseAvailability    Json?   // { zoneId: boolean }
+
+  // Status
+  isActive          Boolean  @default(true)
+  isFeatured        Boolean  @default(false)
+
+  // SEO
+  metaTitle         String?
+  metaDescription   String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  vendor            Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category          Category    @relation(fields: [categoryId], references: [id])
+  orderItems        OrderItem[]
+  reviews           Review[]
+  cartItems         CartItem[]
+
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+// ================================
+// ORDER MANAGEMENT
+// ================================
+
+model Order {
+  id                     String        @id @default(uuid())
+  orderNumber            String        @unique // Human-readable order number
+  customerId             String
+  vendorId               String
+
+  // Order Status (Vendor-Managed)
+  status                 OrderStatus   @default(PENDING)
+  statusHistory          Json          // Array of {status, timestamp, note}
+
+  // Amounts
+  subtotal               Decimal       @db.Decimal(10, 2)
+  deliveryFee            Decimal       @db.Decimal(10, 2)
+  taxAmount              Decimal       @db.Decimal(10, 2) @default(0)
+  discount               Decimal       @db.Decimal(10, 2) @default(0)
+  totalAmount            Decimal       @db.Decimal(10, 2)
+
+  // Commission & Payouts
+  platformCommission     Decimal       @db.Decimal(10, 2)
+  vendorPayout           Decimal       @db.Decimal(10, 2)
+
+  // Delivery Information
+  deliveryAddress        Json          // Full address object
+  deliveryInstructions   String?       @db.Text
+  estimatedDeliveryTime  DateTime?
+  actualDeliveryTime     DateTime?
+
+  // Payment
+  paymentStatus          PaymentStatus @default(PENDING)
+  paymentId              String?       // Stripe/Razorpay payment ID
+  paymentMethod          String?       // CARD, UPI, COD, etc.
+
+  // Payout
+  payoutStatus           String        @default("PENDING") // PENDING, PROCESSING, COMPLETED
+  payoutId               String?
+  payoutDate             DateTime?
+
+  // Customer Communication
+  customerNotes          String?       @db.Text
+  vendorNotes            String?       @db.Text
+
+  // Timestamps
+  placedAt               DateTime      @default(now())
+  acceptedAt             DateTime?
+  cancelledAt            DateTime?
+  deliveredAt            DateTime?
+
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  // Relations
+  customer               User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  vendor                 Vendor        @relation("VendorOrders", fields: [vendorId], references: [id])
+  items                  OrderItem[]
+  review                 Review?
+
+  @@index([customerId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                String   @id @default(uuid())
+  orderId           String
+  productId         String
+
+  productName       String   // Snapshot of product name
+  productImage      String?  // Snapshot of product image
+
+  quantity          Int
+  unitPrice         Decimal  @db.Decimal(10, 2)
+  totalPrice        Decimal  @db.Decimal(10, 2)
+
+  // Product snapshot at time of order
+  productSnapshot   Json     // Full product details at order time
+
+  createdAt         DateTime @default(now())
+
+  // Relations
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ================================
+// CART MANAGEMENT
+// ================================
+
+model CartItem {
+  id          String   @id @default(uuid())
+  userId      String
+  productId   String
+  quantity    Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("cart_items")
+}
+
+// ================================
+// CUSTOMER MANAGEMENT
+// ================================
+
+model Address {
+  id              String   @id @default(uuid())
+  userId          String
+
+  label           String?  // Home, Work, Other
+  fullName        String
+  phone           String
+
+  street          String
+  city            String
+  state           String
+  zipCode         String
+  country         String   @default("India")
+
+  // Geolocation
+  latitude        Decimal? @db.Decimal(10, 8)
+  longitude       Decimal? @db.Decimal(11, 8)
+
+  isDefault       Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ================================
+// REVIEWS & RATINGS
+// ================================
+
+model Review {
+  id                  String   @id @default(uuid())
+  orderId             String   @unique
+  userId              String
+  vendorId            String
+  productId           String
+
+  // Ratings (1-5)
+  productRating       Int      // Product quality
+  deliveryRating      Int      // Delivery experience
+  overallRating       Int      // Overall experience
+
+  // Review Content
+  comment             String?  @db.Text
+  images              Json?    // Array of image URLs
+
+  // Vendor Response
+  vendorResponse      String?  @db.Text
+  vendorRespondedAt   DateTime?
+
+  // Moderation
+  isVerified          Boolean  @default(false)
+  isHidden            Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user                User     @relation(fields: [userId], references: [id])
+  vendor              Vendor   @relation(fields: [vendorId], references: [id])
+  product             Product  @relation(fields: [productId], references: [id])
+
+  @@index([vendorId])
+  @@index([productId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ================================
+// ANALYTICS & REPORTING
+// ================================
+
+model VendorAnalytics {
+  id          String   @id @default(uuid())
+  vendorId    String
+  date        DateTime @db.Date
+
+  // Sales Metrics
+  totalOrders           Int     @default(0)
+  completedOrders       Int     @default(0)
+  cancelledOrders       Int     @default(0)
+  totalRevenue          Decimal @default(0) @db.Decimal(12, 2)
+  platformCommission    Decimal @default(0) @db.Decimal(12, 2)
+  netRevenue            Decimal @default(0) @db.Decimal(12, 2)
+
+  // Delivery Performance Metrics
+  averageDeliveryTime   Int?    // in minutes
+  deliverySuccessRate   Decimal? @db.Decimal(5, 2)
+  onTimeDeliveryRate    Decimal? @db.Decimal(5, 2)
+
+  // Customer Metrics
+  uniqueCustomers       Int     @default(0)
+  repeatCustomers       Int     @default(0)
+  avgOrderValue         Decimal @default(0) @db.Decimal(10, 2)
+
+  // Product Metrics
+  totalItemsSold        Int     @default(0)
+
+  // Rating
+  avgProductRating      Decimal? @db.Decimal(3, 2)
+  avgDeliveryRating     Decimal? @db.Decimal(3, 2)
+  avgOverallRating      Decimal? @db.Decimal(3, 2)
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  vendor                Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, date])
+  @@index([vendorId])
+  @@index([date])
+  @@map("vendor_analytics")
+}
