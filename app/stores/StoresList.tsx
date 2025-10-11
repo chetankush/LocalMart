@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { BusinessType } from "@/src/generated/prisma";
@@ -21,10 +22,55 @@ interface StoresListProps {
   vendors: Vendor[];
 }
 
+// Map category slugs from URL to BusinessType or search terms
+const categoryMapping: { [key: string]: BusinessType | "ALL" } = {
+  "daily-needs": "GROCERY",
+  "grocery": "GROCERY",
+  "cosmetics": "FASHION",
+  "medical": "PHARMACY",
+  "dairy": "GROCERY",
+  "dry-fruits": "GROCERY",
+  "clothing": "FASHION",
+  "shoes": "FASHION",
+  "electronics": "ELECTRONICS",
+  "mobiles": "ELECTRONICS",
+  "home-kitchen": "HOME_SERVICES",
+  "beauty": "FASHION",
+  "toys": "OTHER",
+  "books": "OTHER",
+  "sports": "OTHER",
+  "pets": "OTHER",
+  "automotive": "OTHER",
+  "garden": "OTHER",
+};
+
 export default function StoresList({ vendors }: StoresListProps) {
+  const searchParams = useSearchParams();
+  const categoryFromUrl = searchParams.get("category");
+
   const [selectedCategory, setSelectedCategory] = useState<
     BusinessType | "ALL"
   >("ALL");
+
+  // Set category from URL parameter on mount
+  useEffect(() => {
+    if (categoryFromUrl) {
+      const mappedCategory = categoryMapping[categoryFromUrl] || "ALL";
+      setSelectedCategory(mappedCategory);
+    }
+  }, [categoryFromUrl]);
+
+  // Get friendly category name
+  const getFriendlyCategoryName = () => {
+    if (!categoryFromUrl) {
+      return selectedCategory === "ALL" ? "All Stores" : selectedCategory.replace("_", " ");
+    }
+    // Convert slug to friendly name
+    return categoryFromUrl
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
 
   // Filter vendors based on selected category
   const filteredVendors = vendors.filter((vendor) => {
@@ -114,18 +160,12 @@ export default function StoresList({ vendors }: StoresListProps) {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">
-            {selectedCategory === "ALL"
-              ? `All Stores (${filteredVendors.length})`
-              : `${selectedCategory.replace("_", " ")} Stores (${
-                  filteredVendors.length
-                })`}
+            {`${getFriendlyCategoryName()} (${filteredVendors.length})`}
           </h2>
           <p className="text-gray-600 text-sm">
-            {selectedCategory === "ALL"
+            {selectedCategory === "ALL" || !categoryFromUrl
               ? "Showing all available stores"
-              : `Showing stores in the ${selectedCategory
-                  .toLowerCase()
-                  .replace("_", " ")} category`}
+              : `Showing stores in the ${getFriendlyCategoryName().toLowerCase()} category`}
           </p>
         </div>
       </div>
@@ -189,16 +229,14 @@ export default function StoresList({ vendors }: StoresListProps) {
         <div className="text-center py-16 bg-white rounded-xl">
           <div className="text-6xl mb-4">🏪</div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {selectedCategory === "ALL"
+            {selectedCategory === "ALL" || !categoryFromUrl
               ? "No Stores Yet"
-              : `No ${selectedCategory.replace("_", " ")} Stores`}
+              : `No ${getFriendlyCategoryName()} Stores`}
           </h3>
           <p className="text-gray-600 mb-6">
-            {selectedCategory === "ALL"
+            {selectedCategory === "ALL" || !categoryFromUrl
               ? "Be the first to open a store in your area!"
-              : `No stores found in the ${selectedCategory
-                  .toLowerCase()
-                  .replace("_", " ")} category.`}
+              : `No stores found in the ${getFriendlyCategoryName().toLowerCase()} category.`}
           </p>
           <Link
             href="/become-vendor"

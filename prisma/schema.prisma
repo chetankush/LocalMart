@@ -87,7 +87,7 @@ model VendorRequest {
 model User {
   id        String   @id @default(uuid())
   email     String?  @unique // Email for email auth (null for phone-only users)
-  phone     String?  @unique // Phone for phone auth (null for email-only users)
+  phone     String?  // Phone number (can be shared across multiple accounts)
   fullName  String
   role      Role     @default(CUSTOMER)
   isActive  Boolean  @default(true)

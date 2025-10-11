@@ -69,6 +69,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
       console.log("User after update:", user.id, user.role);
 
+      // Check if vendor profile already exists
+      const existingVendor = await prisma.vendor.findUnique({
+        where: { userId: user.id },
+      });
+
+      if (existingVendor) {
+        return NextResponse.json(
+          { error: "A vendor profile already exists for this user" },
+          { status: 400 }
+        );
+      }
+
       // Create vendor profile
       await prisma.vendor.create({
         data: {

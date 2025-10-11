@@ -26,7 +26,7 @@ export default async function StoresPage() {
   return (
     <div className="min-h-screen">
       {/* Stores List with Filtering */}
-      <div className="w-full mx-auto">
+      <div className="w-full mx-auto p-4">
         <StoresList vendors={vendors} />
       </div>
     </div>

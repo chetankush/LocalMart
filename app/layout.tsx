@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocalMart - Local Delivery Platform",
+  title: "NearStore - Local Delivery Platform",
   description: "Order from local vendors and get it delivered to your doorstep",
 };
 

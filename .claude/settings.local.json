@@ -5,7 +5,8 @@
       "Bash(npm install:*)",
       "Bash(npx prisma:*)",
       "Bash(dir prisma)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Read(//d/Screenshots/**)"
     ],
     "deny": [],
     "ask": []

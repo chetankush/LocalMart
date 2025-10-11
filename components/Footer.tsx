@@ -13,10 +13,10 @@ const Footer = () => {
           {/* Company Info */}
           <div className="lg:col-span-1">
             <Link href="/" className="text-2xl font-bold text-white mb-4 block">
-              LocalMart
+              NearStore
             </Link>
             <p className="text-gray-300 mb-6 leading-relaxed">
-              Your neighborhood marketplace. Shop local, support local
+              Your neighborhood marketplace. Shop near, support local
               businesses, and get everything delivered to your doorstep.
             </p>
             <div className="flex space-x-4">
@@ -209,7 +209,7 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 LocalMart. All rights reserved.
+              © 2024 NearStore. All rights reserved.
             </p>
             <div className="flex items-center space-x-6 mt-4 md:mt-0">
               <span className="text-gray-400 text-sm">Secure payments</span>

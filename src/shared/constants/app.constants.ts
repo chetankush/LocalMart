@@ -4,9 +4,10 @@
 
 export const APP_CONSTANTS = {
   // Application Info
-  APP_NAME: 'LocalMart',
-  APP_DESCRIPTION: 'Hyperlocal Multi-Vendor Marketplace with Vendor-Managed Delivery',
-  APP_VERSION: '1.0.0',
+  APP_NAME: "NearStore",
+  APP_DESCRIPTION:
+    "Hyperlocal Multi-Vendor Marketplace with Vendor-Managed Delivery",
+  APP_VERSION: "1.0.0",
 
   // Pagination
   DEFAULT_PAGE_SIZE: 20,
@@ -22,70 +23,70 @@ export const APP_CONSTANTS = {
   // Subscription Plans
   SUBSCRIPTION_PLANS: {
     BASIC: {
-      name: 'Basic',
+      name: "Basic",
       price: 0,
       commissionRate: 0.04,
-      features: ['Basic Analytics', 'Email Support', 'Product Management'],
+      features: ["Basic Analytics", "Email Support", "Product Management"],
     },
     PREMIUM: {
-      name: 'Premium',
+      name: "Premium",
       price: 799,
       commissionRate: 0.025,
       features: [
-        'Advanced Analytics',
-        'Priority Support',
-        'Marketing Tools',
-        'Delivery Optimization',
+        "Advanced Analytics",
+        "Priority Support",
+        "Marketing Tools",
+        "Delivery Optimization",
       ],
     },
     ENTERPRISE: {
-      name: 'Enterprise',
+      name: "Enterprise",
       price: 1999,
       commissionRate: 0.02,
       features: [
-        'Custom Analytics',
-        'API Access',
-        'Dedicated Account Manager',
-        'White-label Options',
+        "Custom Analytics",
+        "API Access",
+        "Dedicated Account Manager",
+        "White-label Options",
       ],
     },
   },
 
   // Order Status
   ORDER_STATUS: {
-    PENDING: 'PENDING',
-    ACCEPTED: 'ACCEPTED',
-    PREPARING: 'PREPARING',
-    READY: 'READY',
-    OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
-    DELIVERED: 'DELIVERED',
-    CANCELLED: 'CANCELLED',
-    REFUNDED: 'REFUNDED',
+    PENDING: "PENDING",
+    ACCEPTED: "ACCEPTED",
+    PREPARING: "PREPARING",
+    READY: "READY",
+    OUT_FOR_DELIVERY: "OUT_FOR_DELIVERY",
+    DELIVERED: "DELIVERED",
+    CANCELLED: "CANCELLED",
+    REFUNDED: "REFUNDED",
   },
 
   // Payment Status
   PAYMENT_STATUS: {
-    PENDING: 'PENDING',
-    PROCESSING: 'PROCESSING',
-    COMPLETED: 'COMPLETED',
-    FAILED: 'FAILED',
-    REFUNDED: 'REFUNDED',
+    PENDING: "PENDING",
+    PROCESSING: "PROCESSING",
+    COMPLETED: "COMPLETED",
+    FAILED: "FAILED",
+    REFUNDED: "REFUNDED",
   },
 
   // Vendor Status
   VENDOR_STATUS: {
-    PENDING_APPROVAL: 'PENDING_APPROVAL',
-    APPROVED: 'APPROVED',
-    ACTIVE: 'ACTIVE',
-    SUSPENDED: 'SUSPENDED',
-    REJECTED: 'REJECTED',
+    PENDING_APPROVAL: "PENDING_APPROVAL",
+    APPROVED: "APPROVED",
+    ACTIVE: "ACTIVE",
+    SUSPENDED: "SUSPENDED",
+    REJECTED: "REJECTED",
   },
 
   // User Roles
   ROLES: {
-    CUSTOMER: 'CUSTOMER',
-    VENDOR: 'VENDOR',
-    ADMIN: 'ADMIN',
+    CUSTOMER: "CUSTOMER",
+    VENDOR: "VENDOR",
+    ADMIN: "ADMIN",
   },
 
   // Delivery
@@ -94,7 +95,7 @@ export const APP_CONSTANTS = {
 
   // File Upload
   MAX_FILE_SIZE_MB: 5,
-  ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
+  ALLOWED_IMAGE_TYPES: ["image/jpeg", "image/png", "image/webp"],
   MAX_PRODUCT_IMAGES: 5,
 
   // Cache TTL (in seconds)

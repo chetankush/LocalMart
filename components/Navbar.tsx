@@ -35,10 +35,10 @@ const Navbar = () => {
   };
 
   return (
-    <header className="bg-gray-950 text-white">
+    <header className="bg-gray-950 text-white sticky top-0 z-50 shadow-md">
       <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
         <Link href="/" className="text-2xl font-bold text-white">
-          LocalMart
+          NearStore
         </Link>
         <div className="flex gap-4 items-center">
           <Link
