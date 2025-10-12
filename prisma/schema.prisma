@@ -95,16 +95,39 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  vendor    Vendor?
-  orders    Order[]    @relation("CustomerOrders")
-  addresses Address[]
-  reviews   Review[]
-  cart      CartItem[]
+  vendor          Vendor?
+  orders          Order[]    @relation("CustomerOrders")
+  addresses       Address[]
+  reviews         Review[]
+  storeReviews    StoreReview[]
+  productReviews  ProductReview[]
+  cart            CartItem[]
+  favoriteStores  FavoriteStore[]
 
   @@index([email])
   @@index([phone])
   @@index([role])
   @@map("users")
+}
+
+// ================================
+// FAVORITE STORES
+// ================================
+
+model FavoriteStore {
+  id        String   @id @default(uuid())
+  userId    String
+  vendorId  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+  @@index([vendorId])
+  @@map("favorite_stores")
 }
 
 // ================================
@@ -120,6 +143,7 @@ model Vendor {
   businessLicense     String?
   storeDescription    String?      @db.Text
   storeLogo           String?
+  storeImages         Json?        // Array of store image URLs
 
   // Location Information
   city                String       // City name (e.g., "Guna")
@@ -157,6 +181,13 @@ model Vendor {
   verifiedAt          DateTime?
   rejectionReason     String?      @db.Text
 
+  // Favorite Stores
+  favoriteCount       Int          @default(0)
+
+  // Store Reviews & Ratings
+  averageRating       Decimal?     @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
+  reviewCount         Int          @default(0)
+
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
@@ -166,6 +197,8 @@ model Vendor {
   orders             Order[]       @relation("VendorOrders")
   analytics          VendorAnalytics[]
   reviews            Review[]
+  storeReviews       StoreReview[]
+  favoritedBy        FavoriteStore[]
 
   @@index([userId])
   @@index([status])
@@ -232,6 +265,10 @@ model Product {
   isActive          Boolean  @default(true)
   isFeatured        Boolean  @default(false)
 
+  // Product Reviews & Ratings
+  averageRating     Decimal? @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
+  reviewCount       Int      @default(0)
+
   // SEO
   metaTitle         String?
   metaDescription   String?  @db.Text
@@ -244,6 +281,7 @@ model Product {
   category          Category    @relation(fields: [categoryId], references: [id])
   orderItems        OrderItem[]
   reviews           Review[]
+  productReviews    ProductReview[]
   cartItems         CartItem[]
 
   @@index([vendorId])
@@ -408,6 +446,7 @@ model Address {
 // REVIEWS & RATINGS
 // ================================
 
+// Order-based product reviews (existing system)
 model Review {
   id                  String   @id @default(uuid())
   orderId             String   @unique
@@ -445,6 +484,84 @@ model Review {
   @@index([productId])
   @@index([userId])
   @@map("reviews")
+}
+
+// Store-level reviews (new system for rating stores directly)
+model StoreReview {
+  id                  String   @id @default(uuid())
+  userId              String
+  vendorId            String
+
+  // Rating (1-5 stars)
+  rating              Int      // Store rating
+
+  // Review Content
+  comment             String?  @db.Text
+  images              Json?    // Array of image URLs for store photos
+
+  // Vendor Response
+  vendorResponse      String?  @db.Text
+  vendorRespondedAt   DateTime?
+
+  // Moderation
+  isApproved          Boolean  @default(true)
+  isHidden            Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor              Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // One review per user per store
+  @@unique([userId, vendorId])
+  @@index([vendorId])
+  @@index([userId])
+  @@index([rating])
+  @@index([createdAt])
+  @@map("store_reviews")
+}
+
+// Product-specific reviews (separate from store and order reviews)
+model ProductReview {
+  id                  String   @id @default(uuid())
+  userId              String
+  productId           String
+
+  // Rating (1-5 stars)
+  rating              Int      // Product rating
+
+  // Review Content
+  comment             String?  @db.Text
+  images              Json?    // Array of image URLs for product photos
+
+  // Vendor Response
+  vendorResponse      String?  @db.Text
+  vendorRespondedAt   DateTime?
+
+  // Moderation
+  isApproved          Boolean  @default(true)
+  isHidden            Boolean  @default(false)
+
+  // Verification (can be marked if user purchased the product)
+  isVerifiedPurchase  Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // One review per user per product
+  @@unique([userId, productId])
+  @@index([productId])
+  @@index([userId])
+  @@index([rating])
+  @@index([isVerifiedPurchase])
+  @@index([createdAt])
+  @@map("product_reviews")
 }
 
 // ================================

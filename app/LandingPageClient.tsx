@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import FavoriteButton from "@/components/FavoriteButton";
+import StoresListingSection from "@/app/components/StoresListingSection";
 
 interface Vendor {
   id: string;
@@ -12,7 +14,11 @@ interface Vendor {
   storeLogo: string | null;
   city: string;
   locality: string | null;
+  favoriteCount: number;
+  isFavorited: boolean;
   createdAt: Date;
+  averageRating: any;
+  reviewCount: number;
 }
 
 interface Product {
@@ -21,7 +27,10 @@ interface Product {
   price: any;
   images: any;
   stockQuantity: number;
+  averageRating: any;
+  reviewCount: number;
   vendor: {
+    id: string;
     businessName: string;
     storeLogo: string | null;
   };
@@ -264,12 +273,6 @@ export default function LandingPageClient({
 
   // Sort vendors for different sections
   const topRatedVendors = vendors.slice(0, 4);
-  const newStores = [...vendors]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-    .slice(0, 4);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -601,6 +604,15 @@ export default function LandingPageClient({
                   ) : (
                     <div className="text-5xl md:text-6xl">🏪</div>
                   )}
+                  <div className="absolute top-2 right-2">
+                    <FavoriteButton
+                      vendorId={vendor.id}
+                      initialIsFavorited={vendor.isFavorited}
+                      initialFavoriteCount={vendor.favoriteCount}
+                      size="sm"
+                      showCount={false}
+                    />
+                  </div>
                 </div>
                 <div className="p-3 md:p-4">
                   <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
@@ -614,16 +626,27 @@ export default function LandingPageClient({
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></div>
                       Open
                     </span>
-                    <div className="flex items-center text-yellow-500">
-                      <span className="text-xs font-medium">4.8</span>
-                      <svg
-                        className="w-3 h-3 ml-0.5"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    </div>
+                    {vendor.averageRating && vendor.reviewCount > 0 ? (
+                      <div className="flex items-center text-yellow-500">
+                        <span className="text-xs font-medium">
+                          {Number(vendor.averageRating).toFixed(1)}
+                        </span>
+                        <svg
+                          className="w-3 h-3 ml-0.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        <span className="text-xs text-gray-500 ml-0.5">
+                          ({vendor.reviewCount})
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-gray-400">
+                        <span className="text-xs">No reviews</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -667,9 +690,11 @@ export default function LandingPageClient({
                 href={`/stores/${vendor.id}`}
                 className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group relative"
               >
-                <div className="absolute top-2 right-2 bg-yellow-400 text-gray-900 px-2 py-1 rounded-full text-xs font-bold z-10 flex items-center gap-1">
-                  ⭐ 4.8
-                </div>
+                {vendor.averageRating && vendor.reviewCount > 0 && (
+                  <div className="absolute top-2 right-2 bg-yellow-400 text-gray-900 px-2 py-1 rounded-full text-xs font-bold z-10 flex items-center gap-1">
+                    ⭐ {Number(vendor.averageRating).toFixed(1)}
+                  </div>
+                )}
                 <div className="h-36 md:h-48 bg-gradient-to-br from-yellow-50 to-orange-50 flex items-center justify-center relative overflow-hidden">
                   {vendor.storeLogo ? (
                     <Image
@@ -682,85 +707,43 @@ export default function LandingPageClient({
                   ) : (
                     <div className="text-5xl md:text-6xl">🏪</div>
                   )}
+                  <div className="absolute top-2 left-2">
+                    <FavoriteButton
+                      vendorId={vendor.id}
+                      initialIsFavorited={vendor.isFavorited}
+                      initialFavoriteCount={vendor.favoriteCount}
+                      size="sm"
+                      showCount={false}
+                    />
+                  </div>
                 </div>
                 <div className="p-3 md:p-4">
                   <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1">
                     {vendor.businessName}
                   </h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 mb-2">
                     {vendor.businessType.replace("_", " ")}
                   </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* New Stores Section */}
-      <div className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              🆕 New Stores
-            </h2>
-            <Link
-              href="/stores?sort=new"
-              className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2 group"
-            >
-              View More
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {newStores.map((vendor) => (
-              <Link
-                key={vendor.id}
-                href={`/stores/${vendor.id}`}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group relative"
-              >
-                <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-bold z-10">
-                  NEW
-                </div>
-                <div className="h-36 md:h-48 bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center relative overflow-hidden">
-                  {vendor.storeLogo ? (
-                    <Image
-                      src={vendor.storeLogo}
-                      alt={vendor.businessName}
-                      width={200}
-                      height={200}
-                      className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="text-5xl md:text-6xl">🏪</div>
+                  {vendor.averageRating && vendor.reviewCount > 0 && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <span className="text-yellow-500">★</span>
+                      <span className="ml-1">
+                        {Number(vendor.averageRating).toFixed(1)} ({vendor.reviewCount} reviews)
+                      </span>
+                    </div>
                   )}
                 </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1">
-                    {vendor.businessName}
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    {vendor.businessType.replace("_", " ")}
-                  </p>
-                </div>
               </Link>
             ))}
           </div>
         </div>
       </div>
+
+      {/* All Stores Section with Filters and Lazy Loading */}
+      <StoresListingSection
+        allStores={vendors}
+        businessTypes={businessTypes}
+      />
 
       {/* Featured Products Section */}
       {featuredProducts.length > 0 && (
@@ -793,8 +776,9 @@ export default function LandingPageClient({
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
               {featuredProducts.slice(0, 6).map((product) => (
-                <div
+                <Link
                   key={product.id}
+                  href={`/products/${product.id}`}
                   className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group"
                 >
                   <div className="h-32 md:h-40 bg-gray-50 flex items-center justify-center relative overflow-hidden">
@@ -816,6 +800,14 @@ export default function LandingPageClient({
                     <h3 className="font-medium text-xs md:text-sm text-gray-900 mb-1 line-clamp-2 min-h-[2.5rem]">
                       {product.name}
                     </h3>
+                    {product.averageRating && product.reviewCount > 0 ? (
+                      <div className="flex items-center text-xs text-gray-600 mb-1">
+                        <span className="text-yellow-500">★</span>
+                        <span className="ml-1">
+                          {Number(product.averageRating).toFixed(1)} ({product.reviewCount})
+                        </span>
+                      </div>
+                    ) : null}
                     <div className="flex items-center justify-between">
                       <span className="text-base md:text-lg font-bold text-gray-900">
                         ₹{Number(product.price).toFixed(0)}
@@ -825,7 +817,7 @@ export default function LandingPageClient({
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

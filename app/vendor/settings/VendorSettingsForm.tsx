@@ -25,6 +25,7 @@ interface VendorSettingsFormProps {
     businessType: string;
     storeDescription: string | null;
     storeLogo: string | null;
+    storeImages: any;
     contactEmail: string;
     contactPhone: string;
     businessAddress: any;
@@ -42,6 +43,7 @@ export default function VendorSettingsForm({
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingStoreImage, setUploadingStoreImage] = useState(false);
 
   const [formData, setFormData] = useState({
     businessName: vendor.businessName,
@@ -54,6 +56,7 @@ export default function VendorSettingsForm({
     locality: vendor.locality || "",
     pincode: vendor.pincode || "",
     storeLogo: vendor.storeLogo || "",
+    storeImages: Array.isArray(vendor.storeImages) ? vendor.storeImages : [],
     latitude: vendor.businessAddress?.coordinates?.lat || 0,
     longitude: vendor.businessAddress?.coordinates?.lng || 0,
   });
@@ -122,6 +125,63 @@ export default function VendorSettingsForm({
     if (url) {
       setFormData((prev) => ({ ...prev, storeLogo: url }));
     }
+  };
+
+  const handleStoreImagesChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check if adding these files would exceed the limit
+    const currentImagesCount = formData.storeImages.length;
+    if (currentImagesCount + files.length > 10) {
+      alert("You can upload a maximum of 10 store images");
+      return;
+    }
+
+    setUploadingStoreImage(true);
+
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        // Validate file
+        if (!file.type.startsWith("image/")) {
+          return null;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+          return null;
+        }
+
+        return await handleImageUpload(file, "store");
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      const validUrls = uploadedUrls.filter((url) => url !== null) as string[];
+
+      if (validUrls.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          storeImages: [...prev.storeImages, ...validUrls],
+        }));
+      }
+    } catch (error) {
+      console.error("Error uploading store images:", error);
+      alert("Failed to upload some images");
+    } finally {
+      setUploadingStoreImage(false);
+      // Reset the input
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveStoreImage = (indexToRemove: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      storeImages: prev.storeImages.filter(
+        (_: any, index: number) => index !== indexToRemove
+      ),
+    }));
   };
 
   const handleLocationSelect = (lat: number, lng: number) => {
@@ -221,6 +281,96 @@ export default function VendorSettingsForm({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Store Images Gallery */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Store Images (Up to 10 images)
+          </label>
+          <p className="text-xs text-gray-500 mb-4">
+            Upload photos of your store, products, or interior to showcase your business
+          </p>
+
+          {/* Display existing images */}
+          {formData.storeImages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+              {formData.storeImages.map((imageUrl: string, index: number) => (
+                <div
+                  key={index}
+                  className="relative group rounded-lg overflow-hidden border-2 border-gray-200 aspect-square"
+                >
+                  <Image
+                    src={imageUrl}
+                    alt={`Store image ${index + 1}`}
+                    fill
+                    className="object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveStoreImage(index)}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    aria-label="Remove image"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload button */}
+          {formData.storeImages.length < 10 && (
+            <div>
+              <input
+                type="file"
+                id="store-images-upload"
+                accept="image/*"
+                multiple
+                onChange={handleStoreImagesChange}
+                className="hidden"
+                disabled={uploadingStoreImage}
+              />
+              <label
+                htmlFor="store-images-upload"
+                className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer ${
+                  uploadingStoreImage
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                {uploadingStoreImage ? "Uploading..." : "Add Store Images"}
+              </label>
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.storeImages.length} / 10 images uploaded
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -415,7 +565,7 @@ export default function VendorSettingsForm({
       <div className="flex gap-4">
         <button
           type="submit"
-          disabled={loading || uploadingLogo || uploadingBanner}
+          disabled={loading || uploadingLogo || uploadingBanner || uploadingStoreImage}
           className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? "Saving..." : "Save Changes"}

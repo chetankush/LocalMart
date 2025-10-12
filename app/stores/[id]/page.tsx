@@ -5,9 +5,9 @@ import Image from "next/image";
 import ProductCardWithCart from "./ProductCardWithCart";
 
 interface StorePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface BusinessAddress {
@@ -24,13 +24,63 @@ interface BusinessAddress {
 }
 
 export default async function StorePage({ params }: StorePageProps) {
+  const { id } = await params;
+
   const vendor = await prisma.vendor.findUnique({
-    where: { id: params.id },
-    include: {
+    where: { id },
+    select: {
+      id: true,
+      businessName: true,
+      businessType: true,
+      storeDescription: true,
+      storeLogo: true,
+      storeImages: true,
+      contactEmail: true,
+      contactPhone: true,
+      businessAddress: true,
+      city: true,
+      state: true,
+      locality: true,
+      pincode: true,
+      businessHours: true,
+      averageRating: true,
+      reviewCount: true,
       products: {
         where: { isActive: true },
         take: 12,
         orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          images: true,
+          stockQuantity: true,
+          vendorId: true,
+          averageRating: true,
+          reviewCount: true,
+          createdAt: true,
+        },
+      },
+      storeReviews: {
+        where: {
+          isApproved: true,
+          isHidden: false,
+        },
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          images: true,
+          createdAt: true,
+          user: {
+            select: {
+              fullName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 5,
       },
     },
   });
@@ -73,16 +123,25 @@ export default async function StorePage({ params }: StorePageProps) {
                     {vendor.businessType}
                   </p>
                 </div>
-                <div className="flex items-center text-yellow-500">
-                  <span className="text-lg font-bold">4.8</span>
-                  <svg
-                    className="w-5 h-5 ml-1"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </div>
+                {vendor.averageRating && vendor.reviewCount > 0 ? (
+                  <div className="flex items-center text-yellow-500">
+                    <span className="text-lg font-bold">
+                      {Number(vendor.averageRating).toFixed(1)}
+                    </span>
+                    <svg
+                      className="w-5 h-5 ml-1"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="text-sm text-gray-600 ml-2">
+                      ({vendor.reviewCount} reviews)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400">No reviews yet</div>
+                )}
               </div>
 
               {vendor.storeDescription && (
@@ -312,6 +371,30 @@ export default async function StorePage({ params }: StorePageProps) {
         </div>
       </div>
 
+      {/* Store Images Gallery */}
+      {vendor.storeImages && Array.isArray(vendor.storeImages) && vendor.storeImages.length > 0 && (
+        <div className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Store Gallery</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {(vendor.storeImages as string[]).map((imageUrl: string, index: number) => (
+                <div
+                  key={index}
+                  className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow"
+                >
+                  <Image
+                    src={imageUrl}
+                    alt={`${vendor.businessName} - Image ${index + 1}`}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Products Section */}
       <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
@@ -341,6 +424,104 @@ export default async function StorePage({ params }: StorePageProps) {
             </p>
           </div>
         )}
+
+        {/* Reviews Section */}
+        <div className="mt-8">
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Customer Reviews ({vendor.reviewCount})
+              </h2>
+              <Link
+                href={`/stores/${vendor.id}/write-review`}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Write a Review
+              </Link>
+            </div>
+
+            {vendor.storeReviews && vendor.storeReviews.length > 0 ? (
+              <div className="space-y-4">
+                {vendor.storeReviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="border-b border-gray-200 pb-4 last:border-0"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {review.user.fullName}
+                        </p>
+                        <div className="flex items-center mt-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <svg
+                              key={star}
+                              className={`w-4 h-4 ${
+                                star <= review.rating
+                                  ? "text-yellow-400"
+                                  : "text-gray-300"
+                              }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="text-sm text-gray-500">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {review.comment && (
+                      <p className="text-gray-700 leading-relaxed">
+                        {review.comment}
+                      </p>
+                    )}
+                    {review.images && Array.isArray(review.images) && review.images.length > 0 && (
+                      <div className="flex gap-2 mt-3">
+                        {(review.images as string[]).map((img, idx) => (
+                          <Image
+                            key={idx}
+                            src={img}
+                            alt={`Review image ${idx + 1}`}
+                            width={100}
+                            height={100}
+                            className="rounded-lg object-cover"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {vendor.reviewCount > 5 && (
+                  <Link
+                    href={`/stores/${vendor.id}/reviews`}
+                    className="block text-center py-3 text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    View All Reviews ({vendor.reviewCount})
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">⭐</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  No Reviews Yet
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Be the first to review this store!
+                </p>
+                <Link
+                  href={`/stores/${vendor.id}/write-review`}
+                  className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Write First Review
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
