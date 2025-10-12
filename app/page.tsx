@@ -19,21 +19,51 @@ export default async function Home() {
       storeLogo: true,
       city: true,
       locality: true,
+      favoriteCount: true,
+      averageRating: true,
+      reviewCount: true,
       createdAt: true,
     },
-    take: 8,
     orderBy: { createdAt: "desc" },
   });
 
-  // Get featured products with images
+  // Check which vendors are favorited by current user
+  const vendorsWithFavorites = user
+    ? await Promise.all(
+        vendors.map(async (vendor) => {
+          const isFavorited = await prisma.favoriteStore.findUnique({
+            where: {
+              userId_vendorId: {
+                userId: user.id,
+                vendorId: vendor.id,
+              },
+            },
+          });
+          return {
+            ...vendor,
+            isFavorited: !!isFavorited,
+          };
+        })
+      )
+    : vendors.map((vendor) => ({ ...vendor, isFavorited: false }));
+
+  // Get featured products with images and ratings
   const featuredProducts = await prisma.product.findMany({
     where: {
       isActive: true,
       isFeatured: true,
     },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      price: true,
+      images: true,
+      stockQuantity: true,
+      averageRating: true,
+      reviewCount: true,
       vendor: {
         select: {
+          id: true,
           businessName: true,
           storeLogo: true,
         },
@@ -52,7 +82,7 @@ export default async function Home() {
   return (
     <LandingPageClient
       user={user}
-      vendors={vendors}
+      vendors={vendorsWithFavorites}
       featuredProducts={featuredProducts}
       categories={categories}
     />

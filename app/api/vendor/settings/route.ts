@@ -18,6 +18,7 @@ export async function PUT(request: NextRequest) {
       locality,
       pincode,
       storeLogo,
+      storeImages,
       latitude,
       longitude,
     } = body;
@@ -62,6 +63,7 @@ export async function PUT(request: NextRequest) {
         locality,
         pincode,
         storeLogo,
+        storeImages: storeImages || [],
         businessAddress: {
           street,
           city,

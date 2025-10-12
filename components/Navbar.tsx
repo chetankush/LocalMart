@@ -49,12 +49,20 @@ const Navbar = () => {
           </Link>
 
           {!loading && user && (
-            <Link
-              href="/my-orders"
-              className="hover:text-blue-400 transition-colors cursor-pointer text-white"
-            >
-              My Orders
-            </Link>
+            <>
+              <Link
+                href="/favorite-stores"
+                className="hover:text-blue-400 transition-colors cursor-pointer text-white flex items-center gap-1"
+              >
+                Favorites
+              </Link>
+              <Link
+                href="/my-orders"
+                className="hover:text-blue-400 transition-colors cursor-pointer text-white"
+              >
+                My Orders
+              </Link>
+            </>
           )}
 
           <Link
@@ -105,6 +113,13 @@ const Navbar = () => {
                           {user.email || user.phone}
                         </p>
                       </div>
+                      <Link
+                        href="/favorite-stores"
+                        className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                        onClick={() => setShowDropdown(false)}
+                      >
+                        ❤️ Favorite Stores
+                      </Link>
                       {isApprovedVendor ? (
                         <Link
                           href="/vendor/dashboard"
