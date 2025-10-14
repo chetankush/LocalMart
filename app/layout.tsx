@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/supabase/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
+import { LocationProvider } from "@/context/LocationContext";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -35,10 +36,12 @@ export default function RootLayout({
       >
         <StoreProvider>
           <AuthProvider>
-            <Navbar />
-            <main className="min-h-screen">{children}</main>
-            <Footer />
-            <CartSidebar />
+            <LocationProvider>
+              <Navbar />
+              <main className="min-h-screen">{children}</main>
+              <Footer />
+              <CartSidebar />
+            </LocationProvider>
           </AuthProvider>
         </StoreProvider>
       </body>

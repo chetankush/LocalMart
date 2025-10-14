@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { BusinessType } from "@/src/generated/prisma";
 import StoreFilter from "./StoreFilter";
 import FavoriteButton from "@/components/FavoriteButton";
+import { useLocation } from "@/context/LocationContext";
+import LocationSelectorModal from "@/components/LocationSelectorModal";
 
 interface Vendor {
   id: string;
@@ -25,6 +27,7 @@ interface Vendor {
 
 interface StoresListProps {
   vendors: Vendor[];
+  selectedPincode?: string;
 }
 
 // Map category slugs from URL to BusinessType or search terms
@@ -49,13 +52,19 @@ const categoryMapping: { [key: string]: BusinessType | "ALL" } = {
   "garden": "OTHER",
 };
 
-export default function StoresList({ vendors }: StoresListProps) {
+export default function StoresList({
+  vendors,
+  selectedPincode,
+}: StoresListProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const categoryFromUrl = searchParams.get("category");
+  const { location } = useLocation();
 
   const [selectedCategory, setSelectedCategory] = useState<
     BusinessType | "ALL"
   >("ALL");
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   // Set category from URL parameter on mount
   useEffect(() => {
@@ -64,6 +73,15 @@ export default function StoresList({ vendors }: StoresListProps) {
       setSelectedCategory(mappedCategory);
     }
   }, [categoryFromUrl]);
+
+  // Sync URL with location context when location changes
+  useEffect(() => {
+    if (location && location.pincode !== selectedPincode) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("pincode", location.pincode);
+      router.push(`/stores?${params.toString()}`);
+    }
+  }, [location]);
 
   // Get friendly category name
   const getFriendlyCategoryName = () => {
@@ -98,6 +116,90 @@ export default function StoresList({ vendors }: StoresListProps) {
 
   return (
     <div className="space-y-4">
+      {/* Location Banner */}
+      {selectedPincode && location && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg
+                className="w-5 h-5 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Showing stores in{" "}
+                  <span className="font-semibold">
+                    {location.locality} - {selectedPincode}
+                  </span>
+                </p>
+                <p className="text-xs text-gray-600">
+                  {vendors.length} store{vendors.length !== 1 ? "s" : ""}{" "}
+                  available in your area
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Change Location
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* No location selected banner */}
+      {!selectedPincode && !location && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg
+                className="w-5 h-5 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Select your location to see nearby stores
+                </p>
+                <p className="text-xs text-gray-600">
+                  Get personalized store recommendations based on your area
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Select Location
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Category Filter */}
       <StoreFilter
         selectedCategory={selectedCategory}
@@ -250,25 +352,47 @@ export default function StoresList({ vendors }: StoresListProps) {
         </div>
       ) : (
         <div className="text-center py-16 bg-white rounded-xl">
-          <div className="text-6xl mb-4">🏪</div>
+          <div className="text-6xl mb-4">
+            {selectedPincode ? "📍" : "🏪"}
+          </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {selectedCategory === "ALL" || !categoryFromUrl
+            {selectedPincode
+              ? `No stores available in ${selectedPincode}`
+              : selectedCategory === "ALL" || !categoryFromUrl
               ? "No Stores Yet"
               : `No ${getFriendlyCategoryName()} Stores`}
           </h3>
           <p className="text-gray-600 mb-6">
-            {selectedCategory === "ALL" || !categoryFromUrl
+            {selectedPincode
+              ? "Try changing your location or check back later for new stores in your area."
+              : selectedCategory === "ALL" || !categoryFromUrl
               ? "Be the first to open a store in your area!"
               : `No stores found in the ${getFriendlyCategoryName().toLowerCase()} category.`}
           </p>
-          <Link
-            href="/become-vendor"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Open Your Store
-          </Link>
+          <div className="flex gap-3 justify-center">
+            {selectedPincode && (
+              <button
+                onClick={() => setShowLocationModal(true)}
+                className="px-6 py-3 bg-gray-100 text-gray-900 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Change Location
+              </button>
+            )}
+            <Link
+              href="/become-vendor"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Open Your Store
+            </Link>
+          </div>
         </div>
       )}
+
+      {/* Location Selector Modal */}
+      <LocationSelectorModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+      />
     </div>
   );
 }

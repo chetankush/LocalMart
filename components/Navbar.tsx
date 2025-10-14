@@ -6,11 +6,15 @@ import { useAuth } from "@/lib/supabase/auth-provider";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import CartIcon from "@/components/cart/CartIcon";
+import { useLocation } from "@/context/LocationContext";
+import LocationSelectorModal from "@/components/LocationSelectorModal";
 
 const Navbar = () => {
   const { user, signOut, loading } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isApprovedVendor, setIsApprovedVendor] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const { location } = useLocation();
   const router = useRouter();
 
   // Check if user is an approved vendor
@@ -37,13 +41,95 @@ const Navbar = () => {
   return (
     <header className="bg-gray-950 text-white sticky top-0 z-50 shadow-md">
       <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
-        <Link href="/" className="text-2xl font-bold text-white">
-          NearStore
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-2xl font-bold text-white">
+            NearStore
+          </Link>
+
+          {/* Location Selector */}
+          <button
+            onClick={() => setShowLocationModal(true)}
+            className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors border border-gray-700"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <div className="flex flex-col items-start">
+              <span className="text-xs text-gray-400">
+                {location ? "Deliver to" : "Select location"}
+              </span>
+              <span className="text-sm font-semibold text-white">
+                {location
+                  ? `${location.locality} ${location.pincode}`
+                  : "Choose area"}
+              </span>
+            </div>
+            <svg
+              className="w-4 h-4 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+        </div>
+
         <div className="flex gap-4 items-center">
+          {/* Mobile Location Selector */}
+          <button
+            onClick={() => setShowLocationModal(true)}
+            className="md:hidden flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-800 transition-colors border border-gray-700"
+            title={location ? `${location.locality} ${location.pincode}` : "Select location"}
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span className="text-xs font-medium">
+              {location ? location.pincode : "Location"}
+            </span>
+          </button>
+
           <Link
             href="/stores"
-            className="hover:text-blue-400 transition-colors text-white"
+            className="hover:text-blue-400 transition-colors text-white hidden sm:block"
           >
             Browse Stores
           </Link>
@@ -151,6 +237,12 @@ const Navbar = () => {
           )}
         </div>
       </div>
+
+      {/* Location Selector Modal */}
+      <LocationSelectorModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+      />
     </header>
   );
 };
