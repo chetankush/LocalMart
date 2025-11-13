@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { cachedJsonResponse, CACHE_DURATION } from "@/lib/utils/api-cache";
 
-// GET - Get all vendors
+// GET - Get all vendors (Cached for 5 minutes)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -31,7 +32,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: vendors });
+    // Cache vendor list for 5 minutes
+    return cachedJsonResponse({ success: true, data: vendors }, CACHE_DURATION.MEDIUM);
   } catch (error) {
     console.error("Error fetching vendors:", error);
     return NextResponse.json(

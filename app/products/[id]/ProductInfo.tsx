@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/lib/supabase/auth-provider";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { addToCart } from "@/lib/redux/slices/cartSlice";
 import type { CartItem } from "@/lib/redux/slices/cartSlice";
@@ -40,14 +41,40 @@ interface ProductInfoProps {
 
 export default function ProductInfo({ product, vendor }: ProductInfoProps) {
   const dispatch = useAppDispatch();
+  const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState<string | null>(null);
 
   const price = Number(product.price);
   const compareAtPrice = product.compareAtPrice ? Number(product.compareAtPrice) : null;
   const discount = compareAtPrice && compareAtPrice > price
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
     : 0;
+
+  // Check if user is subscribed to back-in-stock notifications
+  useEffect(() => {
+    const checkSubscription = async () => {
+      if (!user || product.stockQuantity > 0) return;
+
+      try {
+        const { apiClient } = await import("@/lib/api/client");
+        // Note: Backend doesn't have a check subscription endpoint yet
+        // We'll use getSubscriptions to check all user subscriptions
+        const data = await apiClient.getSubscriptions();
+        if (data.success) {
+          const isSubbed = data.data.some((sub: any) => sub.productId === product.id);
+          setIsSubscribed(isSubbed);
+        }
+      } catch (error) {
+        console.error("Failed to check subscription:", error);
+      }
+    };
+
+    checkSubscription();
+  }, [user, product.id, product.stockQuantity]);
 
   const handleAddToCart = () => {
     const cartItem: CartItem = {
@@ -69,6 +96,31 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
     }, 1000);
   };
 
+  const handleNotifyMe = async () => {
+    if (!user) {
+      setNotifyMessage("Please sign in to get notified");
+      setTimeout(() => setNotifyMessage(null), 3000);
+      return;
+    }
+
+    setIsSubscribing(true);
+    setNotifyMessage(null);
+
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.subscribeToNotifications(product.id);
+
+      setIsSubscribed(true);
+      setNotifyMessage("You'll be notified when this product is back in stock!");
+      setTimeout(() => setNotifyMessage(null), 5000);
+    } catch (error: any) {
+      setNotifyMessage(error.message || "Failed to subscribe to notifications");
+      setTimeout(() => setNotifyMessage(null), 5000);
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Product Name */}
@@ -80,7 +132,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
         {/* Category Badge */}
         <Link
           href={`/categories/${product.category.slug}`}
-          className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700"
+          className="inline-flex items-center text-sm text-gray-600 hover:text-orange-500 transition-colors"
         >
           {product.category.name}
         </Link>
@@ -110,7 +162,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
           </div>
           <a
             href="#reviews"
-            className="text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-gray-700 hover:text-orange-500 hover:underline transition-colors"
           >
             {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
           </a>
@@ -132,7 +184,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
               <span className="text-xl text-gray-500 line-through">
                 ₹{compareAtPrice.toFixed(0)}
               </span>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-green-100 text-green-800 text-sm font-semibold">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 text-sm font-semibold">
                 {discount}% OFF
               </span>
             </>
@@ -222,31 +274,95 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
         </div>
       )}
 
-      {/* Add to Cart Button */}
-      <button
-        onClick={handleAddToCart}
-        disabled={product.stockQuantity === 0 || isAdding}
-        className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
-          product.stockQuantity > 0
-            ? isAdding
+      {/* Add to Cart / Notify Me Button */}
+      {product.stockQuantity > 0 ? (
+        <button
+          onClick={handleAddToCart}
+          disabled={isAdding}
+          className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
+            isAdding
               ? "bg-green-600 text-white"
-              : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl"
-            : "bg-gray-400 text-white cursor-not-allowed"
-        }`}
-      >
-        {isAdding ? (
-          <span className="flex items-center justify-center">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            Added to Cart!
-          </span>
-        ) : product.stockQuantity > 0 ? (
-          "Add to Cart"
-        ) : (
-          "Out of Stock"
-        )}
-      </button>
+              : "bg-orange-500 text-white hover:bg-orange-600 shadow-md"
+          }`}
+        >
+          {isAdding ? (
+            <span className="flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Added to Cart!
+            </span>
+          ) : (
+            "Add to Cart"
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={handleNotifyMe}
+          disabled={isSubscribing || isSubscribed}
+          className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
+            isSubscribed
+              ? "bg-green-600 text-white cursor-default"
+              : isSubscribing
+              ? "bg-gray-400 text-white cursor-wait"
+              : "bg-orange-500 text-white hover:bg-orange-600 shadow-md"
+          }`}
+        >
+          {isSubscribing ? (
+            <span className="flex items-center justify-center">
+              <svg
+                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Subscribing...
+            </span>
+          ) : isSubscribed ? (
+            <span className="flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              You'll be notified
+            </span>
+          ) : (
+            <span className="flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              Notify Me When Available
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* Notify Me Message */}
+      {notifyMessage && (
+        <div
+          className={`p-3 rounded-lg text-sm ${
+            notifyMessage.includes("sign in")
+              ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
+              : notifyMessage.includes("notified")
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {notifyMessage}
+        </div>
+      )}
 
       <div className="border-t border-gray-200"></div>
 
@@ -271,7 +387,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
             )}
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+            <p className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors">
               {vendor.businessName}
             </p>
             <p className="text-sm text-gray-600">
@@ -291,16 +407,16 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
               </div>
             )}
           </div>
-          <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </Link>
       </div>
 
       {/* Delivery Info */}
-      <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex items-start gap-3">
-          <svg className="w-6 h-6 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-6 h-6 text-gray-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
           </svg>
           <div>

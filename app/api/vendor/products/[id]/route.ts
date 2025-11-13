@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { sendBackInStockNotifications } from "@/src/shared/utils/notificationHelper";
 
 // GET - Get single product
 export async function GET(
@@ -92,6 +93,11 @@ export async function PATCH(
       );
     }
 
+    // Check if stock is changing from 0 to > 0 (back in stock)
+    const wasOutOfStock = existingProduct.stockQuantity === 0;
+    const willBeInStock = body.stockQuantity !== undefined && body.stockQuantity > 0;
+    const isBackInStock = wasOutOfStock && willBeInStock;
+
     // Update product
     const updatedProduct = await prisma.product.update({
       where: { id: params.id },
@@ -100,6 +106,22 @@ export async function PATCH(
         category: true,
       },
     });
+
+    // Send back-in-stock notifications if applicable (async, don't await)
+    if (isBackInStock) {
+      const images = Array.isArray(updatedProduct.images) ? updatedProduct.images : [];
+      const firstImage = images.length > 0 ? images[0] : null;
+
+      sendBackInStockNotifications(
+        updatedProduct.id,
+        updatedProduct.name,
+        firstImage,
+        existingProduct.vendor.id,
+        existingProduct.vendor.businessName
+      ).catch((error) => {
+        console.error("Failed to send back-in-stock notifications:", error);
+      });
+    }
 
     return NextResponse.json({
       success: true,

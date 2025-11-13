@@ -11,13 +11,8 @@ export default function RoleSelectionClient({ userId }: { userId: string }) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/user/select-role", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.selectRole(role);
 
       if (data.success) {
         // Redirect based on role

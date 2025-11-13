@@ -3,6 +3,29 @@ import { notFound } from "next/navigation";
 import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
 import ProductReviews from "./ProductReviews";
+import { serializeProduct, serializeVendor } from "@/lib/utils/serialize";
+
+// ⚡ ISR: Revalidate product pages every 3 minutes
+export const revalidate = 180;
+
+// 🚀 Generate static pages for popular products at build time
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true
+    },
+    select: { id: true },
+    take: 100, // Pre-generate top 100 products
+    orderBy: [
+      { reviewCount: 'desc' },
+      { averageRating: 'desc' }
+    ]
+  });
+
+  return products.map((product) => ({
+    id: product.id,
+  }));
+}
 
 interface ProductPageProps {
   params: Promise<{
@@ -104,6 +127,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
 
+  // Convert Decimal types to numbers for client component using serializer
+  const productData = serializeProduct({
+    ...product,
+    images: images,
+  });
+
+  const vendorData = serializeVendor(product.vendor);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -145,30 +176,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
             {/* Product Info */}
             <ProductInfo
-              product={{
-                id: product.id,
-                name: product.name,
-                description: product.description,
-                price: product.price,
-                compareAtPrice: product.compareAtPrice,
-                stockQuantity: product.stockQuantity,
-                sku: product.sku,
-                weight: product.weight,
-                dimensions: product.dimensions,
-                averageRating: product.averageRating,
-                reviewCount: product.reviewCount,
-                category: product.category,
-                images: images,
-              }}
-              vendor={{
-                id: product.vendor.id,
-                businessName: product.vendor.businessName,
-                storeLogo: product.vendor.storeLogo,
-                city: product.vendor.city,
-                state: product.vendor.state,
-                averageRating: product.vendor.averageRating,
-                reviewCount: product.vendor.reviewCount,
-              }}
+              product={productData}
+              vendor={vendorData}
             />
           </div>
         </div>
@@ -224,7 +233,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <ProductReviews
           productId={product.id}
           productName={product.name}
-          averageRating={product.averageRating}
+          averageRating={productData.averageRating}
           reviewCount={product.reviewCount}
           reviews={reviews}
           ratingDistribution={distribution}

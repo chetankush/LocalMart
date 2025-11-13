@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { cachedJsonResponse, CACHE_DURATION } from "@/lib/utils/api-cache";
 
-// GET - List all categories
+// GET - List all categories (Cached for 1 hour - categories rarely change)
 export async function GET(request: NextRequest) {
   try {
     const categories = await prisma.category.findMany({
@@ -10,10 +11,11 @@ export async function GET(request: NextRequest) {
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json({
+    // Return cached response - categories rarely change
+    return cachedJsonResponse({
       success: true,
       data: categories,
-    });
+    }, CACHE_DURATION.STATIC);
   } catch (error) {
     console.error("Categories fetch error:", error);
     return NextResponse.json(

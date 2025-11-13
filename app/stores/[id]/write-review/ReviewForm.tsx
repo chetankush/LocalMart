@@ -77,24 +77,15 @@ export default function ReviewForm({ vendorId, vendorName }: ReviewFormProps) {
     setError("");
 
     try {
-      const response = await fetch("/api/store-reviews", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          vendorId,
-          rating,
-          comment: comment.trim() || null,
-          images: uploadedImages.length > 0 ? uploadedImages : null,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.createStoreReview({
+        vendorId,
+        rating,
+        comment: comment.trim() || null,
+        images: uploadedImages.length > 0 ? uploadedImages : null,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to submit review");
-      }
+      if (data.success) {
 
       // Success - redirect back to store page
       router.push(`/stores/${vendorId}?reviewSubmitted=true`);

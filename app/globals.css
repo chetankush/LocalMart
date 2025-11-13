@@ -1,5 +1,29 @@
 @import "tailwindcss";
+@import "./tailwind.config.css";
 @import "tw-animate-css";
+
+/* Font Configuration */
+body {
+  font-family: var(--font-roboto), sans-serif;
+  font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6,
+.heading {
+  font-family: var(--font-montserrat), sans-serif;
+  font-weight: 700;
+}
+
+/* Utility classes for manual font application */
+.font-heading {
+  font-family: var(--font-montserrat), sans-serif;
+  font-weight: 700;
+}
+
+.font-body {
+  font-family: var(--font-roboto), sans-serif;
+  font-weight: 400;
+}
 
 /* Custom scrollbar styles */
 .scrollbar-hide {
@@ -8,6 +32,23 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
+}
+
+/* Progress bar animation */
+@keyframes progress-bar {
+  0% {
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-progress-bar {
+  animation: progress-bar 2s ease-in-out infinite;
 }
 
 /* Animation delays for festive elements */

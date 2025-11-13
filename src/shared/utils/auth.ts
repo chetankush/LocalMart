@@ -28,7 +28,16 @@ export async function getCurrentUser() {
   let user = await prisma.user.findUnique({
     where: { email: supabaseUser.email! },
     include: {
-      vendor: true,
+      vendor: {
+        select: {
+          id: true,
+          businessName: true,
+          businessType: true,
+          storeLogo: true,
+          status: true,
+          isActive: true,
+        },
+      },
     },
   });
 
@@ -42,7 +51,16 @@ export async function getCurrentUser() {
         role: "CUSTOMER", // Default role
       },
       include: {
-        vendor: true,
+        vendor: {
+          select: {
+            id: true,
+            businessName: true,
+            businessType: true,
+            storeLogo: true,
+            status: true,
+            isActive: true,
+          },
+        },
       },
     });
   }

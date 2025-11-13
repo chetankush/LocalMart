@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft } from 'lucide-react';
+
+// Loading Spinner Component
+const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
+  const sizeClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
+  return (
+    <div className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`} />
+  );
+};
 
 interface OrderItem {
   id: string;
@@ -42,9 +50,9 @@ interface Order {
 
 const statusConfig = {
   PENDING: { label: 'Pending', icon: Clock, color: 'text-yellow-600 bg-yellow-100' },
-  ACCEPTED: { label: 'Accepted', icon: CheckCircle, color: 'text-blue-600 bg-blue-100' },
-  PREPARING: { label: 'Preparing', icon: Package, color: 'text-purple-600 bg-purple-100' },
-  READY: { label: 'Ready', icon: Package, color: 'text-indigo-600 bg-indigo-100' },
+  ACCEPTED: { label: 'Accepted', icon: CheckCircle, color: 'text-orange-600 bg-orange-100' },
+  PREPARING: { label: 'Preparing', icon: Package, color: 'text-orange-600 bg-orange-100' },
+  READY: { label: 'Ready', icon: Package, color: 'text-orange-600 bg-orange-100' },
   OUT_FOR_DELIVERY: { label: 'Out for Delivery', icon: Truck, color: 'text-orange-600 bg-orange-100' },
   DELIVERED: { label: 'Delivered', icon: CheckCircle, color: 'text-green-600 bg-green-100' },
   CANCELLED: { label: 'Cancelled', icon: XCircle, color: 'text-red-600 bg-red-100' },
@@ -54,9 +62,42 @@ const statusConfig = {
 export default function MyOrdersPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [loadingLink, setLoadingLink] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Optimized navigation handler for instant navigation
+  const handleNavigation = (href: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    // If we're already on this page, do a full page refresh (like e-commerce sites)
+    if (pathname === href) {
+      // Do a full hard refresh to get fresh data from server
+      window.location.href = href;
+      return;
+    }
+
+    // Set loading state immediately
+    setLoadingLink(href);
+    setIsNavigating(true);
+
+    // Navigate
+    startTransition(() => {
+      router.push(href);
+    });
+  };
+
+  // Clear loading state ONLY when pathname actually changes (navigation complete)
+  useEffect(() => {
+    setLoadingLink(null);
+    setIsNavigating(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -72,17 +113,14 @@ export default function MyOrdersPage() {
   const fetchOrders = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/orders');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders');
-      }
-
-      const data = await response.json();
-      setOrders(data.orders);
+      setError(null);
+      const { apiClient } = await import('@/lib/api/client');
+      const data = await apiClient.getOrders();
+      setOrders(data.orders || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
       setError('Failed to load orders. Please try again.');
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +130,7 @@ export default function MyOrdersPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading your orders...</p>
         </div>
       </div>
@@ -108,7 +146,7 @@ export default function MyOrdersPage() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={fetchOrders}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 cursor-pointer"
+            className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 cursor-pointer"
           >
             Try Again
           </button>
@@ -122,22 +160,23 @@ export default function MyOrdersPage() {
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 cursor-pointer"
+          <button
+            onClick={(e) => handleNavigation("/", e)}
+            className="inline-flex items-center gap-2 text-gray-700 hover:text-orange-500 mb-4 cursor-pointer transition-colors bg-transparent border-none"
           >
+            {loadingLink === "/" && <LoadingSpinner size="sm" />}
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Home</span>
-          </Link>
+          </button>
           <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
           <p className="text-gray-600 mt-2">
-            {orders.length === 0
+            {!orders || orders.length === 0
               ? 'You haven\'t placed any orders yet'
               : `${orders.length} order${orders.length > 1 ? 's' : ''} found`}
           </p>
         </div>
 
-        {orders.length === 0 ? (
+        {!orders || orders.length === 0 ? (
           // Empty State
           <div className="bg-white rounded-lg shadow-md p-16 text-center">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -147,12 +186,13 @@ export default function MyOrdersPage() {
             <p className="text-gray-600 mb-6">
               Start shopping to place your first order!
             </p>
-            <Link
-              href="/"
-              className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+            <button
+              onClick={(e) => handleNavigation("/", e)}
+              className="inline-flex items-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors cursor-pointer"
             >
+              {loadingLink === "/" && <LoadingSpinner size="sm" />}
               Browse Products
-            </Link>
+            </button>
           </div>
         ) : (
           // Orders List

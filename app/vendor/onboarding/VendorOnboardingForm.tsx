@@ -25,13 +25,8 @@ export default function VendorOnboardingForm({ userId }: { userId: string }) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/vendor/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import('@/lib/api/client');
+      const data = await apiClient.vendorOnboarding(formData);
 
       if (data.success) {
         router.push('/vendor/dashboard');

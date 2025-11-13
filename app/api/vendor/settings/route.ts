@@ -21,6 +21,13 @@ export async function PUT(request: NextRequest) {
       storeImages,
       latitude,
       longitude,
+      whatsappNumber,
+      telegramLink,
+      instagramHandle,
+      facebookPage,
+      websiteUrl,
+      storeTheme,
+      themeCustomization,
     } = body;
 
     // Validate required fields
@@ -64,6 +71,13 @@ export async function PUT(request: NextRequest) {
         pincode,
         storeLogo,
         storeImages: storeImages || [],
+        whatsappNumber,
+        telegramLink,
+        instagramHandle,
+        facebookPage,
+        websiteUrl,
+        storeTheme: storeTheme || existingVendor.storeTheme,
+        themeCustomization: themeCustomization || existingVendor.themeCustomization,
         businessAddress: {
           street,
           city,

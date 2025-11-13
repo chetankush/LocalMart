@@ -2,6 +2,7 @@ import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { redirect } from "next/navigation";
 import VendorSettingsForm from "@/app/vendor/settings/VendorSettingsForm";
+import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
 
 export default async function VendorSettingsPage() {
   const user = await requireRole(["VENDOR"]);
@@ -23,6 +24,13 @@ export default async function VendorSettingsPage() {
       state: true,
       locality: true,
       pincode: true,
+      whatsappNumber: true,
+      telegramLink: true,
+      instagramHandle: true,
+      facebookPage: true,
+      websiteUrl: true,
+      storeTheme: true,
+      themeCustomization: true,
     },
   });
 
@@ -42,7 +50,11 @@ export default async function VendorSettingsPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+        {/* Theme Selector */}
+        <ThemeSelectorWrapper currentTheme={vendor.storeTheme} />
+
+        {/* Settings Form */}
         <VendorSettingsForm vendor={vendor} />
       </div>
     </div>

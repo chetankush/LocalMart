@@ -82,24 +82,15 @@ export default function ProductReviewForm({
     setError("");
 
     try {
-      const response = await fetch("/api/products/reviews", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productId,
-          rating,
-          comment: comment.trim() || null,
-          images: uploadedImages.length > 0 ? uploadedImages : null,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.createProductReview({
+        productId,
+        rating,
+        comment: comment.trim() || null,
+        images: uploadedImages.length > 0 ? uploadedImages : null,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to submit review");
-      }
+      if (data.success) {
 
       // Success - redirect back to product page
       router.push(`/products/${productId}?reviewSubmitted=true#reviews`);

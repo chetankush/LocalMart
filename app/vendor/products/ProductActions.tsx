@@ -22,13 +22,8 @@ export default function ProductActions({
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/vendor/products/${productId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !isActive }),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorProduct(productId, { isActive: !isActive });
 
       if (data.success) {
         router.refresh();
@@ -54,11 +49,8 @@ export default function ProductActions({
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/vendor/products/${productId}`, {
-        method: "DELETE",
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.deleteVendorProduct(productId);
 
       if (data.success) {
         router.refresh();

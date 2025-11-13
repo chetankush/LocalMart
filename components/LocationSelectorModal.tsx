@@ -95,7 +95,7 @@ export default function LocationSelectorModal({
             <Button
               onClick={handleDetectLocation}
               disabled={isDetecting}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-base"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-6 text-base"
               type="button"
             >
               {isDetecting ? (

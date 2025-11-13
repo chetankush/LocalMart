@@ -3,6 +3,15 @@ import { getCurrentUser } from "@/src/shared/utils/auth";
 import Link from "next/link";
 import Image from "next/image";
 import StoresList from "./StoresList";
+import { serializeVendors } from "@/lib/utils/serialize";
+
+// ⚡ ISR: Revalidate this page every 5 minutes
+// This makes the page static but updates in background
+export const revalidate = 300;
+
+// 🚀 Enable static generation with dynamic params
+export const dynamic = 'force-static';
+export const dynamicParams = true;
 
 interface StoresPageProps {
   searchParams: { [key: string]: string | string[] | undefined };
@@ -43,7 +52,7 @@ export default async function StoresPage({ searchParams }: StoresPageProps) {
     orderBy: { createdAt: "desc" },
   });
 
-  // Check which vendors are favorited by current user
+  // Check which vendors are favorited by current user and serialize
   const vendorsWithFavorites = user
     ? await Promise.all(
         vendors.map(async (vendor) => {
@@ -57,11 +66,15 @@ export default async function StoresPage({ searchParams }: StoresPageProps) {
           });
           return {
             ...vendor,
+            averageRating: vendor.averageRating ? Number(vendor.averageRating) : null,
             isFavorited: !!isFavorited,
           };
         })
       )
-    : vendors.map((vendor) => ({ ...vendor, isFavorited: false }));
+    : serializeVendors(vendors.map((vendor) => ({
+        ...vendor,
+        isFavorited: false
+      })));
 
   return (
     <div className="min-h-screen">

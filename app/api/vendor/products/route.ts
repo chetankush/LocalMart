@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { sendNewCollectionNotification } from "@/src/shared/utils/notificationHelper";
 
 // GET - List all products for vendor
 export async function GET(request: NextRequest) {
@@ -119,6 +120,21 @@ export async function POST(request: NextRequest) {
         category: true,
       },
     });
+
+    // Send new collection notification to subscribers (async, don't await)
+    // Only send if product is active and has stock
+    if (product.isActive && product.stockQuantity > 0) {
+      const firstImage = Array.isArray(images) && images.length > 0 ? images[0] : null;
+      sendNewCollectionNotification(
+        vendor.id,
+        product.id,
+        product.name,
+        firstImage,
+        vendor.businessName
+      ).catch((error) => {
+        console.error("Failed to send new collection notification:", error);
+      });
+    }
 
     return NextResponse.json({
       success: true,

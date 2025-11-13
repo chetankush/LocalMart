@@ -2,6 +2,7 @@ import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { redirect } from "next/navigation";
 import EditProductForm from "./EditProductForm";
+import { serializeProduct } from "@/lib/utils/serialize";
 
 export default async function EditProductPage({
   params,
@@ -42,6 +43,9 @@ export default async function EditProductPage({
     orderBy: { name: "asc" },
   });
 
+  // Convert Decimal types to numbers for client component using serializer
+  const productData = serializeProduct(product);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -53,7 +57,7 @@ export default async function EditProductPage({
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <EditProductForm product={product} categories={categories} />
+        <EditProductForm product={productData} categories={categories} />
       </div>
     </div>
   );

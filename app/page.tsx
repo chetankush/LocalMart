@@ -1,6 +1,11 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import LandingPageClient from "./LandingPageClient";
+import { serializeVendors, serializeProducts } from "@/lib/utils/serialize";
+
+// Enable ISR (Incremental Static Regeneration) - rebuilds every 60 seconds
+// This is what big companies use for fast initial load
+export const revalidate = 60;
 
 export default async function Home() {
   const user = await getCurrentUser();
@@ -27,7 +32,7 @@ export default async function Home() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Check which vendors are favorited by current user
+  // Check which vendors are favorited by current user and serialize
   const vendorsWithFavorites = user
     ? await Promise.all(
         vendors.map(async (vendor) => {
@@ -41,14 +46,18 @@ export default async function Home() {
           });
           return {
             ...vendor,
+            averageRating: vendor.averageRating ? Number(vendor.averageRating) : null,
             isFavorited: !!isFavorited,
           };
         })
       )
-    : vendors.map((vendor) => ({ ...vendor, isFavorited: false }));
+    : serializeVendors(vendors.map((vendor) => ({
+        ...vendor,
+        isFavorited: false
+      })));
 
   // Get featured products with images and ratings
-  const featuredProducts = await prisma.product.findMany({
+  const featuredProductsRaw = await prisma.product.findMany({
     where: {
       isActive: true,
       isFeatured: true,
@@ -72,6 +81,9 @@ export default async function Home() {
     take: 12,
     orderBy: { createdAt: "desc" },
   });
+
+  // Convert Decimal to number for client components using serializer
+  const featuredProducts = serializeProducts(featuredProductsRaw);
 
   // Get categories for navigation
   const categories = await prisma.category.findMany({

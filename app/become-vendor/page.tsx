@@ -33,23 +33,15 @@ export default function BecomeVendorPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/vendor-requests", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.createVendorRequest(formData);
 
-      const data = await response.json();
-
-      if (!response.ok) {
+      if (data.success) {
+        setSubmitted(true);
+      } else {
         alert(data.error || "Failed to submit request");
         setLoading(false);
-        return;
       }
-
-      setSubmitted(true);
     } catch (error) {
       console.error("Error submitting request:", error);
       alert("Failed to submit request. Please try again.");

@@ -69,10 +69,18 @@ export async function POST(request: NextRequest) {
         }),
       ]);
 
+      // Get updated vendor for accurate count
+      const updatedVendor = await prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { favoriteCount: true },
+      });
+
       return NextResponse.json({
         success: true,
-        isFavorited: false,
-        favoriteCount: vendor.favoriteCount - 1,
+        data: {
+          isFavorited: false,
+          favoriteCount: updatedVendor?.favoriteCount || 0,
+        },
       });
     } else {
       // Add to favorites
@@ -89,10 +97,18 @@ export async function POST(request: NextRequest) {
         }),
       ]);
 
+      // Get updated vendor for accurate count
+      const updatedVendor = await prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { favoriteCount: true },
+      });
+
       return NextResponse.json({
         success: true,
-        isFavorited: true,
-        favoriteCount: vendor.favoriteCount + 1,
+        data: {
+          isFavorited: true,
+          favoriteCount: updatedVendor?.favoriteCount || 0,
+        },
       });
     }
   } catch (error) {

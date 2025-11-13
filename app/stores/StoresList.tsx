@@ -118,11 +118,11 @@ export default function StoresList({
     <div className="space-y-4">
       {/* Location Banner */}
       {selectedPincode && location && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <svg
-                className="w-5 h-5 text-blue-600"
+                className="w-5 h-5 text-gray-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -155,9 +155,9 @@ export default function StoresList({
             </div>
             <button
               onClick={() => setShowLocationModal(true)}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              className="text-sm text-gray-700 hover:text-orange-500 font-semibold transition-colors"
             >
-              Change Location
+              Change
             </button>
           </div>
         </div>
@@ -192,7 +192,7 @@ export default function StoresList({
             </div>
             <button
               onClick={() => setShowLocationModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition-all shadow-md hover:scale-105"
             >
               Select Location
             </button>
@@ -206,73 +206,14 @@ export default function StoresList({
         onCategoryChange={setSelectedCategory}
       />
 
-      {/* Category Statistics */}
-      <div className="bg-white rounded-lg shadow-sm p-3 mb-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">
-          Store Categories
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-          <div className="text-center">
-            <div className="text-lg font-bold text-gray-900">
-              {categoryStats.total}
-            </div>
-            <div className="text-xs text-gray-600">Total</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-green-600">
-              {categoryStats.grocery}
-            </div>
-            <div className="text-xs text-gray-600">Grocery</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-orange-600">
-              {categoryStats.restaurant}
-            </div>
-            <div className="text-xs text-gray-600">Restaurant</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-red-600">
-              {categoryStats.pharmacy}
-            </div>
-            <div className="text-xs text-gray-600">Pharmacy</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-blue-600">
-              {categoryStats.electronics}
-            </div>
-            <div className="text-xs text-gray-600">Electronics</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-purple-600">
-              {categoryStats.fashion}
-            </div>
-            <div className="text-xs text-gray-600">Fashion</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-indigo-600">
-              {categoryStats.homeServices}
-            </div>
-            <div className="text-xs text-gray-600">Home Services</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-gray-600">
-              {categoryStats.other}
-            </div>
-            <div className="text-xs text-gray-600">Other</div>
-          </div>
-        </div>
-      </div>
-
       {/* Results Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center bg-white rounded-lg p-4 shadow-sm">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
-            {`${getFriendlyCategoryName()} (${filteredVendors.length})`}
+          <h2 className="text-xl font-bold text-gray-900">
+            {getFriendlyCategoryName()}
           </h2>
           <p className="text-gray-600 text-sm">
-            {selectedCategory === "ALL" || !categoryFromUrl
-              ? "Showing all available stores"
-              : `Showing stores in the ${getFriendlyCategoryName().toLowerCase()} category`}
+            {filteredVendors.length} store{filteredVendors.length !== 1 ? "s" : ""} found
           </p>
         </div>
       </div>
@@ -284,9 +225,9 @@ export default function StoresList({
             <Link
               key={vendor.id}
               href={`/stores/${vendor.id}`}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group"
+              className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group"
             >
-              <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
+              <div className="h-48 bg-gray-50 flex items-center justify-center relative overflow-hidden">
                 {vendor.storeLogo ? (
                   <Image
                     src={vendor.storeLogo}
@@ -310,7 +251,7 @@ export default function StoresList({
                 </div>
               </div>
               <div className="p-6">
-                <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-orange-500 transition-colors">
                   {vendor.businessName}
                 </h3>
                 <p className="text-sm text-gray-600 mb-3">
@@ -380,7 +321,7 @@ export default function StoresList({
             )}
             <Link
               href="/become-vendor"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="inline-block px-6 py-3 bg-orange-500 text-white rounded-full font-bold hover:bg-orange-600 transition-all shadow-lg hover:scale-105"
             >
               Open Your Store
             </Link>

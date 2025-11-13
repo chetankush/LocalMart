@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
 import FavoriteButton from "@/components/FavoriteButton";
 import StoresListingSection from "@/app/components/StoresListingSection";
+
+// Loading Spinner Component
+const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
+  const sizeClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
+  return (
+    <div className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`} />
+  );
+};
 
 interface Vendor {
   id: string;
@@ -197,31 +206,26 @@ const categoryConfig: {
 
 // Carousel Configuration - Easy to update
 // To add a new banner: Just add a new object to this array
-// To add an image: Set the imageUrl property
-// To add a link: Set the linkUrl property
 const BANNERS = [
   {
-    title: "🪔 Festive Shopping Starts Here",
-    subtitle: "Celebrate with Local Stores - Special Diwali Offers!",
-    bg: "bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-500",
-    pattern: "diwali", // Special pattern with decorations
-    imageUrl: "", // Add image URL here (optional)
-    linkUrl: "/stores", // Link destination
-  },
-  {
-    title: "🚀 Fast Delivery from Local Stores",
-    subtitle: "Order Now & Get It Delivered Same Day!",
-    bg: "bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-500",
+    title: "Roundtrip booking offers!",
+    subtitle: "Up to ₹3,500 Off - Book now",
     pattern: "default",
-    imageUrl: "", // Add image URL here (optional)
+    imageUrl: "/c1.webp", // Flipkart Travel offer
     linkUrl: "/stores",
   },
   {
-    title: "💝 Support Local Businesses",
-    subtitle: "Shop Near, Save More - Exclusive Deals Inside!",
-    bg: "bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500",
+    title: "Big Bang Diwali",
+    subtitle: "Sale Starts Tonight - Get 10% Instant Discount!",
+    pattern: "diwali",
+    imageUrl: "/c2.webp", // Diwali sale
+    linkUrl: "/stores",
+  },
+  {
+    title: "CMF Phone 2 Pro",
+    subtitle: "Unique design. Festive price - ₹16,999",
     pattern: "default",
-    imageUrl: "", // Add image URL here (optional)
+    imageUrl: "/c3.webp", // CMF Phone offer
     linkUrl: "/stores",
   },
 ];
@@ -240,6 +244,40 @@ export default function LandingPageClient({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showLeftScroll, setShowLeftScroll] = useState(false);
   const [showRightScroll, setShowRightScroll] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const [loadingLink, setLoadingLink] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Optimized navigation handler for instant navigation
+  const handleNavigation = (href: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    // If we're already on this page, do a full page refresh (like e-commerce sites)
+    if (pathname === href) {
+      // Do a full hard refresh to get fresh data from server
+      window.location.href = href;
+      return;
+    }
+
+    // Set loading state immediately
+    setLoadingLink(href);
+    setIsNavigating(true);
+
+    // Navigate
+    startTransition(() => {
+      router.push(href);
+    });
+  };
+
+  // Clear loading state ONLY when pathname actually changes (navigation complete)
+  useEffect(() => {
+    setLoadingLink(null);
+    setIsNavigating(false);
+  }, [pathname]);
 
   // Carousel auto-slide logic
   useEffect(() => {
@@ -296,20 +334,25 @@ export default function LandingPageClient({
               className="flex items-center gap-4 overflow-x-auto scrollbar-hide pt-2 px-12"
             >
               {defaultCategories.map((category) => (
-                <Link
+                <button
                   key={category.slug}
-                  href={`/stores?category=${category.slug}`}
-                  className="flex flex-col items-center min-w-[80px] flex-shrink-0 py-2 group"
+                  onClick={(e) => handleNavigation(`/stores?category=${category.slug}`, e)}
+                  className="flex flex-col items-center min-w-[80px] flex-shrink-0 py-2 group cursor-pointer bg-transparent border-none"
                 >
                   <div
-                    className={`w-16 h-16 ${category.bgColor} rounded-full flex items-center justify-center text-2xl mb-2 shadow-md group-hover:scale-110 transition-transform duration-200`}
+                    className={`w-16 h-16 ${category.bgColor} rounded-full flex items-center justify-center text-2xl mb-2 shadow-md group-hover:scale-110 group-active:scale-100 transition-transform duration-200 relative`}
                   >
+                    {loadingLink === `/stores?category=${category.slug}` && (
+                      <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center">
+                        <LoadingSpinner size="sm" />
+                      </div>
+                    )}
                     {category.icon}
                   </div>
-                  <span className="text-xs font-medium text-gray-700 text-center leading-tight line-clamp-2">
+                  <span className="text-xs font-medium text-gray-700 text-center leading-tight line-clamp-2 group-hover:text-orange-500 transition-colors">
                     {category.name}
                   </span>
-                </Link>
+                </button>
               ))}
             </div>
 
@@ -326,7 +369,7 @@ export default function LandingPageClient({
                     });
                   }
                 }}
-                className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all shadow-lg border-2 border-blue-200 z-20"
+                className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
                 aria-label="View previous categories"
               >
                 <svg
@@ -355,7 +398,7 @@ export default function LandingPageClient({
                     scrollContainer.scrollBy({ left: 300, behavior: "smooth" });
                   }
                 }}
-                className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all shadow-lg border-2 border-blue-200 z-20"
+                className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
                 aria-label="View more categories"
               >
                 <svg
@@ -377,153 +420,73 @@ export default function LandingPageClient({
         </div>
       </div>
 
-      {/* Carousel Banner - Auto-rotating with 4s interval */}
-      <div className="relative overflow-hidden bg-gray-900 h-[280px] md:h-[280px]">
-        {BANNERS.map((banner, index) => {
-          // Calculate position: -1 (left/previous), 0 (current), 1 (right/next)
-          let position = index - currentBanner;
-          if (position < -1) position += BANNERS.length;
-          if (position > 1) position -= BANNERS.length;
-
-          return (
-            <Link
+      {/* Carousel Banner - Bootstrap Style */}
+      <div className="relative overflow-hidden bg-gray-100 h-[180px] md:h-[200px]">
+        {/* Carousel Inner */}
+        <div className="relative w-full h-full">
+          {BANNERS.map((banner, index) => (
+            <div
               key={index}
-              href={banner.linkUrl}
-              className={`absolute inset-0 ${
-                banner.bg
-              } cursor-pointer transition-transform duration-700 ease-in-out ${
-                position === 0
-                  ? "translate-x-0 z-20"
-                  : position === 1
-                  ? "translate-x-full z-10"
-                  : "-translate-x-full z-10"
-              }`}
-              style={{
-                // By only controlling pointerEvents, we fix the issue.
-                // Slides that are not active are not clickable, but remain in the DOM
-                // for smooth transitions, which resolves the flickering.
-                pointerEvents: position === 0 ? "auto" : "none",
-              }}
-            >
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 relative h-full flex items-center">
-                {/* Optional Background Image */}
-                {banner.imageUrl && (
-                  <div className="absolute inset-0 z-0">
-                    <Image
-                      src={banner.imageUrl}
-                      alt={banner.title}
-                      fill
-                      className="object-cover opacity-30"
-                    />
-                  </div>
-                )}
-
-                {/* Diwali decorations for festive banner */}
-                {banner.pattern === "diwali" && (
-                  <>
-                    <div className="absolute top-2 left-4 text-2xl md:text-3xl animate-pulse">
-                      🪔
-                    </div>
-                    <div className="absolute top-2 right-4 text-2xl md:text-3xl animate-pulse delay-100">
-                      🪔
-                    </div>
-                    <div className="absolute bottom-2 left-8 text-lg md:text-2xl animate-bounce">
-                      ✨
-                    </div>
-                    <div className="absolute bottom-2 right-8 text-lg md:text-2xl animate-bounce delay-150">
-                      ✨
-                    </div>
-                  </>
-                )}
-
-                {/* Banner Content */}
-                <div className="text-center relative z-10 w-full">
-                  <h1 className="text-2xl md:text-4xl font-bold text-white mb-2 drop-shadow-lg">
-                    {banner.title}
-                  </h1>
-                  <p className="text-base md:text-lg text-white/90 mb-4 drop-shadow">
-                    {banner.subtitle}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                    <span className="px-5 py-2 bg-white text-gray-900 rounded-lg font-bold text-sm hover:bg-gray-100 transition-all shadow-lg hover:scale-105 inline-block">
-                      Shop Now
-                    </span>
-                    {!user && (
-                      <Link
-                        href="/sign-up"
-                        className="px-5 py-2 bg-transparent border-2 border-white text-white rounded-lg font-semibold text-sm hover:bg-white hover:text-gray-900 transition-all"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Sign Up Free
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-
-        {/* Carousel Navigation Dots */}
-        <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
-          {BANNERS.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentBanner(index)}
-              className={`w-2 h-2 rounded-full transition-all ${
+              className={`absolute w-full h-full transition-all duration-700 ease-in-out ${
                 index === currentBanner
-                  ? "bg-white w-8"
-                  : "bg-white/50 hover:bg-white/75"
+                  ? "opacity-100 visible z-10"
+                  : "opacity-0 invisible z-0"
               }`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
+            >
+              <Link href={banner.linkUrl} prefetch={true} className="block w-full h-full cursor-pointer">
+                <Image
+                  src={banner.imageUrl}
+                  alt={banner.title}
+                  fill
+                  className="object-cover transition-transform duration-300 hover:scale-105"
+                  priority={index === 0}
+                  unoptimized
+                />
+              </Link>
+            </div>
           ))}
         </div>
 
-        {/* Manual Navigation Arrows */}
+        {/* Indicators */}
+        <ol className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
+          {BANNERS.map((_, index) => (
+            <li
+              key={index}
+              onClick={() => setCurrentBanner(index)}
+              className={`w-2 h-2 rounded-full cursor-pointer transition-all hover:scale-110 active:scale-95 ${
+                index === currentBanner
+                  ? "bg-white w-6"
+                  : "bg-white/60 hover:bg-white/80"
+              }`}
+              aria-label={`Slide ${index + 1}`}
+            />
+          ))}
+        </ol>
+
+        {/* Left Control */}
         <button
-          onClick={() =>
+          onClick={(e) => {
+            e.preventDefault();
             setCurrentBanner((prev) =>
               prev === 0 ? BANNERS.length - 1 : prev - 1
-            )
-          }
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white z-20 transition-all"
-          aria-label="Previous slide"
+            );
+          }}
+          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/30 hover:bg-white/50 rounded-full flex items-center justify-center text-white z-20 transition-all cursor-pointer hover:scale-110 active:scale-95"
+          aria-label="Previous"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
+          <span className="text-xl md:text-2xl font-bold">&lsaquo;</span>
         </button>
+
+        {/* Right Control */}
         <button
-          onClick={() =>
-            setCurrentBanner((prev) => (prev + 1) % BANNERS.length)
-          }
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white z-20 transition-all"
-          aria-label="Next slide"
+          onClick={(e) => {
+            e.preventDefault();
+            setCurrentBanner((prev) => (prev + 1) % BANNERS.length);
+          }}
+          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/30 hover:bg-white/50 rounded-full flex items-center justify-center text-white z-20 transition-all cursor-pointer hover:scale-110 active:scale-95"
+          aria-label="Next"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          <span className="text-xl md:text-2xl font-bold">&rsaquo;</span>
         </button>
       </div>
 
@@ -532,12 +495,13 @@ export default function LandingPageClient({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              🏪 Featured Stores
+              Featured Stores
             </h2>
-            <Link
-              href="/stores"
-              className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2 group"
+            <button
+              onClick={(e) => handleNavigation("/stores", e)}
+              className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
             >
+              {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
               View More
               <svg
                 className="w-5 h-5 group-hover:translate-x-1 transition-transform"
@@ -552,17 +516,17 @@ export default function LandingPageClient({
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </Link>
+            </button>
           </div>
 
           {/* Category Filters */}
           <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
                 selectedCategory === null
-                  ? "bg-blue-600 text-white shadow-md"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-orange-500 text-white shadow-md hover:bg-orange-600"
+                  : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
               }`}
             >
               All Stores
@@ -573,10 +537,10 @@ export default function LandingPageClient({
                 onClick={() =>
                   setSelectedCategory(type === selectedCategory ? null : type)
                 }
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
                   selectedCategory === type
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-orange-500 text-white shadow-md hover:bg-orange-600"
+                    : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
                 }`}
               >
                 {categoryConfig[type]?.icon} {type.replace("_", " ")}
@@ -587,12 +551,17 @@ export default function LandingPageClient({
           {/* Store Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filteredVendors.slice(0, 8).map((vendor) => (
-              <Link
+              <button
                 key={vendor.id}
-                href={`/stores/${vendor.id}`}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group"
+                onClick={(e) => handleNavigation(`/stores/${vendor.id}`, e)}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer active:scale-[0.98] text-left relative"
               >
-                <div className="h-36 md:h-48 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden">
+                {loadingLink === `/stores/${vendor.id}` && (
+                  <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+                    <LoadingSpinner size="md" />
+                  </div>
+                )}
+                <div className="h-36 md:h-48 bg-gray-50 flex items-center justify-center relative overflow-hidden">
                   {vendor.storeLogo ? (
                     <Image
                       src={vendor.storeLogo}
@@ -615,7 +584,7 @@ export default function LandingPageClient({
                   </div>
                 </div>
                 <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                  <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1 group-hover:text-orange-500 transition-colors">
                     {vendor.businessName}
                   </h3>
                   <p className="text-xs text-gray-500 mb-2">
@@ -649,23 +618,24 @@ export default function LandingPageClient({
                     )}
                   </div>
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
       </div>
 
       {/* Top Rated Stores Section */}
-      <div className="py-12 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="py-12 bg-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
               ⭐ Top Rated Stores
             </h2>
-            <Link
-              href="/stores?sort=rating"
-              className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2 group"
+            <button
+              onClick={(e) => handleNavigation("/stores?sort=rating", e)}
+              className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
             >
+              {loadingLink === "/stores?sort=rating" && <LoadingSpinner size="sm" />}
               View More
               <svg
                 className="w-5 h-5 group-hover:translate-x-1 transition-transform"
@@ -680,22 +650,27 @@ export default function LandingPageClient({
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-            </Link>
+            </button>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {topRatedVendors.map((vendor) => (
-              <Link
+              <button
                 key={vendor.id}
-                href={`/stores/${vendor.id}`}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group relative"
+                onClick={(e) => handleNavigation(`/stores/${vendor.id}`, e)}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group relative cursor-pointer active:scale-[0.98] text-left"
               >
+                {loadingLink === `/stores/${vendor.id}` && (
+                  <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+                    <LoadingSpinner size="md" />
+                  </div>
+                )}
                 {vendor.averageRating && vendor.reviewCount > 0 && (
-                  <div className="absolute top-2 right-2 bg-yellow-400 text-gray-900 px-2 py-1 rounded-full text-xs font-bold z-10 flex items-center gap-1">
+                  <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold z-10 flex items-center gap-1 shadow-sm">
                     ⭐ {Number(vendor.averageRating).toFixed(1)}
                   </div>
                 )}
-                <div className="h-36 md:h-48 bg-gradient-to-br from-yellow-50 to-orange-50 flex items-center justify-center relative overflow-hidden">
+                <div className="h-36 md:h-48 bg-gray-50 flex items-center justify-center relative overflow-hidden">
                   {vendor.storeLogo ? (
                     <Image
                       src={vendor.storeLogo}
@@ -728,35 +703,34 @@ export default function LandingPageClient({
                     <div className="flex items-center text-sm text-gray-600">
                       <span className="text-yellow-500">★</span>
                       <span className="ml-1">
-                        {Number(vendor.averageRating).toFixed(1)} ({vendor.reviewCount} reviews)
+                        {Number(vendor.averageRating).toFixed(1)} (
+                        {vendor.reviewCount} reviews)
                       </span>
                     </div>
                   )}
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
       </div>
 
       {/* All Stores Section with Filters and Lazy Loading */}
-      <StoresListingSection
-        allStores={vendors}
-        businessTypes={businessTypes}
-      />
+      <StoresListingSection allStores={vendors} businessTypes={businessTypes} />
 
       {/* Featured Products Section */}
       {featuredProducts.length > 0 && (
-        <div className="py-12 bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="py-12 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
                 🔥 Best Deals
               </h2>
-              <Link
-                href="/products"
-                className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2 group"
+              <button
+                onClick={(e) => handleNavigation("/products", e)}
+                className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
               >
+                {loadingLink === "/products" && <LoadingSpinner size="sm" />}
                 View More
                 <svg
                   className="w-5 h-5 group-hover:translate-x-1 transition-transform"
@@ -771,16 +745,21 @@ export default function LandingPageClient({
                     d="M9 5l7 7-7 7"
                   />
                 </svg>
-              </Link>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
               {featuredProducts.slice(0, 6).map((product) => (
-                <Link
+                <button
                   key={product.id}
-                  href={`/products/${product.id}`}
-                  className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-xl hover:border-blue-300 transition-all duration-300 group"
+                  onClick={(e) => handleNavigation(`/products/${product.id}`, e)}
+                  className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer active:scale-[0.98] text-left relative"
                 >
+                  {loadingLink === `/products/${product.id}` && (
+                    <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+                      <LoadingSpinner size="md" />
+                    </div>
+                  )}
                   <div className="h-32 md:h-40 bg-gray-50 flex items-center justify-center relative overflow-hidden">
                     {product.images &&
                     Array.isArray(product.images) &&
@@ -804,7 +783,8 @@ export default function LandingPageClient({
                       <div className="flex items-center text-xs text-gray-600 mb-1">
                         <span className="text-yellow-500">★</span>
                         <span className="ml-1">
-                          {Number(product.averageRating).toFixed(1)} ({product.reviewCount})
+                          {Number(product.averageRating).toFixed(1)} (
+                          {product.reviewCount})
                         </span>
                       </div>
                     ) : null}
@@ -817,7 +797,7 @@ export default function LandingPageClient({
                       </span>
                     </div>
                   </div>
-                </Link>
+                </button>
               ))}
             </div>
           </div>
@@ -825,22 +805,23 @@ export default function LandingPageClient({
       )}
 
       {/* CTA Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 py-16">
+      <div className="bg-gradient-to-r from-black via-gray-900 to-black py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="text-5xl mb-4">🎉</div>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
             Start Selling on NearStore Today!
           </h2>
-          <p className="text-lg md:text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
             Join thousands of local businesses. Set up your store in minutes and
             reach customers in your area!
           </p>
-          <Link
-            href="/become-vendor"
-            className="inline-block px-8 py-4 bg-white text-blue-600 rounded-lg font-bold text-lg hover:bg-gray-100 transition-all shadow-lg hover:scale-105"
+          <button
+            onClick={(e) => handleNavigation("/become-vendor", e)}
+            className="inline-flex items-center gap-3 px-8 py-4 bg-orange-500 text-white rounded-full font-bold text-lg hover:bg-orange-600 transition-all shadow-lg hover:scale-105 cursor-pointer active:scale-100"
           >
+            {loadingLink === "/become-vendor" && <LoadingSpinner size="md" />}
             Open Your Store Free →
-          </Link>
+          </button>
         </div>
       </div>
     </div>

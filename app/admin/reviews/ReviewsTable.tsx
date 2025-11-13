@@ -48,13 +48,8 @@ export default function ReviewsTable({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete review");
-      }
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.deleteAdminStoreReview(reviewId);
 
       setReviews(reviews.filter((r) => r.id !== reviewId));
       alert("Review deleted successfully");
@@ -69,19 +64,10 @@ export default function ReviewsTable({
   const handleToggleHidden = async (reviewId: string, currentState: boolean) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/reviews/${reviewId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          isHidden: !currentState,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.updateAdminStoreReview(reviewId, {
+        isHidden: !currentState,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update review");
-      }
 
       setReviews(
         reviews.map((r) =>

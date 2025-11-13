@@ -74,19 +74,10 @@ export default function ProductReviewsTable({
   const handleToggleHidden = async (reviewId: string, currentState: boolean) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/product-reviews/${reviewId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          isHidden: !currentState,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.updateAdminProductReview(reviewId, {
+        isHidden: !currentState,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update review");
-      }
 
       setReviews(
         reviews.map((r) =>

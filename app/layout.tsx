@@ -1,22 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Montserrat, Roboto } from "next/font/google";
 import { AuthProvider } from "@/lib/supabase/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import { LocationProvider } from "@/context/LocationContext";
+import { StoreBrandingProvider } from "@/context/StoreBrandingContext";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartSidebar from "@/components/cart/CartSidebar";
+import NavigationProgress from "@/components/NavigationProgress";
+import InstantNavigationProvider from "@/components/InstantNavigationProvider";
+import WebVitalsTracker from "@/components/WebVitalsTracker";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
+  weight: ["700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const roboto = Roboto({
+  variable: "--font-roboto",
   subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,15 +40,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${montserrat.variable} ${roboto.variable} antialiased`}
       >
         <StoreProvider>
           <AuthProvider>
             <LocationProvider>
-              <Navbar />
-              <main className="min-h-screen">{children}</main>
-              <Footer />
-              <CartSidebar />
+              <StoreBrandingProvider>
+                <InstantNavigationProvider>
+                  <WebVitalsTracker />
+                  <NavigationProgress />
+                  <Navbar />
+                  <main className="min-h-screen">{children}</main>
+                  <Footer />
+                  <CartSidebar />
+                </InstantNavigationProvider>
+              </StoreBrandingProvider>
             </LocationProvider>
           </AuthProvider>
         </StoreProvider>

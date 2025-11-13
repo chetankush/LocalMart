@@ -143,13 +143,8 @@ export default function EditProductForm({
     setAddingCategory(true);
 
     try {
-      const res = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategoryName.trim() }),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.createCategory({ name: newCategoryName.trim() });
 
       if (data.success) {
         // Add the new category to the list and select it
@@ -183,23 +178,18 @@ export default function EditProductForm({
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/vendor/products/${product.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          images,
-          price: parseFloat(formData.price),
-          compareAtPrice: formData.compareAtPrice
-            ? parseFloat(formData.compareAtPrice)
-            : null,
-          stockQuantity: parseInt(formData.stockQuantity) || 0,
-          lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
-          weight: formData.weight ? parseFloat(formData.weight) : null,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorProduct(product.id, {
+        ...formData,
+        images,
+        price: parseFloat(formData.price),
+        compareAtPrice: formData.compareAtPrice
+          ? parseFloat(formData.compareAtPrice)
+          : null,
+        stockQuantity: parseInt(formData.stockQuantity) || 0,
+        lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
       });
-
-      const data = await res.json();
 
       if (data.success) {
         alert("Product updated successfully!");

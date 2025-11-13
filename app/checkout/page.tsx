@@ -55,7 +55,7 @@ export default function CheckoutPage() {
           </p>
           <Link
             href="/"
-            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+            className="inline-block bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors cursor-pointer"
           >
             Browse Products
           </Link>
@@ -100,24 +100,13 @@ export default function CheckoutPage() {
 
     try {
       // Create order via API
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: items,
-          deliveryAddress: address,
-          paymentMethod: paymentMethod,
-          totalAmount: finalTotal,
-        }),
+      const { apiClient } = await import('@/lib/api/client');
+      const data = await apiClient.createOrder({
+        items: items,
+        deliveryAddress: address,
+        paymentMethod: paymentMethod,
+        totalAmount: finalTotal,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to place order');
-      }
 
       // Clear cart after successful order
       dispatch(clearCart());
@@ -142,7 +131,7 @@ export default function CheckoutPage() {
         <div className="mb-8">
           <Link
             href="/cart"
-            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 cursor-pointer"
+            className="inline-flex items-center gap-2 text-gray-700 hover:text-orange-500 mb-4 cursor-pointer transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Cart</span>
@@ -157,7 +146,7 @@ export default function CheckoutPage() {
             {/* Delivery Address */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center gap-3 mb-6">
-                <MapPin className="w-6 h-6 text-blue-600" />
+                <MapPin className="w-6 h-6 text-gray-600" />
                 <h2 className="text-xl font-bold text-gray-900">Delivery Address</h2>
               </div>
 
@@ -262,7 +251,7 @@ export default function CheckoutPage() {
             {/* Payment Method */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <div className="flex items-center gap-3 mb-6">
-                <CreditCard className="w-6 h-6 text-blue-600" />
+                <CreditCard className="w-6 h-6 text-gray-600" />
                 <h2 className="text-xl font-bold text-gray-900">Payment Method</h2>
               </div>
 
@@ -271,7 +260,7 @@ export default function CheckoutPage() {
                 <label
                   className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
                     paymentMethod === 'cod'
-                      ? 'border-blue-600 bg-blue-50'
+                      ? 'border-orange-500 bg-orange-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -281,7 +270,7 @@ export default function CheckoutPage() {
                     value="cod"
                     checked={paymentMethod === 'cod'}
                     onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-5 h-5 text-blue-600"
+                    className="w-5 h-5 text-orange-500"
                   />
                   <Wallet className="w-6 h-6 text-gray-700" />
                   <div className="flex-1">
@@ -423,7 +412,7 @@ export default function CheckoutPage() {
                 className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                   isProcessing
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                    : 'bg-orange-500 hover:bg-orange-600 cursor-pointer'
                 } text-white`}
               >
                 {isProcessing ? 'Processing...' : `Place Order (₹${finalTotal.toFixed(2)})`}

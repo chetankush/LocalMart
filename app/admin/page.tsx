@@ -67,12 +67,8 @@ export default function AdminDashboard() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const url = filter === "ALL"
-        ? "/api/vendor-requests"
-        : `/api/vendor-requests?status=${filter}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.getVendorRequests(filter === "ALL" ? undefined : filter);
       setRequests(data.data || []);
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -84,12 +80,8 @@ export default function AdminDashboard() {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const url = vendorFilter === "ALL"
-        ? "/api/vendors"
-        : `/api/vendors?status=${vendorFilter}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.getVendors(vendorFilter === "ALL" ? undefined : vendorFilter);
       setVendors(data.data || []);
     } catch (error) {
       console.error("Error fetching vendors:", error);
@@ -103,24 +95,19 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "APPROVE" }),
-      });
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorRequest(id, { status: "APPROVED" });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Vendor approved successfully!");
+      if (data.success) {
+        alert(data.message || "Vendor approved successfully!");
         fetchRequests();
         setSelectedRequest(null);
       } else {
-        alert(data.error || "Failed to approve vendor");
+        alert(data.message || "Failed to approve vendor");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error approving vendor:", error);
-      alert("Failed to approve vendor");
+      alert(error.message || "Failed to approve vendor");
     } finally {
       setProcessing(false);
     }
@@ -134,28 +121,23 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "REJECT",
-          rejectionReason
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorRequest(id, {
+        status: "REJECTED",
+        rejectionReason
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Vendor rejected");
+      if (data.success) {
+        alert(data.message || "Vendor rejected");
         fetchRequests();
         setSelectedRequest(null);
         setRejectionReason("");
       } else {
-        alert(data.error || "Failed to reject vendor");
+        alert(data.message || "Failed to reject vendor");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error rejecting vendor:", error);
-      alert("Failed to reject vendor");
+      alert(error.message || "Failed to reject vendor");
     } finally {
       setProcessing(false);
     }
@@ -166,20 +148,19 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
-        method: "DELETE",
-      });
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.deleteVendorRequest(id);
 
-      if (response.ok) {
-        alert("Request deleted");
+      if (data.success) {
+        alert(data.message || "Request deleted");
         fetchRequests();
         setSelectedRequest(null);
       } else {
         alert("Failed to delete request");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting request:", error);
-      alert("Failed to delete request");
+      alert(error.message || "Failed to delete request");
     } finally {
       setProcessing(false);
     }
@@ -194,18 +175,13 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      const response = await fetch(`/api/vendors/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          isActive: status === "ACTIVE"
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorStatus(id, {
+        status,
+        isActive: status === "ACTIVE"
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (data.success) {
         alert(`Vendor ${status === "ACTIVE" ? "approved" : "suspended"} successfully!`);
         fetchVendors();
         setSelectedVendor(null);
