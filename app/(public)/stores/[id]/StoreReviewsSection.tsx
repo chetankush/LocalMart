@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/supabase/auth-provider";
 
 interface Review {
   id: string;
@@ -11,6 +14,7 @@ interface Review {
   images: string[] | null;
   createdAt: Date;
   user: {
+    id: string;
     fullName: string;
   };
 }
@@ -25,7 +29,9 @@ interface StoreReviewsSectionProps {
 }
 
 // Theme color mappings
-const themeColors: { [key: string]: { primary: string; secondary: string; accent: string } } = {
+const themeColors: {
+  [key: string]: { primary: string; secondary: string; accent: string };
+} = {
   KIRANA: {
     primary: "from-amber-500 to-orange-600",
     secondary: "bg-amber-50",
@@ -116,12 +122,44 @@ export default function StoreReviewsSection({
   ratingDistribution,
   theme = "DEFAULT",
 }: StoreReviewsSectionProps) {
+  const { user: supabaseUser } = useAuth();
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [localReviews, setLocalReviews] = useState(reviews);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user's database ID
+  useEffect(() => {
+    const fetchCurrentUserId = async () => {
+      if (!supabaseUser) {
+        setCurrentUserId(null);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/user/current-id");
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserId(data.userId);
+        }
+      } catch (error) {
+        console.error("Failed to fetch current user ID:", error);
+      }
+    };
+
+    fetchCurrentUserId();
+  }, [supabaseUser]);
+
   const colors = themeColors[theme] || themeColors.DEFAULT;
-  const totalRatings = Object.values(ratingDistribution).reduce((a, b) => a + b, 0);
+  const totalRatings = Object.values(ratingDistribution).reduce(
+    (a, b) => a + b,
+    0
+  );
 
   // Get all review images
-  const allReviewImages = reviews
-    .flatMap((review) => (review.images && Array.isArray(review.images) ? review.images : []));
+  const allReviewImages = localReviews.flatMap((review) =>
+    review.images && Array.isArray(review.images) ? review.images : []
+  );
   const displayedImages = allReviewImages.slice(0, 6);
   const remainingImageCount = allReviewImages.length - 6;
 
@@ -140,12 +178,57 @@ export default function StoreReviewsSection({
     return "bg-red-400";
   };
 
+  const handleDeleteReview = async (reviewId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this review? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(reviewId);
+    try {
+      const USE_BACKEND_API =
+        process.env.NEXT_PUBLIC_USE_BACKEND_API === "true";
+
+      if (USE_BACKEND_API) {
+        const { apiClient } = await import("@/lib/api/client");
+        await apiClient.deleteStoreReview(reviewId);
+      } else {
+        const response = await fetch(`/api/public/store-reviews/${reviewId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to delete review");
+        }
+      }
+
+      // Remove from local state
+      setLocalReviews(localReviews.filter((r) => r.id !== reviewId));
+
+      // Refresh the page to update ratings
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error deleting review:", error);
+      alert(error.message || "Failed to delete review. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
-    <div className={`max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 ${colors.secondary} rounded-2xl`}>
+    <div
+      className={`max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 ${colors.secondary} rounded-2xl mb-12`}
+    >
       <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <h2 className="text-3xl font-bold text-gray-900">Ratings & Reviews</h2>
+          <h2 className="text-3xl font-bold text-gray-900">
+            Ratings & Reviews
+          </h2>
           <Link
             href={`/stores/${vendorId}/write-review`}
             className={`px-6 py-3 bg-gradient-to-r ${colors.primary} text-white rounded-lg font-semibold hover:opacity-90 transition-opacity shadow-md`}
@@ -166,7 +249,8 @@ export default function StoreReviewsSection({
                 <Star className="w-12 h-12 fill-yellow-400 text-yellow-400" />
               </div>
               <p className="text-lg text-gray-600 font-medium">
-                {reviewCount.toLocaleString()} Ratings & {reviews.length} Reviews
+                {reviewCount.toLocaleString()} Ratings & {reviews.length}{" "}
+                Reviews
               </p>
             </div>
           </div>
@@ -180,11 +264,15 @@ export default function StoreReviewsSection({
                 return (
                   <div key={rating} className="flex items-center gap-3">
                     <div className="flex items-center gap-1 min-w-[80px]">
-                      <span className="text-sm font-medium text-gray-700">{rating}★</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        {rating}★
+                      </span>
                     </div>
                     <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className={`h-full ${getBarColor(rating)} transition-all duration-500`}
+                        className={`h-full ${getBarColor(
+                          rating
+                        )} transition-all duration-500`}
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
@@ -201,7 +289,9 @@ export default function StoreReviewsSection({
         {/* User-Submitted Images */}
         {allReviewImages.length > 0 && (
           <div className="mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Photos</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Customer Photos
+            </h3>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {displayedImages.map((img, idx) => (
                 <div
@@ -229,61 +319,98 @@ export default function StoreReviewsSection({
 
         {/* Reviews List */}
         <div className="space-y-6">
-          <h3 className="text-xl font-semibold text-gray-900">Customer Reviews</h3>
-          {reviews.length > 0 ? (
+          <h3 className="text-xl font-semibold text-gray-900">
+            Customer Reviews
+          </h3>
+          {localReviews.length > 0 ? (
             <>
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="border-b border-gray-200 pb-6 last:border-0 last:pb-0"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900 mb-1">{review.user.fullName}</p>
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Star
-                            key={star}
-                            className={`w-4 h-4 ${
-                              star <= review.rating
-                                ? "fill-yellow-400 text-yellow-400"
-                                : "fill-gray-200 text-gray-200"
-                            }`}
-                          />
-                        ))}
+              {localReviews.map((review) => {
+                // Compare user IDs - handle both string and number types
+                const reviewUserId = review.user?.id?.toString();
+                const isOwner =
+                  currentUserId &&
+                  reviewUserId &&
+                  currentUserId === reviewUserId;
+                const isDeleting = deletingId === review.id;
+
+                return (
+                  <div
+                    key={review.id}
+                    className="border-b border-gray-200 pb-6 last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 mb-1">
+                          {review.user.fullName}
+                        </p>
+                        <div className="flex items-center gap-1 mb-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`w-4 h-4 ${
+                                star <= review.rating
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "fill-gray-200 text-gray-200"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">
+                          {new Date(review.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
+                        </span>
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteReview(review.id)}
+                            disabled={isDeleting}
+                            className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Delete review"
+                          >
+                            {isDeleting ? (
+                              <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <span className="text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  {review.comment && (
-                    <p className="text-gray-700 leading-relaxed mb-3">{review.comment}</p>
-                  )}
-                  {review.images && Array.isArray(review.images) && review.images.length > 0 && (
-                    <div className="flex gap-2 flex-wrap">
-                      {review.images.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
-                        >
-                          <Image
-                            src={img}
-                            alt={`Review image ${idx + 1}`}
-                            fill
-                            className="object-cover"
-                          />
+                    {review.comment && (
+                      <p className="text-gray-700 leading-relaxed mb-3">
+                        {review.comment}
+                      </p>
+                    )}
+                    {review.images &&
+                      Array.isArray(review.images) &&
+                      review.images.length > 0 && (
+                        <div className="flex gap-2 flex-wrap">
+                          {review.images.map((img, idx) => (
+                            <div
+                              key={idx}
+                              className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
+                            >
+                              <Image
+                                src={img}
+                                alt={`Review image ${idx + 1}`}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {reviewCount > reviews.length && (
+                      )}
+                  </div>
+                );
+              })}
+              {reviewCount > localReviews.length && (
                 <Link
                   href={`/stores/${vendorId}/reviews`}
                   className={`block text-center py-4 ${colors.accent} hover:underline font-medium`}
@@ -295,8 +422,12 @@ export default function StoreReviewsSection({
           ) : (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">⭐</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reviews Yet</h3>
-              <p className="text-gray-600 mb-4">Be the first to review this store!</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No Reviews Yet
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Be the first to review this store!
+              </p>
               <Link
                 href={`/stores/${vendorId}/write-review`}
                 className={`inline-block px-6 py-3 bg-gradient-to-r ${colors.primary} text-white rounded-lg font-semibold hover:opacity-90 transition-opacity`}
@@ -310,4 +441,3 @@ export default function StoreReviewsSection({
     </div>
   );
 }
-

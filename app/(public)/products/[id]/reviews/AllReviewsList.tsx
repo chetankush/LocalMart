@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/supabase/auth-provider";
 
 interface Review {
   id: string;
@@ -37,9 +40,72 @@ export default function AllReviewsList({
   totalReviews,
   averageRating,
 }: AllReviewsListProps) {
+  const { user: supabaseUser } = useAuth();
+  const router = useRouter();
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
   const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [localReviews, setLocalReviews] = useState(reviews);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user's database ID
+  useEffect(() => {
+    const fetchCurrentUserId = async () => {
+      if (!supabaseUser) {
+        setCurrentUserId(null);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/user/current-id');
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserId(data.userId);
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user ID:', error);
+      }
+    };
+
+    fetchCurrentUserId();
+  }, [supabaseUser]);
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
+      return;
+    }
+
+    setDeletingId(reviewId);
+    try {
+      const USE_BACKEND_API = process.env.NEXT_PUBLIC_USE_BACKEND_API === 'true';
+      
+      if (USE_BACKEND_API) {
+        const { apiClient } = await import("@/lib/api/client");
+        await apiClient.deleteProductReview(reviewId);
+      } else {
+        const response = await fetch(`/api/public/products/reviews/${reviewId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to delete review");
+        }
+      }
+
+      // Remove from local state
+      setLocalReviews(localReviews.filter((r) => r.id !== reviewId));
+      
+      // Refresh the page to update ratings
+      router.refresh();
+    } catch (error: any) {
+      console.error("Error deleting review:", error);
+      alert(error.message || "Failed to delete review. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const toggleExpanded = (reviewId: string) => {
     const newExpanded = new Set(expandedReviews);
@@ -52,7 +118,7 @@ export default function AllReviewsList({
   };
 
   // Filter reviews
-  const filteredReviews = reviews.filter((review) => {
+  const filteredReviews = localReviews.filter((review) => {
     if (selectedRating && review.rating !== selectedRating) return false;
     if (showVerifiedOnly && !review.isVerifiedPurchase) return false;
     return true;
@@ -203,6 +269,9 @@ export default function AllReviewsList({
                 const isExpanded = expandedReviews.has(review.id);
                 const commentLength = review.comment?.length || 0;
                 const shouldTruncate = commentLength > 300;
+                const reviewUserId = review.user?.id?.toString();
+                const isOwner = currentUserId && reviewUserId && currentUserId === reviewUserId;
+                const isDeleting = deletingId === review.id;
 
                 return (
                   <div
@@ -211,7 +280,7 @@ export default function AllReviewsList({
                   >
                     {/* Review Header */}
                     <div className="flex items-start justify-between mb-3">
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-gray-900">
                             {review.user.fullName}
@@ -252,13 +321,29 @@ export default function AllReviewsList({
                           </div>
                         </div>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        {new Date(review.createdAt).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">
+                          {new Date(review.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteReview(review.id)}
+                            disabled={isDeleting}
+                            className="text-red-500 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            title="Delete review"
+                          >
+                            {isDeleting ? (
+                              <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Review Images */}

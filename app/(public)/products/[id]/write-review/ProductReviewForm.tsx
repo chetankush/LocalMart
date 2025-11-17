@@ -82,41 +82,63 @@ export default function ProductReviewForm({
     setError("");
 
     try {
-      // Use Next.js API route (more reliable for authentication)
-      const response = await fetch("/api/public/products/reviews", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      // Switch between Next.js API and Backend API
+      const USE_BACKEND_API = process.env.NEXT_PUBLIC_USE_BACKEND_API === 'true';
+      
+      let response;
+      let data;
+
+      if (USE_BACKEND_API) {
+        // Use Backend NestJS API
+        const { apiClient } = await import("@/lib/api/client");
+        data = await apiClient.createProductReview({
           productId,
           rating,
           comment: comment.trim() || null,
           images: uploadedImages.length > 0 ? uploadedImages : null,
-        }),
-      });
+        });
+        
+        // Convert to response-like object for consistent handling
+        if (!data.success) {
+          throw new Error(data.message || "Failed to submit review");
+        }
+      } else {
+        // Use Next.js API route (default)
+        response = await fetch("/api/public/products/reviews", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            productId,
+            rating,
+            comment: comment.trim() || null,
+            images: uploadedImages.length > 0 ? uploadedImages : null,
+          }),
+        });
 
-      const data = await response.json();
+        data = await response.json();
 
-      if (!response.ok) {
-        // Handle specific error cases
-        if (response.status === 401) {
-          setError("Please sign in to submit a review.");
-          setTimeout(() => {
-            const returnUrl = `/products/${productId}/write-review`;
-            router.push(`/sign-in?redirect=${encodeURIComponent(returnUrl)}`);
-          }, 1500);
-          return;
-        } else if (response.status === 403) {
-          setError(data.error || "You don't have permission to perform this action.");
-          return;
-        } else {
-          throw new Error(data.error || "Failed to submit review");
+        if (!response.ok) {
+          // Handle specific error cases
+          if (response.status === 401) {
+            setError("Please sign in to submit a review.");
+            setTimeout(() => {
+              const returnUrl = `/products/${productId}/write-review`;
+              router.push(`/sign-in?redirect=${encodeURIComponent(returnUrl)}`);
+            }, 1500);
+            return;
+          } else if (response.status === 403) {
+            setError(data.error || "You don't have permission to perform this action.");
+            return;
+          } else {
+            throw new Error(data.error || "Failed to submit review");
+          }
         }
       }
 
+      // Success - redirect back to product page (works for both APIs)
       if (data.success) {
-        // Success - redirect back to product page
         router.push(`/products/${productId}?reviewSubmitted=true#reviews`);
         router.refresh();
       } else {

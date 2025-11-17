@@ -493,6 +493,24 @@ class ApiClient {
     );
   }
 
+  async deleteStoreReview(reviewId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/reviews/store/${reviewId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
+  async deleteProductReview(reviewId: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/reviews/product/${reviewId}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
   async getProductReviews(
     productId: string,
     params?: { page?: number; limit?: number }

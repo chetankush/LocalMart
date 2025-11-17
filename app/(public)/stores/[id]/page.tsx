@@ -107,6 +107,7 @@ export default async function StorePage({ params }: StorePageProps) {
           createdAt: true,
           user: {
             select: {
+              id: true,
               fullName: true,
             },
           },

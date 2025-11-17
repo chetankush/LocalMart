@@ -128,41 +128,66 @@ export default function ReviewForm({
 
     const submitReview = async (): Promise<void> => {
       try {
-        // Use Next.js API route (more reliable for authentication)
-        const response = await fetch("/api/public/store-reviews", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        // Switch between Next.js API and Backend API
+        const USE_BACKEND_API =
+          process.env.NEXT_PUBLIC_USE_BACKEND_API === "true";
+
+        let response;
+        let data;
+
+        if (USE_BACKEND_API) {
+          // Use Backend NestJS API
+          const { apiClient } = await import("@/lib/api/client");
+          data = await apiClient.createStoreReview({
             vendorId,
             rating,
             comment: description.trim() || null,
             images: uploadedImages.length > 0 ? uploadedImages : null,
-          }),
-        });
+          });
 
-        const data = await response.json();
+          // Convert to response-like object for consistent handling
+          if (!data.success) {
+            throw new Error(data.message || "Failed to submit review");
+          }
+        } else {
+          // Use Next.js API route (default)
+          response = await fetch("/api/public/store-reviews", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              vendorId,
+              rating,
+              comment: description.trim() || null,
+              images: uploadedImages.length > 0 ? uploadedImages : null,
+            }),
+          });
 
-        if (!response.ok) {
-          // Handle specific error cases
-          if (response.status === 401) {
-            setError("Please sign in to submit a review.");
-            setTimeout(() => {
-              const returnUrl = `/stores/${vendorId}/write-review`;
-              router.push(`/sign-in?redirect=${encodeURIComponent(returnUrl)}`);
-            }, 1500);
-            return;
-          } else if (response.status === 403) {
-            setError(data.error || "You cannot review your own store.");
-            return;
-          } else {
-            throw new Error(data.error || "Failed to submit review");
+          data = await response.json();
+
+          if (!response.ok) {
+            // Handle specific error cases
+            if (response.status === 401) {
+              setError("Please sign in to submit a review.");
+              setTimeout(() => {
+                const returnUrl = `/stores/${vendorId}/write-review`;
+                router.push(
+                  `/sign-in?redirect=${encodeURIComponent(returnUrl)}`
+                );
+              }, 1500);
+              return;
+            } else if (response.status === 403) {
+              setError(data.error || "You cannot review your own store.");
+              return;
+            } else {
+              throw new Error(data.error || "Failed to submit review");
+            }
           }
         }
 
+        // Success - redirect back to store page (works for both APIs)
         if (data.success) {
-          // Success - redirect back to store page
           router.push(`/stores/${vendorId}?reviewSubmitted=true`);
           router.refresh();
         } else {

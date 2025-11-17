@@ -14,6 +14,7 @@ export class ReviewsService {
     userId: string,
     dto: { productId: string; rating: number; comment?: string; images?: any },
   ) {
+    // Validation
     if (!dto.productId) {
       throw new BadRequestException('Product ID is required');
     }
@@ -22,19 +23,28 @@ export class ReviewsService {
       throw new BadRequestException('Rating must be between 1 and 5');
     }
 
+    // Check if product exists
     const product = await this.prisma.product.findUnique({
       where: { id: dto.productId },
-      include: { vendor: { select: { userId: true } } },
+      include: {
+        vendor: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
+    // Check if user is trying to review their own product
     if (product.vendor.userId === userId) {
       throw new ForbiddenException('You cannot review your own product');
     }
 
+    // Check if user has purchased this product (optional verification)
     const hasPurchased = await this.prisma.orderItem.findFirst({
       where: {
         productId: dto.productId,
@@ -45,6 +55,7 @@ export class ReviewsService {
       },
     });
 
+    // Check for existing review
     const existingReview = await this.prisma.productReview.findUnique({
       where: {
         userId_productId: {
@@ -55,7 +66,9 @@ export class ReviewsService {
     });
 
     if (existingReview) {
+      // Update existing review and recalculate ratings
       return this.prisma.$transaction(async (tx) => {
+        // Update the review
         const updatedReview = await tx.productReview.update({
           where: { id: existingReview.id },
           data: {
@@ -66,6 +79,7 @@ export class ReviewsService {
           },
         });
 
+        // Recalculate average rating
         const allReviews = await tx.productReview.findMany({
           where: {
             productId: dto.productId,
@@ -81,6 +95,7 @@ export class ReviewsService {
               allReviews.length
             : 0;
 
+        // Update product stats
         await tx.product.update({
           where: { id: dto.productId },
           data: {
@@ -92,7 +107,9 @@ export class ReviewsService {
         return updatedReview;
       });
     } else {
+      // Create new review and update product stats
       return this.prisma.$transaction(async (tx) => {
+        // Create the review
         const newReview = await tx.productReview.create({
           data: {
             userId,
@@ -104,6 +121,7 @@ export class ReviewsService {
           },
         });
 
+        // Recalculate average rating
         const allReviews = await tx.productReview.findMany({
           where: {
             productId: dto.productId,
@@ -117,6 +135,7 @@ export class ReviewsService {
           allReviews.reduce((sum, r) => sum + r.rating, 0) /
           allReviews.length;
 
+        // Update product stats
         await tx.product.update({
           where: { id: dto.productId },
           data: {
@@ -134,6 +153,7 @@ export class ReviewsService {
     userId: string,
     dto: { vendorId: string; rating: number; comment?: string; images?: any },
   ) {
+    // Validation
     if (!dto.vendorId) {
       throw new BadRequestException('Vendor ID is required');
     }
@@ -142,6 +162,7 @@ export class ReviewsService {
       throw new BadRequestException('Rating must be between 1 and 5');
     }
 
+    // Check if vendor exists
     const vendor = await this.prisma.vendor.findUnique({
       where: { id: dto.vendorId },
     });
@@ -150,10 +171,12 @@ export class ReviewsService {
       throw new NotFoundException('Store not found');
     }
 
+    // Check if user is trying to review their own store
     if (vendor.userId === userId) {
       throw new ForbiddenException('You cannot review your own store');
     }
 
+    // Check for existing review
     const existingReview = await this.prisma.storeReview.findUnique({
       where: {
         userId_vendorId: {
@@ -164,7 +187,9 @@ export class ReviewsService {
     });
 
     if (existingReview) {
+      // Update existing review and recalculate ratings
       return this.prisma.$transaction(async (tx) => {
+        // Update the review
         const updatedReview = await tx.storeReview.update({
           where: { id: existingReview.id },
           data: {
@@ -174,6 +199,7 @@ export class ReviewsService {
           },
         });
 
+        // Recalculate average rating
         const allReviews = await tx.storeReview.findMany({
           where: {
             vendorId: dto.vendorId,
@@ -189,6 +215,7 @@ export class ReviewsService {
               allReviews.length
             : 0;
 
+        // Update vendor stats
         await tx.vendor.update({
           where: { id: dto.vendorId },
           data: {
@@ -200,7 +227,9 @@ export class ReviewsService {
         return updatedReview;
       });
     } else {
+      // Create new review and update vendor stats
       return this.prisma.$transaction(async (tx) => {
+        // Create the review
         const newReview = await tx.storeReview.create({
           data: {
             userId,
@@ -211,6 +240,7 @@ export class ReviewsService {
           },
         });
 
+        // Recalculate average rating
         const allReviews = await tx.storeReview.findMany({
           where: {
             vendorId: dto.vendorId,
@@ -224,6 +254,7 @@ export class ReviewsService {
           allReviews.reduce((sum, r) => sum + r.rating, 0) /
           allReviews.length;
 
+        // Update vendor stats
         await tx.vendor.update({
           where: { id: dto.vendorId },
           data: {
@@ -235,6 +266,112 @@ export class ReviewsService {
         return newReview;
       });
     }
+  }
+
+  async deleteStoreReview(userId: string, reviewId: string) {
+    // Get the review
+    const review = await this.prisma.storeReview.findUnique({
+      where: { id: reviewId },
+      include: {
+        vendor: true,
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    // Check if user owns this review
+    if (review.userId !== userId) {
+      throw new ForbiddenException('You can only delete your own reviews');
+    }
+
+    // Delete the review and recalculate ratings
+    return this.prisma.$transaction(async (tx) => {
+      // Delete the review
+      await tx.storeReview.delete({
+        where: { id: reviewId },
+      });
+
+      // Recalculate average rating
+      const allReviews = await tx.storeReview.findMany({
+        where: {
+          vendorId: review.vendorId,
+          isApproved: true,
+          isHidden: false,
+        },
+        select: { rating: true },
+      });
+
+      const avgRating =
+        allReviews.length > 0
+          ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+          : 0;
+
+      // Update vendor stats
+      await tx.vendor.update({
+        where: { id: review.vendorId },
+        data: {
+          averageRating: avgRating,
+          reviewCount: allReviews.length,
+        },
+      });
+
+      return { success: true };
+    });
+  }
+
+  async deleteProductReview(userId: string, reviewId: string) {
+    // Get the review
+    const review = await this.prisma.productReview.findUnique({
+      where: { id: reviewId },
+      include: {
+        product: true,
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    // Check if user owns this review
+    if (review.userId !== userId) {
+      throw new ForbiddenException('You can only delete your own reviews');
+    }
+
+    // Delete the review and recalculate ratings
+    return this.prisma.$transaction(async (tx) => {
+      // Delete the review
+      await tx.productReview.delete({
+        where: { id: reviewId },
+      });
+
+      // Recalculate average rating
+      const allReviews = await tx.productReview.findMany({
+        where: {
+          productId: review.productId,
+          isApproved: true,
+          isHidden: false,
+        },
+        select: { rating: true },
+      });
+
+      const avgRating =
+        allReviews.length > 0
+          ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+          : 0;
+
+      // Update product stats
+      await tx.product.update({
+        where: { id: review.productId },
+        data: {
+          averageRating: avgRating,
+          reviewCount: allReviews.length,
+        },
+      });
+
+      return { success: true };
+    });
   }
 
   async getProductReviews(
