@@ -77,9 +77,12 @@ export default async function StoresPage({ searchParams }: StoresPageProps) {
       })));
 
   return (
-    <div className="min-h-screen">
-      {/* Stores List with Filtering */}
-      <div className="w-full mx-auto p-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-purple-50/20">
+      {/* Modern gradient overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080801a_1px,transparent_1px),linear-gradient(to_bottom,#8080801a_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none"></div>
+
+      {/* Content */}
+      <div className="relative w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <StoresList vendors={vendorsWithFavorites} selectedPincode={pincode} />
       </div>
     </div>

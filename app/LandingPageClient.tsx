@@ -4,14 +4,16 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import FavoriteButton from "@/components/FavoriteButton";
-import StoresListingSection from "@/app/components/StoresListingSection";
+import { LANDING_CATEGORIES } from "@/constants/landingCategories";
+import ModernStoreCard from "@/components/ModernStoreCard";
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
   const sizeClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
   return (
-    <div className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`} />
+    <div
+      className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`}
+    />
   );
 };
 
@@ -314,10 +316,10 @@ export default function LandingPageClient({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Categories Bar - Flipkart Style */}
+      {/* Categories Bar - Modern Circular Images */}
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative py-4">
+          <div className="relative py-2">
             {/* Gradient fade on left */}
             {showLeftScroll && (
               <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
@@ -331,29 +333,41 @@ export default function LandingPageClient({
             <div
               id="categories-scroll"
               onScroll={handleCategoryScroll}
-              className="flex items-center gap-4 overflow-x-auto scrollbar-hide pt-2 px-12"
+              className="flex items-center gap-6 overflow-x-auto scrollbar-hide  px-12"
             >
-              {defaultCategories.map((category) => (
-                <button
-                  key={category.slug}
-                  onClick={(e) => handleNavigation(`/stores?category=${category.slug}`, e)}
-                  className="flex flex-col items-center min-w-[80px] flex-shrink-0 py-2 group cursor-pointer bg-transparent border-none"
-                >
-                  <div
-                    className={`w-16 h-16 ${category.bgColor} rounded-full flex items-center justify-center text-2xl mb-2 shadow-md group-hover:scale-110 group-active:scale-100 transition-transform duration-200 relative`}
+              {LANDING_CATEGORIES.map((category) => {
+                const isLoading =
+                  loadingLink === `/stores?category=${category.slug}`;
+                return (
+                  <button
+                    key={category.slug}
+                    onClick={(e) =>
+                      handleNavigation(`/stores?category=${category.slug}`, e)
+                    }
+                    className="flex flex-col items-center min-w-[90px] flex-shrink-0 pt-1 group cursor-pointer bg-transparent border-none"
                   >
-                    {loadingLink === `/stores?category=${category.slug}` && (
-                      <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center">
-                        <LoadingSpinner size="sm" />
+                    {/* Circular Image with Spacing */}
+                    <div className="relative w-16 h-16 rounded-full ring-2 ring-gray-300 group-hover:ring-orange-400 transition-all duration-300 p-1 bg-white group-hover:scale-110 group-active:scale-100">
+                      <div className="relative w-full h-full rounded-full overflow-hidden">
+                        <Image
+                          src={category.imageUrl}
+                          alt={category.name}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                        {isLoading && (
+                          <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                            <LoadingSpinner size="sm" />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {category.icon}
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 text-center leading-tight line-clamp-2 group-hover:text-orange-500 transition-colors">
-                    {category.name}
-                  </span>
-                </button>
-              ))}
+                    </div>
+                    <span className="text-xs  mt-2 font-semibold text-gray-700 text-center leading-tight line-clamp-2 group-hover:text-orange-500 transition-colors max-w-[90px]">
+                      {category.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* View More Button - Left */}
@@ -419,9 +433,8 @@ export default function LandingPageClient({
           </div>
         </div>
       </div>
-
       {/* Carousel Banner - Bootstrap Style */}
-      <div className="relative overflow-hidden bg-gray-100 h-[180px] md:h-[200px]">
+      <div className="relative overflow-hidden bg-gray-100 h-[280px] md:h-[270px]">
         {/* Carousel Inner */}
         <div className="relative w-full h-full">
           {BANNERS.map((banner, index) => (
@@ -433,7 +446,11 @@ export default function LandingPageClient({
                   : "opacity-0 invisible z-0"
               }`}
             >
-              <Link href={banner.linkUrl} prefetch={true} className="block w-full h-full cursor-pointer">
+              <Link
+                href={banner.linkUrl}
+                prefetch={true}
+                className="block w-full h-full cursor-pointer"
+              >
                 <Image
                   src={banner.imageUrl}
                   alt={banner.title}
@@ -489,10 +506,9 @@ export default function LandingPageClient({
           <span className="text-xl md:text-2xl font-bold">&rsaquo;</span>
         </button>
       </div>
-
       {/* Featured Stores Section with Filters */}
       <div className="py-12 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
               Featured Stores
@@ -548,85 +564,23 @@ export default function LandingPageClient({
             ))}
           </div>
 
-          {/* Store Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          {/* Modern Store Grid with ModernStoreCard Component */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredVendors.slice(0, 8).map((vendor) => (
-              <button
+              <ModernStoreCard
                 key={vendor.id}
-                onClick={(e) => handleNavigation(`/stores/${vendor.id}`, e)}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer active:scale-[0.98] text-left relative"
-              >
-                {loadingLink === `/stores/${vendor.id}` && (
-                  <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
-                    <LoadingSpinner size="md" />
-                  </div>
-                )}
-                <div className="h-36 md:h-48 bg-gray-50 flex items-center justify-center relative overflow-hidden">
-                  {vendor.storeLogo ? (
-                    <Image
-                      src={vendor.storeLogo}
-                      alt={vendor.businessName}
-                      width={200}
-                      height={200}
-                      className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="text-5xl md:text-6xl">🏪</div>
-                  )}
-                  <div className="absolute top-2 right-2">
-                    <FavoriteButton
-                      vendorId={vendor.id}
-                      initialIsFavorited={vendor.isFavorited}
-                      initialFavoriteCount={vendor.favoriteCount}
-                      size="sm"
-                      showCount={false}
-                    />
-                  </div>
-                </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1 group-hover:text-orange-500 transition-colors">
-                    {vendor.businessName}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {vendor.businessType.replace("_", " ")}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></div>
-                      Open
-                    </span>
-                    {vendor.averageRating && vendor.reviewCount > 0 ? (
-                      <div className="flex items-center text-yellow-500">
-                        <span className="text-xs font-medium">
-                          {Number(vendor.averageRating).toFixed(1)}
-                        </span>
-                        <svg
-                          className="w-3 h-3 ml-0.5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span className="text-xs text-gray-500 ml-0.5">
-                          ({vendor.reviewCount})
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center text-gray-400">
-                        <span className="text-xs">No reviews</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
+                store={vendor}
+                onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                isLoading={loadingLink === `/stores/${vendor.id}`}
+                showRatingBadge={false}
+              />
             ))}
           </div>
         </div>
       </div>
-
       {/* Top Rated Stores Section */}
       <div className="py-12 bg-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
               ⭐ Top Rated Stores
@@ -635,7 +589,9 @@ export default function LandingPageClient({
               onClick={(e) => handleNavigation("/stores?sort=rating", e)}
               className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
             >
-              {loadingLink === "/stores?sort=rating" && <LoadingSpinner size="sm" />}
+              {loadingLink === "/stores?sort=rating" && (
+                <LoadingSpinner size="sm" />
+              )}
               View More
               <svg
                 className="w-5 h-5 group-hover:translate-x-1 transition-transform"
@@ -653,75 +609,24 @@ export default function LandingPageClient({
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {topRatedVendors.map((vendor) => (
-              <button
+              <ModernStoreCard
                 key={vendor.id}
-                onClick={(e) => handleNavigation(`/stores/${vendor.id}`, e)}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group relative cursor-pointer active:scale-[0.98] text-left"
-              >
-                {loadingLink === `/stores/${vendor.id}` && (
-                  <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
-                    <LoadingSpinner size="md" />
-                  </div>
-                )}
-                {vendor.averageRating && vendor.reviewCount > 0 && (
-                  <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold z-10 flex items-center gap-1 shadow-sm">
-                    ⭐ {Number(vendor.averageRating).toFixed(1)}
-                  </div>
-                )}
-                <div className="h-36 md:h-48 bg-gray-50 flex items-center justify-center relative overflow-hidden">
-                  {vendor.storeLogo ? (
-                    <Image
-                      src={vendor.storeLogo}
-                      alt={vendor.businessName}
-                      width={200}
-                      height={200}
-                      className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="text-5xl md:text-6xl">🏪</div>
-                  )}
-                  <div className="absolute top-2 left-2">
-                    <FavoriteButton
-                      vendorId={vendor.id}
-                      initialIsFavorited={vendor.isFavorited}
-                      initialFavoriteCount={vendor.favoriteCount}
-                      size="sm"
-                      showCount={false}
-                    />
-                  </div>
-                </div>
-                <div className="p-3 md:p-4">
-                  <h3 className="font-semibold text-sm md:text-base text-gray-900 mb-1 line-clamp-1">
-                    {vendor.businessName}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {vendor.businessType.replace("_", " ")}
-                  </p>
-                  {vendor.averageRating && vendor.reviewCount > 0 && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <span className="text-yellow-500">★</span>
-                      <span className="ml-1">
-                        {Number(vendor.averageRating).toFixed(1)} (
-                        {vendor.reviewCount} reviews)
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </button>
+                store={vendor}
+                onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                isLoading={loadingLink === `/stores/${vendor.id}`}
+                showRatingBadge={true}
+              />
             ))}
           </div>
         </div>
       </div>
 
-      {/* All Stores Section with Filters and Lazy Loading */}
-      <StoresListingSection allStores={vendors} businessTypes={businessTypes} />
-
       {/* Featured Products Section */}
       {featuredProducts.length > 0 && (
         <div className="py-12 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
                 🔥 Best Deals
@@ -752,7 +657,9 @@ export default function LandingPageClient({
               {featuredProducts.slice(0, 6).map((product) => (
                 <button
                   key={product.id}
-                  onClick={(e) => handleNavigation(`/products/${product.id}`, e)}
+                  onClick={(e) =>
+                    handleNavigation(`/products/${product.id}`, e)
+                  }
                   className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all duration-300 group cursor-pointer active:scale-[0.98] text-left relative"
                 >
                   {loadingLink === `/products/${product.id}` && (
@@ -803,7 +710,6 @@ export default function LandingPageClient({
           </div>
         </div>
       )}
-
       {/* CTA Section */}
       <div className="bg-gradient-to-r from-black via-gray-900 to-black py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

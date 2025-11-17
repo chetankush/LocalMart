@@ -1,12 +1,58 @@
-import { requireRole } from "@/src/shared/utils/auth";
+import { getCurrentUser } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function VendorDashboardPage() {
-  const user = await requireRole(["VENDOR"]);
+  const user = await getCurrentUser();
 
-  // Check if vendor request was approved and vendor profile exists
+  // Not logged in
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Sorry, you need to be logged in to access the vendor dashboard.
+          </p>
+          <Link
+            href="/sign-in"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Not a vendor
+  if (user.role !== "VENDOR") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">⛔</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Sorry, you are not allowed to access this page. This area is only
+            for approved vendors.
+          </p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            Go to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if vendor profile exists
   const vendor = await prisma.vendor.findUnique({
     where: { userId: user.id },
     include: {
@@ -21,20 +67,66 @@ export default async function VendorDashboardPage() {
     },
   });
 
+  // No vendor profile
   if (!vendor) {
-    // Check if they have a pending request
-    const vendorRequest = await prisma.vendorRequest.findFirst({
-      where: { email: user.email || "" },
-      orderBy: { createdAt: "desc" },
-    });
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">🏪</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            No Vendor Profile Found
+          </h1>
+          <p className="text-gray-600 mb-6">
+            You don't have a vendor profile yet. Please complete the onboarding
+            process.
+          </p>
+          <Link
+            href="/vendor/onboarding"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            Start Onboarding
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-    if (vendorRequest?.status === "PENDING") {
-      redirect("/vendor/pending");
-    } else if (vendorRequest?.status === "REJECTED") {
-      redirect("/vendor/rejected");
-    } else {
-      redirect("/vendor/onboarding");
-    }
+  // Check if vendor is active (both status and isActive flag)
+  if (vendor.status !== "ACTIVE" || !vendor.isActive) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">
+            {vendor.status === "PENDING_APPROVAL" ? "⏳" : "❌"}
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {vendor.status === "PENDING_APPROVAL"
+              ? "Approval Pending"
+              : "Account Inactive"}
+          </h1>
+          <p className="text-gray-600 mb-2">
+            {vendor.status === "PENDING_APPROVAL"
+              ? "Your vendor account is awaiting admin approval."
+              : !vendor.isActive
+              ? "Your vendor account has been deactivated."
+              : "Your vendor account is not active."}
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Status: <span className="font-semibold">{vendor.status}</span> •
+            Active:{" "}
+            <span className="font-semibold">
+              {vendor.isActive ? "Yes" : "No"}
+            </span>
+          </p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+          >
+            Go to Home
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Get statistics

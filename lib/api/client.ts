@@ -22,16 +22,25 @@ class ApiClient {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+      
+      // Use getUser() first - it automatically refreshes expired tokens
+      // This is more reliable than getSession() which might return stale data
+      const userResponse = await supabase.auth.getUser();
+      
+      if (userResponse.data?.user && !userResponse.error) {
+        // User is authenticated, get the session
+        const sessionResponse = await supabase.auth.getSession();
+        const session = sessionResponse.data?.session;
+        
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
       }
+      // If getUser fails or no user, headers will be sent without Authorization
+      // The backend will return 401, which we handle gracefully
     } catch (error) {
-      // Ignore if Supabase is not available (server-side)
-      console.warn("Could not get auth token:", error);
+      // Silently fail - will be handled by 401 response
+      // Don't log here to avoid console spam
     }
 
     return headers;
@@ -39,40 +48,62 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit & { suppressAuthError?: boolean } = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const { suppressAuthError, ...fetchOptions } = options;
     const headers = await this.getAuthHeaders();
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...fetchOptions,
         headers: {
           ...headers,
-          ...options.headers,
+          ...fetchOptions.headers,
         },
         credentials: "include",
       });
 
       if (!response.ok) {
-        const error = await response
-          .json()
-          .catch(() => ({ message: "Unknown error" }));
-
-        // Handle 401 Unauthorized gracefully - don't throw, return empty response
-        if (response.status === 401) {
-          console.warn(`Authentication required for ${endpoint}`);
-          // Return a default empty response structure for 401
-          return {
-            success: false,
-            data: null,
-            message: "Authentication required"
-          } as T;
+        let errorData: any = { message: "Unknown error" };
+        
+        try {
+          errorData = await response.json();
+        } catch {
+          // If response is not JSON, use status text
+          errorData = { message: response.statusText || "Unknown error" };
         }
 
-        throw new Error(
-          error.message || `HTTP error! status: ${response.status}`
-        );
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+          // For non-critical calls (like notifications), return graceful response
+          if (suppressAuthError) {
+            // Don't log errors for suppressed auth failures (non-critical calls)
+            return {
+              success: false,
+              data: null,
+              message: "Authentication required"
+            } as T;
+          }
+          
+          // For critical calls, throw error
+          const authError = new Error("Authentication required. Please sign in again.");
+          (authError as any).status = 401;
+          (authError as any).isAuthError = true;
+          throw authError;
+        }
+
+        // Handle 403 Forbidden
+        if (response.status === 403) {
+          const forbiddenError = new Error(errorData.message || "You don't have permission to perform this action.");
+          (forbiddenError as any).status = 403;
+          throw forbiddenError;
+        }
+
+        // Handle other errors
+        const error = new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+        (error as any).status = response.status;
+        throw error;
       }
 
       return response.json();
@@ -259,7 +290,8 @@ class ApiClient {
 
   async checkVendor() {
     return this.request<{ isVendor: boolean; hasVendor: boolean }>(
-      "/vendor/check"
+      "/vendor/check",
+      { suppressAuthError: true } // Suppress auth errors for non-critical calls
     );
   }
 
@@ -417,7 +449,8 @@ class ApiClient {
       ? `?${new URLSearchParams(params as any).toString()}`
       : "";
     return this.request<{ success: boolean; data: any }>(
-      `/notifications${query}`
+      `/notifications${query}`,
+      { suppressAuthError: true } // Suppress auth errors for non-critical calls
     );
   }
 

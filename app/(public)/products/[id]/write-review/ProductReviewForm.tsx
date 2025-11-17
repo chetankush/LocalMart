@@ -43,7 +43,7 @@ export default function ProductReviewForm({
         formData.append("file", file);
         formData.append("type", "reviews");
 
-        const response = await fetch("/api/vendor/upload", {
+        const response = await fetch("/api/public/upload", {
           method: "POST",
           body: formData,
         });
@@ -82,22 +82,53 @@ export default function ProductReviewForm({
     setError("");
 
     try {
-      const { apiClient } = await import("@/lib/api/client");
-      const data = await apiClient.createProductReview({
-        productId,
-        rating,
-        comment: comment.trim() || null,
-        images: uploadedImages.length > 0 ? uploadedImages : null,
+      // Use Next.js API route (more reliable for authentication)
+      const response = await fetch("/api/public/products/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId,
+          rating,
+          comment: comment.trim() || null,
+          images: uploadedImages.length > 0 ? uploadedImages : null,
+        }),
       });
 
-      if (data.success) {
+      const data = await response.json();
 
-      // Success - redirect back to product page
-      router.push(`/products/${productId}?reviewSubmitted=true#reviews`);
-      router.refresh();
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 401) {
+          setError("Please sign in to submit a review.");
+          setTimeout(() => {
+            const returnUrl = `/products/${productId}/write-review`;
+            router.push(`/sign-in?redirect=${encodeURIComponent(returnUrl)}`);
+          }, 1500);
+          return;
+        } else if (response.status === 403) {
+          setError(data.error || "You don't have permission to perform this action.");
+          return;
+        } else {
+          throw new Error(data.error || "Failed to submit review");
+        }
+      }
+
+      if (data.success) {
+        // Success - redirect back to product page
+        router.push(`/products/${productId}?reviewSubmitted=true#reviews`);
+        router.refresh();
+      } else {
+        throw new Error(data.message || "Failed to submit review");
+      }
     } catch (error: any) {
       console.error("Error submitting review:", error);
-      setError(error.message || "Failed to submit review. Please try again.");
+      if (error.message) {
+        setError(error.message);
+      } else {
+        setError("Failed to submit review. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }

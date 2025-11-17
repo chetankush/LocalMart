@@ -67,8 +67,11 @@ export default function NotificationBell() {
         setNotifications([]);
         setUnreadCount(0);
       }
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error);
+    } catch (error: any) {
+      // Silently handle auth errors (user might not be logged in)
+      if (!error?.isAuthError && error?.status !== 401) {
+        console.error("Failed to fetch notifications:", error);
+      }
       // Set empty state on error
       setNotifications([]);
       setUnreadCount(0);

@@ -48,9 +48,14 @@ const Navbar = () => {
         apiClient
           .checkVendor()
           .then((data) => {
-            setIsApprovedVendor(data.isVendor && data.hasVendor);
+            if (data.success !== false) {
+              setIsApprovedVendor(data.isVendor && data.hasVendor);
+            } else {
+              setIsApprovedVendor(false);
+            }
           })
           .catch(() => {
+            // Silently handle errors (auth or network)
             setIsApprovedVendor(false);
           });
       });
@@ -158,7 +163,7 @@ const Navbar = () => {
       )}
 
       <header className="bg-gray-900 text-white sticky top-0 z-50 shadow-lg border-b border-gray-800">
-        <div className="flex justify-between items-center p-4 gap-4 h-16 max-w-7xl mx-auto">
+        <div className="flex justify-between items-center p-4 gap-4 h-16 w-full px-6">
         <div className="flex items-center gap-4">
           {branding ? (
             <button
@@ -242,8 +247,8 @@ const Navbar = () => {
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex-1 max-w-2xl mx-4 search-container relative">
+        {/* Search Bar - Full Width Stretched */}
+        <div className="flex-1 mx-4 search-container relative">
           <div className="relative">
             <input
               type="text"
@@ -495,27 +500,16 @@ const Navbar = () => {
                         {loadingLink === "/favorite-stores" && <LoadingSpinner size="sm" />}
                         <span>❤️ Favorite Stores</span>
                       </button>
-                      {isApprovedVendor ? (
+                      {isApprovedVendor && (
                         <button
                           onClick={(e) => {
                             setShowDropdown(false);
                             handleNavigation("/vendor/dashboard", e);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-2"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 cursor-pointer transition-colors flex items-center gap-2 font-medium"
                         >
                           {loadingLink === "/vendor/dashboard" && <LoadingSpinner size="sm" />}
-                          <span>Vendor Dashboard</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            setShowDropdown(false);
-                            handleNavigation("/become-vendor", e);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-2"
-                        >
-                          {loadingLink === "/become-vendor" && <LoadingSpinner size="sm" />}
-                          <span>Become a Vendor</span>
+                          <span>🏪 Vendor Dashboard</span>
                         </button>
                       )}
                       <button
