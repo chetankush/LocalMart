@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { LANDING_CATEGORIES } from "@/constants/landingCategories";
 import ModernStoreCard from "@/components/ModernStoreCard";
+import RecentlyViewed from "@/components/RecentlyViewed";
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
@@ -506,6 +507,10 @@ export default function LandingPageClient({
           <span className="text-xl md:text-2xl font-bold">&rsaquo;</span>
         </button>
       </div>
+      
+      {/* Recently Viewed Section */}
+      <RecentlyViewed />
+      
       {/* Featured Stores Section with Filters */}
       <div className="py-12 bg-white">
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">

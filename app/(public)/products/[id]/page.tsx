@@ -4,6 +4,7 @@ import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
 import ProductReviews from "./ProductReviews";
 import { serializeProduct, serializeVendor } from "@/lib/utils/serialize";
+import { TrackProductView } from "@/components/TrackView";
 
 // ⚡ ISR: Revalidate product pages every 3 minutes
 export const revalidate = 180;
@@ -137,6 +138,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Track product view */}
+      <TrackProductView
+        product={{
+          id: product.id,
+          name: product.name,
+          price: Number(product.price),
+          image: images[0] || "/placeholder-product.png",
+        }}
+      />
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav className="mb-6 text-sm">

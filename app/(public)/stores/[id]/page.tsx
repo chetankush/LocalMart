@@ -9,6 +9,7 @@ import FashionTheme from "./themes/FashionTheme";
 import DefaultTheme from "./themes/DefaultTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
 import { serializeVendor, serializeProducts } from "@/lib/utils/serialize";
+import { TrackStoreView } from "@/components/TrackView";
 
 // ⚡ ISR: Revalidate store pages every 2 minutes
 export const revalidate = 120;
@@ -169,6 +170,14 @@ export default async function StorePage({ params }: StorePageProps) {
 
   return (
     <>
+      {/* Track store view */}
+      <TrackStoreView
+        store={{
+          id: vendorData.id,
+          businessName: vendorData.businessName,
+          storeLogo: vendorData.storeLogo,
+        }}
+      />
       {renderTheme()}
 
       {/* Reviews Section - Shared across all themes */}

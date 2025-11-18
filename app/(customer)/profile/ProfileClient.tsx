@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, User, Mail, Phone, Calendar, Edit2, Plus, X, Star } from "lucide-react";
+import { ArrowLeft, User, Mail, Phone, Calendar, Edit2, Plus, X, Star, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  getRecentlyViewedVisibility,
+  setRecentlyViewedVisibility,
+  clearAllRecentlyViewed,
+  getRecentlyViewedProducts,
+  getRecentlyViewedStores,
+} from "@/lib/utils/recentlyViewed";
 
 interface ProfileClientProps {
   user: {
@@ -30,6 +37,8 @@ export default function ProfileClient({ user }: ProfileClientProps) {
   const [newPhone, setNewPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showRecentlyViewed, setShowRecentlyViewed] = useState(true);
+  const [recentlyViewedCount, setRecentlyViewedCount] = useState(0);
 
   const handleAddEmail = () => {
     if (!newEmail.trim()) return;
@@ -109,6 +118,31 @@ export default function ProfileClient({ user }: ProfileClientProps) {
       setMessage({ type: "error", text: error.message || "Failed to update profile" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    // Load visibility preference
+    setShowRecentlyViewed(getRecentlyViewedVisibility());
+    
+    // Load count of recently viewed items
+    const products = getRecentlyViewedProducts();
+    const stores = getRecentlyViewedStores();
+    setRecentlyViewedCount(products.length + stores.length);
+  }, []);
+
+  const handleToggleRecentlyViewed = () => {
+    const newValue = !showRecentlyViewed;
+    setShowRecentlyViewed(newValue);
+    setRecentlyViewedVisibility(newValue);
+  };
+
+  const handleClearHistory = () => {
+    if (confirm("Are you sure you want to clear all recently viewed history? This action cannot be undone.")) {
+      clearAllRecentlyViewed();
+      setRecentlyViewedCount(0);
+      setMessage({ type: "success", text: "Recently viewed history cleared successfully!" });
+      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -425,6 +459,68 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                 Account Created
               </label>
               <p className="text-gray-900 text-lg">{formatDate(user.createdAt)}</p>
+            </div>
+
+            {/* Recently Viewed Settings */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Recently Viewed Settings
+              </h3>
+              <div className="space-y-4">
+                {/* Toggle Visibility */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                      {showRecentlyViewed ? (
+                        <Eye className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <EyeOff className="w-4 h-4 text-gray-400" />
+                      )}
+                      Show Recently Viewed Section
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      Toggle visibility of the recently viewed section on the home page
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleToggleRecentlyViewed}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                      showRecentlyViewed ? "bg-orange-500" : "bg-gray-300"
+                    }`}
+                    aria-label="Toggle recently viewed visibility"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        showRecentlyViewed ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Clear History */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                      Clear Viewing History
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      {recentlyViewedCount > 0
+                        ? `You have ${recentlyViewedCount} item${recentlyViewedCount !== 1 ? "s" : ""} in your viewing history`
+                        : "No items in viewing history"}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleClearHistory}
+                    variant="outline"
+                    disabled={recentlyViewedCount === 0}
+                    className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear History
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}
