@@ -246,7 +246,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
           {/* Left Navigation Arrow */}
           <button
             onClick={() => scrollCategories("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
             aria-label="Scroll categories left"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -260,11 +260,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
           >
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all ${
-                selectedCategory === null
-                  ? "opacity-100"
-                  : "opacity-70 hover:opacity-100"
-              }`}
+              className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all opacity-100`}
             >
               <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-gray-300 bg-white">
                 <div className="w-full h-full flex items-center justify-center text-2xl">
@@ -287,11 +283,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     selectedCategory === category.name ? null : category.name
                   )
                 }
-                className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all ${
-                  selectedCategory === category.name
-                    ? "opacity-100"
-                    : "opacity-70 hover:opacity-100"
-                }`}
+                className={`flex-shrink-0 flex flex-col items-center gap-2 transition-all opacity-100`}
               >
                 <div
                   className={`relative w-16 h-16 rounded-full overflow-hidden border-2 transition-all ${
@@ -324,7 +316,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
           {/* Right Navigation Arrow */}
           <button
             onClick={() => scrollCategories("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
             aria-label="Scroll categories right"
           >
             <ChevronRight className="w-5 h-5" />

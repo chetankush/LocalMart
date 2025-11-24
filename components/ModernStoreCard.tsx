@@ -44,10 +44,10 @@ export default function ModernStoreCard({
   };
 
   return (
-    <div className="w-full rounded-3xl bg-white shadow-lg p-4 border-2 border-gray-300 hover:shadow-xl hover:border-orange-400 transition-all duration-300 cursor-pointer relative">
+    <div className="w-full rounded-3xl bg-white shadow-lg p-4 border-2 border-gray-300 hover:shadow-xl hover:border-black transition-all duration-300 cursor-pointer relative">
       {isLoading && (
-        <div className="absolute inset-0 bg-white/90 z-50 flex items-center justify-center rounded-3xl">
-          <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="absolute inset-0 bg-white/90 z-10 flex items-center justify-center rounded-3xl">
+          <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
 
