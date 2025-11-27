@@ -123,6 +123,8 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     };
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
 
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+
   // Timer for flash deals
   useEffect(() => {
     const timer = setInterval(() => {
@@ -130,6 +132,8 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+
 
   // Filter products based on search and category
   const filteredProducts = products.filter((product) => {
@@ -157,6 +161,22 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       return { ...product, discountPercent, originalPrice };
     });
 
+  // Handle scroll arrows visibility for Flash Deals
+  useEffect(() => {
+    const container = document.getElementById("deals-scroll");
+    if (!container) return;
+
+    const handleScroll = () => {
+      setShowLeftArrow(container.scrollLeft > 0);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [flashDeals]); // Re-run when flash deals change/render
+
   // Calculate discount percentage
   const getDiscountPercent = (price: number) => {
     const discounts = [10, 15, 20, 25, 30, 35, 40];
@@ -170,6 +190,24 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
   const hours = Math.floor(timeLeft / 3600);
   const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
+
+  const [showCategoryLeftArrow, setShowCategoryLeftArrow] = useState(false);
+
+  // Handle scroll arrows visibility for Categories
+  useEffect(() => {
+    const container = document.getElementById("categories-scroll");
+    if (!container) return;
+
+    const handleScroll = () => {
+      setShowCategoryLeftArrow(container.scrollLeft > 0);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const scrollDeals = (direction: "left" | "right") => {
     const container = document.getElementById("deals-scroll");
@@ -242,20 +280,22 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Categories Section - Horizontal Scrollable with Images */}
       <section className="bg-white border-b border-gray-200 py-4">
-        <div className="max-w-7xl mx-auto px-4 relative">
+        <div className="max-w-7xl mx-auto px-8 md:px-12 relative">
           {/* Left Navigation Arrow */}
-          <button
-            onClick={() => scrollCategories("left")}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
-            aria-label="Scroll categories left"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+          {showCategoryLeftArrow && (
+            <button
+              onClick={() => scrollCategories("left")}
+              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
+              aria-label="Scroll categories left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
 
           {/* Categories Scroll Container */}
           <div
             id="categories-scroll"
-            className="flex items-center gap-4 overflow-x-auto scrollbar-hide px-10"
+            className="flex items-center gap-4 overflow-x-auto scrollbar-hide px-2"
             style={{ scrollBehavior: "smooth" }}
           >
             <button
@@ -313,14 +353,17 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
             ))}
           </div>
 
-          {/* Right Navigation Arrow */}
-          <button
-            onClick={() => scrollCategories("right")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors"
-            aria-label="Scroll categories right"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          {/* Right Navigation Arrow with Fade Effect */}
+          {/* Right Navigation Arrow with Fade Effect */}
+          <div className="absolute -right-4 top-0 bottom-0 w-32 bg-gradient-to-l from-white via-white/90 to-transparent pointer-events-none z-10 flex items-center justify-end pr-4">
+            <button
+              onClick={() => scrollCategories("right")}
+              className="bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full p-2 shadow-md transition-colors pointer-events-auto"
+              aria-label="Scroll categories right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -329,7 +372,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             {/* Left Content */}
-            <div className="space-y-5">
+            <div className="space-y-5 pl-4 md:pl-12">
               {/* Hero Heading - Welcome Message */}
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2 leading-tight">
@@ -386,11 +429,11 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
             </div>
 
             {/* Right Side - Store Images Carousel - 30% Smaller */}
-            <div className="relative group flex flex-col items-center">
+            <div className="relative group flex flex-col items-center pr-4 md:pr-12">
               {storeImages.length > 0 ? (
                 <>
-                  {/* Main Carousel Image - Reduced by 30% */}
-                  <div className="relative w-[70%] aspect-square rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200">
+                  {/* Main Carousel Image - Full Width */}
+                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200">
                     <Image
                       src={storeImages[currentImageIndex]}
                       alt={`Store image ${currentImageIndex + 1}`}
@@ -441,30 +484,43 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
 
                   {/* Smaller Thumbnail Images Below - Grid Layout */}
                   {storeImages.length > 1 && (
-                    <div className="mt-3 w-[70%] grid grid-cols-4 gap-2">
-                      {storeImages.map((image: string, index: number) => (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentImageIndex(index)}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                            index === currentImageIndex
-                              ? "border-green-600 ring-2 ring-green-300"
-                              : "border-gray-300 hover:border-green-400"
-                          }`}
-                        >
-                          <Image
-                            src={image}
-                            alt={`Thumbnail ${index + 1}`}
-                            fill
-                            className="object-cover"
-                          />
-                        </button>
-                      ))}
+                    <div className="mt-3 w-full grid grid-cols-5 gap-2">
+                      {storeImages.slice(0, 5).map((image: string, index: number) => {
+                        const isLast = index === 4;
+                        const remainingCount = storeImages.length - 5;
+                        const showOverlay = isLast && remainingCount > 0;
+
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentImageIndex(index)}
+                            className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                              index === currentImageIndex
+                                ? "border-green-600 ring-2 ring-green-300"
+                                : "border-gray-300 hover:border-green-400"
+                            }`}
+                          >
+                            <Image
+                              src={image}
+                              alt={`Thumbnail ${index + 1}`}
+                              fill
+                              className="object-cover"
+                            />
+                            {showOverlay && (
+                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">
+                                  +{remainingCount + 1}
+                                </span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </>
               ) : vendor.storeLogo ? (
-                <div className="relative w-[70%] aspect-square rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200">
                   <Image
                     src={vendor.storeLogo}
                     alt="Store logo"
@@ -473,7 +529,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                   />
                 </div>
               ) : (
-                <div className="relative w-[70%] aspect-square rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200 bg-gradient-to-br from-green-100 to-orange-100 flex items-center justify-center">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200 bg-gradient-to-br from-green-100 to-orange-100 flex items-center justify-center">
                   <div className="text-6xl">🏪</div>
                 </div>
               )}
@@ -485,7 +541,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       {/* Flash Deals Section - Modern Design */}
       {flashDeals.length > 0 && (
         <section id="flash-deals-section" className="bg-white py-8 border-b border-gray-200 scroll-mt-20">
-          <div className="max-w-7xl mx-auto px-4">
+          <div className="max-w-7xl mx-auto px-8 md:px-12">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="bg-gradient-to-br from-orange-500 to-red-500 p-3 rounded-xl shadow-lg">
@@ -563,12 +619,14 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                   );
                 })}
               </div>
-              <button
-                onClick={() => scrollDeals("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border-2 border-gray-300 rounded-full p-3 shadow-lg hover:bg-gray-50 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-700" />
-              </button>
+              {showLeftArrow && (
+                <button
+                  onClick={() => scrollDeals("left")}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border-2 border-gray-300 rounded-full p-3 shadow-lg hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-700" />
+                </button>
+              )}
               <button
                 onClick={() => scrollDeals("right")}
                 className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border-2 border-gray-300 rounded-full p-3 shadow-lg hover:bg-gray-50 transition-colors"
@@ -581,7 +639,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       )}
 
       {/* Products Grid - Modern Design */}
-      <section className="max-w-7xl mx-auto px-4 py-8">
+      <section className="max-w-7xl mx-auto px-8 md:px-12 py-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
             {selectedCategory ? selectedCategory : "All Products"}
@@ -600,7 +658,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
         </div>
 
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProducts.map((product) => {
               const images = Array.isArray(product.images)
                 ? product.images
@@ -616,7 +674,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                 <div
                   key={product.id}
                   id={`product-${product.id}`}
-                  className="bg-white rounded-2xl border-2 border-gray-200 hover:shadow-xl hover:border-green-400 transition-all duration-300 overflow-hidden group relative"
+                  className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden group relative flex flex-col"
                 >
                   {/* Discount Badge */}
                   {discountPercent >= 20 && (
@@ -632,15 +690,15 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     </div>
                   )}
 
-                  <Link href={`/products/${product.id}`} className="block">
+                  <Link href={`/products/${product.id}`} className="block flex-grow">
                     {/* Product Image */}
-                    <div className="relative aspect-square bg-gray-50">
+                    <div className="relative aspect-square bg-white p-4">
                       {firstImage ? (
                         <Image
                           src={firstImage}
                           alt={product.name}
                           fill
-                          className="object-contain p-4 group-hover:scale-110 transition-transform duration-300"
+                          className="object-contain hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center text-5xl">
@@ -657,46 +715,51 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     </div>
 
                     {/* Product Info */}
-                    <div className="p-4 space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 min-h-[2.5rem] leading-tight">
-                        {product.name}
-                      </h3>
-
-                      {/* Rating */}
-                      {product.averageRating && product.reviewCount > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs font-semibold text-gray-900">
-                            {Number(product.averageRating).toFixed(1)}
-                          </span>
-                          <span className="text-xs text-gray-600">
+                    <div className="px-4 pt-2 pb-4 space-y-2">
+                      {/* Rating - Placed before Name */}
+                      {product.averageRating && product.reviewCount > 0 ? (
+                        <div className="flex items-center gap-1 mb-1">
+                          <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold gap-0.5">
+                            {Number(product.averageRating).toFixed(1)} <Star className="w-2.5 h-2.5 fill-white" />
+                          </div>
+                          <span className="text-xs text-gray-500">
                             ({product.reviewCount})
                           </span>
                         </div>
+                      ) : (
+                         <div className="flex items-center gap-1 mb-1">
+                           <div className="flex items-center bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                             No reviews
+                           </div>
+                         </div>
                       )}
 
+                      <h3 className="text-base font-medium text-gray-900 leading-snug">
+                        {product.name}
+                      </h3>
+
                       {/* Price */}
-                      <div>
+                      <div className="mt-1">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-xl font-bold text-gray-900">
+                          <span className="text-lg font-bold text-gray-900">
                             ₹{Number(product.price).toFixed(0)}
                           </span>
-                          {discountPercent >= 15 && (
+                          {discountPercent >= 5 && (
                             <span className="text-sm text-gray-500 line-through">
                               ₹{originalPrice}
                             </span>
                           )}
                         </div>
-                        {discountPercent >= 15 && (
-                          <div className="text-xs text-green-600 font-semibold">
+                        {discountPercent >= 5 && (
+                          <div className="text-xs text-green-600 font-bold">
                             Save ₹{originalPrice - Number(product.price)}
                           </div>
                         )}
                       </div>
 
                       {/* Delivery Info */}
-                      <div className="text-xs text-gray-600">
-                        <span className="text-green-600 font-semibold">
+                      <div className="text-xs text-gray-500 bg-gray-50 inline-block px-2 py-1 rounded">
+                        <span className="text-green-600 font-bold">
                           FREE Delivery
                         </span>{" "}
                         by Tomorrow
@@ -705,7 +768,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                   </Link>
 
                   {/* Add to Cart Button */}
-                  <div className="px-4 pb-4">
+                  <div className="px-4 pb-4 mt-auto">
                     {product.stockQuantity > 0 ? (
                       <AddToCartButton
                         product={product}
@@ -714,7 +777,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     ) : (
                       <button
                         disabled
-                        className="w-full bg-gray-200 text-gray-500 text-sm font-bold py-2.5 rounded-xl cursor-not-allowed"
+                        className="w-full bg-gray-200 text-gray-500 text-sm font-bold py-2.5 rounded-lg cursor-not-allowed"
                       >
                         OUT OF STOCK
                       </button>
@@ -754,7 +817,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
 
       {/* Benefits Section - Modern Design */}
       <section className="bg-gradient-to-b from-gray-50 to-white py-12 border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-8 md:px-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
               {

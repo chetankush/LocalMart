@@ -12,6 +12,11 @@ export default function CartIcon() {
   const cartItems = useAppSelector(selectCartItems);
   const [showMiniCart, setShowMiniCart] = useState(false);
   const [prevItemsCount, setPrevItemsCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Show mini cart when items are added
   useEffect(() => {
@@ -41,7 +46,7 @@ export default function CartIcon() {
         aria-label="Shopping cart"
       >
         <ShoppingCart className="w-6 h-6 text-white" />
-        {itemsCount > 0 && (
+        {mounted && itemsCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
             {itemsCount > 99 ? '99+' : itemsCount}
           </span>
