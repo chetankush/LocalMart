@@ -99,9 +99,7 @@ export async function POST(request: NextRequest) {
       "-" +
       Date.now();
 
-    // Create product
-    const product = await prisma.product.create({
-      data: {
+    const productData = {
         vendorId,
         categoryId,
         name,
@@ -110,12 +108,18 @@ export async function POST(request: NextRequest) {
         images,
         price,
         compareAtPrice: compareAtPrice || null,
-        sku: sku || null,
+        sku: sku ? sku : null, // Explicitly handle empty string
         stockQuantity: stockQuantity || 0,
         lowStockThreshold: lowStockThreshold || 10,
         weight: weight || null,
         isActive: isActive !== undefined ? isActive : true,
-      },
+    };
+
+    console.log("Creating product with data:", JSON.stringify(productData, null, 2));
+
+    // Create product
+    const product = await prisma.product.create({
+      data: productData,
       include: {
         category: true,
       },

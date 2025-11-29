@@ -203,7 +203,13 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
+              <Link 
+                href="/admin/product-templates" 
+                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+              >
+                Product Templates
+              </Link>
               <button
                 onClick={() => {
                   localStorage.removeItem("adminAuth");

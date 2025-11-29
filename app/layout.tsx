@@ -8,7 +8,8 @@ import { StoreBrandingProvider } from "@/context/StoreBrandingContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CartSidebar from "@/components/cart/CartSidebar";
-import NavigationProgress from "@/components/NavigationProgress";
+import NextTopLoader from "nextjs-toploader";
+
 import InstantNavigationProvider from "@/components/InstantNavigationProvider";
 import WebVitalsTracker from "@/components/WebVitalsTracker";
 import "./globals.css";
@@ -45,8 +46,18 @@ export default function RootLayout({
             <LocationProvider>
               <StoreBrandingProvider>
                 <InstantNavigationProvider>
+                  <NextTopLoader
+                    color="#2563eb"
+                    initialPosition={0.08}
+                    crawlSpeed={200}
+                    height={3}
+                    crawl={true}
+                    showSpinner={false}
+                    easing="ease"
+                    speed={200}
+                    shadow="0 0 10px #2563eb,0 0 5px #2563eb"
+                  />
                   <WebVitalsTracker />
-                  <NavigationProgress />
                   <Navbar />
                   <main className="min-h-screen">{children}</main>
                   <Footer />

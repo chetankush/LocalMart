@@ -259,15 +259,42 @@ model Category {
   icon        String?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
+  storeThemes StoreTheme[] @default([DEFAULT])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
   products    Product[]
+  productTemplates ProductTemplate[]
 
   @@index([slug])
   @@index([isActive])
   @@map("categories")
+}
+
+model ProductTemplate {
+  id                String   @id @default(uuid())
+  categoryId        String
+  
+  name              String
+  description       String   @db.Text
+  suggestedImage    String?
+  suggestedPrice    Decimal? @db.Decimal(10, 2)
+  suggestedWeight   Decimal? @db.Decimal(10, 2)
+  
+  isPopular         Boolean  @default(false)
+  usageCount        Int      @default(0)
+  tags              String[] @default([])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  category          Category @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([isPopular])
+  @@map("product_templates")
 }
 
 model Product {

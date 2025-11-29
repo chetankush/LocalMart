@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { LayoutGrid, List, ChevronDown, ChevronUp, X } from "lucide-react";
 
 interface Category {
   id: string;
@@ -69,6 +70,8 @@ export default function AddProductForm({
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ProductTemplate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   // Fetch templates when category changes
   useEffect(() => {
@@ -94,8 +97,69 @@ export default function AddProductForm({
     fetchTemplates();
   }, [formData.categoryId]);
 
+  // Default templates for Kirana store
+  const DEFAULT_TEMPLATES: ProductTemplate[] = [
+    {
+      id: "default-1",
+      name: "Aashirvaad Shudh Chakki Atta",
+      description: "100% whole wheat flour, 0% maida. Soft and fluffy rotis.",
+      suggestedPrice: 450,
+      suggestedWeight: 10,
+      isPopular: true,
+      tags: ["atta", "flour", "wheat"],
+      suggestedImage: "https://loremflickr.com/600/600/wheat,flour",
+      category: { id: "default", name: "Atta, Rice & Dal" }
+    },
+    {
+      id: "default-2",
+      name: "Tata Salt",
+      description: "Vacuum evaporated iodized salt. Desh ka Namak.",
+      suggestedPrice: 28,
+      suggestedWeight: 1,
+      isPopular: true,
+      tags: ["salt", "grocery"],
+      suggestedImage: "https://loremflickr.com/600/600/salt,shaker",
+      category: { id: "default", name: "Dry Fruits, Masala & Oil" }
+    },
+    {
+      id: "default-3",
+      name: "Fortune Refined Soyabean Oil",
+      description: "Healthy and light cooking oil. Rich in Omega 3.",
+      suggestedPrice: 165,
+      suggestedWeight: 1,
+      isPopular: true,
+      tags: ["oil", "cooking oil"],
+      suggestedImage: "https://loremflickr.com/600/600/oil,bottle",
+      category: { id: "default", name: "Dry Fruits, Masala & Oil" }
+    },
+    {
+      id: "default-4",
+      name: "India Gate Basmati Rice",
+      description: "Premium quality basmati rice for biryani and pulao.",
+      suggestedPrice: 120,
+      suggestedWeight: 1,
+      isPopular: false,
+      tags: ["rice", "basmati"],
+      suggestedImage: "https://loremflickr.com/600/600/rice,bowl",
+      category: { id: "default", name: "Atta, Rice & Dal" }
+    },
+    {
+      id: "default-5",
+      name: "Maggi 2-Minute Noodles",
+      description: "Instant noodles with masala tastemaker.",
+      suggestedPrice: 14,
+      suggestedWeight: 0.07,
+      isPopular: true,
+      tags: ["noodles", "snacks"],
+      suggestedImage: "https://loremflickr.com/600/600/noodles,ramen",
+      category: { id: "default", name: "Instant & Frozen Food" }
+    }
+  ];
+
   // Filter templates based on search query
-  const filteredTemplates = templates.filter((template) => {
+  const displayTemplates = templates.length > 0 ? templates : DEFAULT_TEMPLATES;
+  
+  const filteredTemplates = displayTemplates.filter((template) => {
     const query = searchQuery.toLowerCase();
     return (
       template.name.toLowerCase().includes(query) ||
@@ -172,18 +236,41 @@ export default function AddProductForm({
   const handleRemoveImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
-
   const handleUseTemplate = async (template: ProductTemplate) => {
     setSelectedTemplate(template);
+
+    // Find matching category by ID or Name
+    let targetCategoryId = formData.categoryId; // Default to current selection
+    
+    // Check if the template's category ID exists in our categories list
+    const categoryExists = categories.some(c => c.id === template.category.id);
+    
+    if (categoryExists) {
+      targetCategoryId = template.category.id;
+    } else {
+      // Try to find by name
+      const matchedCategory = categories.find(c => 
+        c.name.toLowerCase() === template.category.name.toLowerCase()
+      );
+      if (matchedCategory) {
+        targetCategoryId = matchedCategory.id;
+      }
+    }
 
     // Auto-fill form with template data
     setFormData((prev) => ({
       ...prev,
       name: template.name,
       description: template.description,
+      categoryId: targetCategoryId,
       price: template.suggestedPrice?.toString() || "",
       weight: template.suggestedWeight?.toString() || "",
     }));
+
+    // Set template image if available
+    if (template.suggestedImage) {
+      setImages([template.suggestedImage]);
+    }
 
     // Hide templates section after selection
     setShowTemplates(false);
@@ -228,7 +315,7 @@ export default function AddProductForm({
         // Refresh the page to get updated categories
         window.location.reload();
       } else {
-        alert(data.error || "Failed to add category");
+        alert(data.message || "Failed to add category");
       }
     } catch (error) {
       console.error("Add category error:", error);
@@ -258,6 +345,13 @@ export default function AddProductForm({
       return;
     }
 
+    // Validate category exists
+    const isValidCategory = categories.some(c => c.id === formData.categoryId);
+    if (!isValidCategory) {
+      alert("Invalid category selected. Please select a category from the list.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -270,6 +364,7 @@ export default function AddProductForm({
         compareAtPrice: formData.compareAtPrice
           ? parseFloat(formData.compareAtPrice)
           : null,
+        sku: formData.sku ? formData.sku : null,
         stockQuantity: parseInt(formData.stockQuantity) || 0,
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
@@ -279,7 +374,7 @@ export default function AddProductForm({
         alert("Product added successfully!");
         router.push("/vendor/products");
       } else {
-        alert(data.error || "Failed to add product");
+        alert(data.message || "Failed to add product");
       }
     } catch (error) {
       console.error("Product creation error:", error);
@@ -292,24 +387,53 @@ export default function AddProductForm({
   return (
     <div className="space-y-8">
       {/* Product Template Selection */}
-      {showTemplates && templates.length > 0 && (
+      {showTemplates && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg p-6 border-2 border-blue-200">
-          <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                ⚡ Quick Start with Product Templates
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                <span>⚡ Select from Popular Products</span>
               </h2>
               <p className="text-gray-600 text-sm">
                 Save time! Select a popular product template and customize it with your details
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleSkipTemplates}
-              className="text-sm text-gray-500 hover:text-gray-700 font-medium"
-            >
-              Skip & Add Manually →
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'grid' 
+                      ? 'bg-blue-50 text-blue-600' 
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-md transition-colors ${
+                    viewMode === 'list' 
+                      ? 'bg-blue-50 text-blue-600' 
+                      : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                  title="List View"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTemplates(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Hide Templates"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -329,54 +453,104 @@ export default function AddProductForm({
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : filteredTemplates.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {filteredTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
-                  onClick={() => handleUseTemplate(template)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {template.name}
-                    </h3>
-                    {template.isPopular && (
-                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">
-                        Popular
-                      </span>
+            <>
+              <div className={`grid gap-4 ${
+                viewMode === 'grid' 
+                  ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
+                  : 'grid-cols-1'
+              }`}>
+                {filteredTemplates
+                  .slice(0, showAllTemplates ? undefined : 3)
+                  .map((template) => (
+                  <div
+                    key={template.id}
+                    className={`bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group ${
+                      viewMode === 'list' ? 'p-4 flex gap-4 items-center' : 'p-4'
+                    }`}
+                    onClick={() => handleUseTemplate(template)}
+                  >
+                    {/* Image for both Grid and List views */}
+                    {template.suggestedImage && (
+                      <div className={`relative flex-shrink-0 rounded-md overflow-hidden bg-gray-100 ${
+                        viewMode === 'list' ? 'w-24 h-24' : 'w-full aspect-square mb-3'
+                      }`}>
+                        <Image 
+                          src={template.suggestedImage} 
+                          alt={template.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
                     )}
-                  </div>
-                  <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                    {template.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    {template.suggestedPrice && (
-                      <span className="text-sm font-medium text-green-600">
-                        ₹{template.suggestedPrice}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                    >
-                      Use Template
-                    </button>
-                  </div>
-                  {template.tags && template.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {template.tags.slice(0, 3).map((tag: string, index: number) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate pr-2">
+                          {template.name}
+                        </h3>
+                        {template.isPopular && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium flex-shrink-0">
+                            Popular
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                        {template.description}
+                      </p>
+                      
+                      <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center gap-3">
+                          {template.suggestedPrice && (
+                            <span className="text-sm font-medium text-green-600">
+                              ₹{template.suggestedPrice}
+                            </span>
+                          )}
+                          {template.tags && template.tags.length > 0 && (
+                            <div className="flex gap-1">
+                              {template.tags.slice(0, 2).map((tag: string, index: number) => (
+                                <span
+                                  key={index}
+                                  className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <button
+                          type="button"
+                          className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium whitespace-nowrap ml-2"
                         >
-                          {tag}
-                        </span>
-                      ))}
+                          Use Template
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  </div>
+                ))}
+              </div>
+
+              {filteredTemplates.length > 3 && (
+                <div className="mt-6 text-center border-t border-gray-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllTemplates(!showAllTemplates)}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors px-4 py-2 rounded-lg hover:bg-blue-50"
+                  >
+                    {showAllTemplates ? (
+                      <>
+                        Show Less <ChevronUp className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        See All {filteredTemplates.length} Templates <ChevronDown className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-8 text-gray-500">
               No templates found. Try a different search or{" "}
@@ -390,6 +564,18 @@ export default function AddProductForm({
             </div>
           )}
         </div>
+      )}
+
+      {/* Show Templates Button */}
+      {!showTemplates && !selectedTemplate && (
+        <button
+          type="button"
+          onClick={() => setShowTemplates(true)}
+          className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5"
+        >
+          <span className="text-2xl">⚡</span> 
+          <span className="text-lg">Add Kirana Products from List</span>
+        </button>
       )}
 
       {/* Show selected template info */}
@@ -514,6 +700,13 @@ export default function AddProductForm({
         <p className="text-xs text-gray-500">
           Upload up to 5 images. First image will be the main product image.
         </p>
+        <div className="mt-2 p-3 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100 flex gap-2 items-start">
+          <span className="text-lg">💡</span>
+          <p>
+            <strong>Tip:</strong> While template images are helpful, we highly recommend uploading your own 
+            <strong> official product images</strong> to build trust with customers.
+          </p>
+        </div>
       </div>
 
       {/* Basic Information */}
@@ -615,36 +808,20 @@ export default function AddProductForm({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SKU (Stock Keeping Unit)
-              </label>
-              <input
-                type="text"
-                name="sku"
-                value={formData.sku}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., BAN-ORG-001"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Weight (kg)
-              </label>
-              <input
-                type="number"
-                name="weight"
-                value={formData.weight}
-                onChange={handleChange}
-                step="0.01"
-                min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Weight (kg)
+            </label>
+            <input
+              type="number"
+              name="weight"
+              value={formData.weight}
+              onChange={handleChange}
+              step="0.01"
+              min="0"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0.00"
+            />
           </div>
         </div>
       </div>

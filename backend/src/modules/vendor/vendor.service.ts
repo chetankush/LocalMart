@@ -377,6 +377,11 @@ export class VendorService {
       '-' +
       Date.now();
 
+    // Ensure SKU is null if it's an empty string or falsy
+    const sku = dto.sku && dto.sku.trim() !== '' ? dto.sku.trim() : null;
+
+    console.log('Creating product with SKU:', sku, 'Original SKU:', dto.sku);
+
     try {
       return await this.prisma.product.create({
         data: {
@@ -388,7 +393,7 @@ export class VendorService {
           images: dto.images,
           price: dto.price,
           compareAtPrice: dto.compareAtPrice || null,
-          sku: dto.sku || null,
+          sku,
           stockQuantity: dto.stockQuantity || 0,
           lowStockThreshold: dto.lowStockThreshold || 10,
           weight: dto.weight || null,
@@ -399,6 +404,7 @@ export class VendorService {
         },
       });
     } catch (error: any) {
+      console.error('Product creation error:', error);
       if (error.code === 'P2002') {
         throw new ConflictException('SKU already exists');
       }

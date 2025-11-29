@@ -1,9 +1,10 @@
 import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import ProductActions from "@/app/vendor/products/ProductActions";
+import ProductsPageClient from "@/app/vendor/products/ProductsPageClient";
+import EmptyProductsState from "@/app/vendor/products/EmptyProductsState";
 
 export default async function VendorProductsPage() {
   const user = await requireRole(["VENDOR"]);
@@ -38,12 +39,7 @@ export default async function VendorProductsPage() {
                 Manage your product inventory
               </p>
             </div>
-            <Link
-              href="/vendor/products/new"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-            >
-              + Add Product
-            </Link>
+            <ProductsPageClient vendorId={vendor.id} />
           </div>
         </div>
       </div>
@@ -83,33 +79,7 @@ export default async function VendorProductsPage() {
 
         {/* Products List */}
         {products.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <svg
-              className="mx-auto h-16 w-16 text-gray-400 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-              />
-            </svg>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No products yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Start adding products to your store to begin selling
-            </p>
-            <Link
-              href="/vendor/products/new"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-            >
-              Add Your First Product
-            </Link>
-          </div>
+          <EmptyProductsState vendorId={vendor.id} />
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
@@ -158,9 +128,6 @@ export default async function VendorProductsPage() {
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
                                 {product.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                SKU: {product.sku || "N/A"}
                               </div>
                             </div>
                           </div>

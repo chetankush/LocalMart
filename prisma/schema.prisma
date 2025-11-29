@@ -260,6 +260,7 @@ model Category {
   icon        String?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
+  storeThemes StoreTheme[] @default([DEFAULT])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

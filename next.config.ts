@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { hostname: "*.supabase.co" },
       { hostname: "images.unsplash.com" },
+      { hostname: "m.media-amazon.com" },
+      { hostname: "loremflickr.com" },
     ],
     formats: ['image/webp', 'image/avif'], // Modern formats for better compression
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -65,7 +67,7 @@ const nextConfig: NextConfig = {
   compress: true,
 
   // 🎯 Production optimizations
-  swcMinify: true, // Use SWC for faster minification
+
 
   // 📊 Reduce build output
   productionBrowserSourceMaps: false,

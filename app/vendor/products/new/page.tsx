@@ -15,11 +15,24 @@ export default async function AddProductPage() {
     redirect("/vendor/onboarding");
   }
 
-  // Get all categories
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
+  // Get all categories filtered by store theme
+  let categories = await prisma.category.findMany({
+    where: {
+      isActive: true,
+      storeThemes: {
+        has: vendor.storeTheme,
+      },
+    },
     orderBy: { name: "asc" },
   });
+
+  // Fallback: If no categories found for theme (or theme is DEFAULT), fetch all active categories
+  if (categories.length === 0) {
+    categories = await prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+    });
+  }
 
   // Debug: Log categories to console
   console.log("Categories fetched:", categories.length);
