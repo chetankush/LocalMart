@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
+import ProductFilters from "@/components/ProductFilters";
 import AddToCartButton from "../AddToCartButton";
 import VendorProductSearch from "@/components/VendorProductSearch";
 import {
@@ -135,7 +136,16 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
 
 
 
-  // Filter products based on search and category
+  const [priceRange, setPriceRange] = useState<{ min: number; max: number }>({
+    min: 0,
+    max: 10000,
+  });
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [selectedSidebarCategories, setSelectedSidebarCategories] = useState<
+    string[]
+  >([]);
+
+  // Filter products based on search, category, price, and rating
   const filteredProducts = products.filter((product) => {
     const matchesSearch =
       searchQuery === "" ||
@@ -146,7 +156,29 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       selectedCategory === null ||
       product.name.toLowerCase().includes(selectedCategory.toLowerCase());
 
-    return matchesSearch && matchesCategory;
+    const productPrice = Number(product.price);
+    const matchesPrice =
+      productPrice >= priceRange.min && productPrice <= priceRange.max;
+
+    // Mock rating for filtering (since product might not have rating in data)
+    // In a real app, this would come from product.rating
+    const mockRating = 4.2; // Default mock rating
+    const matchesRating =
+      selectedRating === null || mockRating >= selectedRating;
+
+    const matchesSidebarCategory =
+      selectedSidebarCategories.length === 0 ||
+      selectedSidebarCategories.some((cat) =>
+        product.name.toLowerCase().includes(cat.toLowerCase())
+      );
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesPrice &&
+      matchesRating &&
+      matchesSidebarCategory
+    );
   });
 
   // Get flash deals (products with discounts - top 6)
@@ -639,9 +671,25 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       )}
 
       {/* Products Grid - Modern Design */}
-      <section className="max-w-7xl mx-auto px-8 md:px-12 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+      <section className="w-full px-4 md:px-6 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar Filters - Desktop */}
+          <div className="hidden lg:block sticky top-24 h-fit flex-shrink-0">
+            <ProductFilters
+              priceRange={priceRange}
+              setPriceRange={setPriceRange}
+              selectedRating={selectedRating}
+              setSelectedRating={setSelectedRating}
+              selectedCategories={selectedSidebarCategories}
+              setSelectedCategories={setSelectedSidebarCategories}
+              categories={KIRANA_CATEGORIES.map((c) => c.name)}
+            />
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
             {selectedCategory ? selectedCategory : "All Products"}
             <span className="text-base font-normal text-gray-600 ml-2">
               ({filteredProducts.length} items)
@@ -813,6 +861,8 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
             )}
           </div>
         )}
+          </div>
+        </div>
       </section>
 
       {/* Benefits Section - Modern Design */}

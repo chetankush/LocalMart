@@ -153,6 +153,7 @@ export class OrdersService {
             contactPhone: true,
             city: true,
             state: true,
+            storeLogo: true,
           },
         },
       },

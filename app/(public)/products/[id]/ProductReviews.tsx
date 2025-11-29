@@ -154,7 +154,7 @@ export default function ProductReviews({
   return (
     <div
       id="reviews"
-      className={`max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 ${productColors.secondary} rounded-2xl mb-12`}
+      className={`max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 rounded-2xl mb-12`}
     >
       <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
         {/* Header */}

@@ -22,8 +22,9 @@ export class AuthGuard implements CanActivate {
     const token = authHeader.substring(7);
 
     try {
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+      // Try both NEXT_PUBLIC_ and non-prefixed versions for compatibility
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseAnonKey) {
         throw new Error('Supabase credentials not configured');

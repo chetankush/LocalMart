@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft } from 'lucide-react';
 
 // Loading Spinner Component
@@ -44,6 +43,7 @@ interface Order {
     contactPhone: string;
     city: string;
     state: string;
+    storeLogo: string | null;
   };
   items: OrderItem[];
 }
@@ -66,9 +66,7 @@ export default function MyOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
   const [loadingLink, setLoadingLink] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
 
   // Optimized navigation handler for instant navigation
   const handleNavigation = (href: string, e?: React.MouseEvent) => {
@@ -85,18 +83,14 @@ export default function MyOrdersPage() {
 
     // Set loading state immediately
     setLoadingLink(href);
-    setIsNavigating(true);
 
     // Navigate
-    startTransition(() => {
-      router.push(href);
-    });
+    router.push(href);
   };
 
   // Clear loading state ONLY when pathname actually changes (navigation complete)
   useEffect(() => {
     setLoadingLink(null);
-    setIsNavigating(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -114,11 +108,31 @@ export default function MyOrdersPage() {
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Ensure session is ready before making API call
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Try to refresh the session
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (!refreshData.session) {
+          router.push('/sign-in');
+          return;
+        }
+      }
+      
       const { apiClient } = await import('@/lib/api/client');
       const data = await apiClient.getOrders();
       setOrders(data.orders || []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error fetching orders:', error);
+      // Check if it's an auth error
+      if (error instanceof Error && (error as Error & { isAuthError?: boolean }).isAuthError) {
+        router.push('/sign-in');
+        return;
+      }
       setError('Failed to load orders. Please try again.');
       setOrders([]);
     } finally {
@@ -236,7 +250,7 @@ export default function MyOrdersPage() {
                       <div className="lg:col-span-2">
                         <h4 className="font-semibold text-gray-900 mb-4">Items Ordered</h4>
                         <div className="space-y-4">
-                          {order.items.map((item) => (
+                          {order.items?.map((item) => (
                             <div key={item.id} className="flex gap-4">
                               <div className="w-20 h-20 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
                                 {item.productImage ? (
@@ -265,21 +279,33 @@ export default function MyOrdersPage() {
                         </div>
 
                         {/* Vendor Info */}
-                        <div className="mt-6 pt-6 border-t">
-                          <h4 className="font-semibold text-gray-900 mb-2">Vendor</h4>
-                          <div className="flex items-start gap-2">
-                            <Home className="w-5 h-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="font-medium text-gray-900">{order.vendor.businessName}</p>
-                              <p className="text-sm text-gray-600">
-                                {order.vendor.city}, {order.vendor.state}
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {order.vendor.contactPhone}
-                              </p>
+                        {order.vendor && (
+                          <div className="mt-6 pt-6 border-t">
+                            <h4 className="font-semibold text-gray-900 mb-2">Vendor</h4>
+                            <div className="flex items-start gap-3">
+                              {order.vendor.storeLogo ? (
+                                <img 
+                                  src={order.vendor.storeLogo} 
+                                  alt={order.vendor.businessName}
+                                  className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
+                                  <Home className="w-5 h-5 text-gray-400" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-gray-900">{order.vendor.businessName}</p>
+                                <p className="text-sm text-gray-600">
+                                  {order.vendor.city}, {order.vendor.state}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {order.vendor.contactPhone}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
 
                       {/* Order Summary */}
@@ -313,16 +339,18 @@ export default function MyOrdersPage() {
                           </div>
 
                           {/* Delivery Address */}
-                          <div className="pt-4 border-t">
-                            <h5 className="font-semibold text-gray-900 mb-2 text-sm">Delivery Address</h5>
-                            <div className="text-sm text-gray-600">
-                              <p className="font-medium text-gray-900">{order.deliveryAddress.fullName}</p>
-                              <p>{order.deliveryAddress.street}</p>
-                              <p>{order.deliveryAddress.city}, {order.deliveryAddress.state}</p>
-                              <p>{order.deliveryAddress.zipCode}</p>
-                              <p className="mt-1">Phone: {order.deliveryAddress.phone}</p>
+                          {order.deliveryAddress && (
+                            <div className="pt-4 border-t">
+                              <h5 className="font-semibold text-gray-900 mb-2 text-sm">Delivery Address</h5>
+                              <div className="text-sm text-gray-600">
+                                <p className="font-medium text-gray-900">{order.deliveryAddress.fullName}</p>
+                                <p>{order.deliveryAddress.street}</p>
+                                <p>{order.deliveryAddress.city}, {order.deliveryAddress.state}</p>
+                                <p>{order.deliveryAddress.zipCode}</p>
+                                <p className="mt-1">Phone: {order.deliveryAddress.phone}</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
