@@ -54,6 +54,15 @@ class ApiClient {
     const { suppressAuthError, ...fetchOptions } = options;
     const headers = await this.getAuthHeaders();
 
+    // Debug logging for product creation
+    if (endpoint === "/vendor/products" && fetchOptions.method === "POST") {
+      console.log("=== HTTP REQUEST DEBUG ===");
+      console.log("URL:", url);
+      console.log("Method:", fetchOptions.method);
+      console.log("Headers:", JSON.stringify(headers, null, 2));
+      console.log("Body:", fetchOptions.body);
+    }
+
     try {
       const response = await fetch(url, {
         ...fetchOptions,
@@ -64,11 +73,23 @@ class ApiClient {
         credentials: "include",
       });
 
+      // Debug logging for product creation response
+      if (endpoint === "/vendor/products" && fetchOptions.method === "POST") {
+        console.log("=== HTTP RESPONSE DEBUG ===");
+        console.log("Status:", response.status);
+        console.log("StatusText:", response.statusText);
+        console.log("OK:", response.ok);
+      }
+
       if (!response.ok) {
         let errorData: any = { message: "Unknown error" };
         
         try {
           errorData = await response.json();
+          // Debug logging for error response
+          if (endpoint === "/vendor/products") {
+            console.log("Error Response Body:", JSON.stringify(errorData, null, 2));
+          }
         } catch {
           // If response is not JSON, use status text
           errorData = { message: response.statusText || "Unknown error" };
@@ -95,7 +116,9 @@ class ApiClient {
 
         // Handle 403 Forbidden
         if (response.status === 403) {
-          const forbiddenError = new Error(errorData.message || "You don't have permission to perform this action.");
+          const errorMessage = errorData.message || errorData.error || "You don't have permission to perform this action.";
+          console.error("API Client 403 Error:", { errorData, errorMessage });
+          const forbiddenError = new Error(errorMessage);
           (forbiddenError as any).status = 403;
           throw forbiddenError;
         }
@@ -288,15 +311,69 @@ class ApiClient {
     );
   }
 
+  // Store type for multi-store support
   async checkVendor() {
-    return this.request<{ isVendor: boolean; hasVendor: boolean }>(
-      "/vendor/check",
-      { suppressAuthError: true } // Suppress auth errors for non-critical calls
+    return this.request<{
+      success: boolean;
+      data: {
+        isVendor: boolean;
+        hasVendor: boolean;
+        stores: Array<{
+          id: string;
+          businessName: string;
+          status: string;
+          isActive: boolean;
+        }>;
+        canAddStore: boolean;
+        vendorRequest?: {
+          status: string;
+          businessName: string;
+          createdAt: string;
+          rejectionReason?: string;
+        } | null;
+      };
+    }>("/vendor/check", { suppressAuthError: true });
+  }
+
+  // Get all stores for the vendor
+  async getVendorStores() {
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        businessName: string;
+        businessType: string;
+        city: string;
+        status: string;
+        isActive: boolean;
+        storeLogo?: string;
+        createdAt: string;
+      }>;
+    }>("/vendor/stores");
+  }
+
+  // Create a new store (for existing vendors)
+  async createVendorStore(data: {
+    businessName: string;
+    businessType: string;
+    city: string;
+    address: string;
+    contactPhone: string;
+    description?: string;
+    state?: string;
+  }) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      "/vendor/stores",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
     );
   }
 
-  async getVendorSettings() {
-    return this.request<{ success: boolean; data: any }>("/vendor/settings");
+  async getVendorSettings(storeId?: string) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{ success: boolean; data: any }>(`/vendor/settings${query}`);
   }
 
   async updateVendorSettings(data: any) {
@@ -326,8 +403,9 @@ class ApiClient {
     );
   }
 
-  async getVendorOrders() {
-    return this.request<{ success: boolean; data: any[] }>("/vendor/orders");
+  async getVendorOrders(storeId?: string) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{ success: boolean; data: any[] }>(`/vendor/orders${query}`);
   }
 
   // async updateOrderStatus(
@@ -343,18 +421,33 @@ class ApiClient {
   //   );
   // }
 
-  async getVendorProducts() {
-    return this.request<{ success: boolean; data: any[] }>("/vendor/products");
+  async getVendorProducts(storeId?: string) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{ success: boolean; data: any[] }>(`/vendor/products${query}`);
   }
 
   async createVendorProduct(data: any) {
-    return this.request<{ success: boolean; data: any; message: string }>(
-      "/vendor/products",
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      }
-    );
+    console.log("=== API CLIENT: createVendorProduct ===");
+    console.log("API Client Step 1: Received data", JSON.stringify(data, null, 2));
+    console.log("API Client Step 2: VendorId in request:", data.vendorId);
+    console.log("API Client Step 3: Calling POST /vendor/products");
+    
+    try {
+      const result = await this.request<{ success: boolean; data: any; message: string }>(
+        "/vendor/products",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      );
+      console.log("API Client Step 4: Response received", JSON.stringify(result, null, 2));
+      return result;
+    } catch (error: any) {
+      console.error("API Client Step 4: ERROR", error);
+      console.error("API Client Error message:", error?.message);
+      console.error("API Client Error status:", error?.status);
+      throw error;
+    }
   }
 
   async getVendorProduct(id: string) {
@@ -598,6 +691,18 @@ class ApiClient {
         method: "DELETE",
       }
     );
+  }
+
+  async getVendorRequestStatus(email: string) {
+    return this.request<{
+      success: boolean;
+      data: {
+        hasRequest: boolean;
+        status: string | null;
+        businessName?: string;
+        createdAt?: string;
+      };
+    }>(`/vendor-requests/status?email=${encodeURIComponent(email)}`);
   }
 
   // Admin

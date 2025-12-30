@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { getVendorByUser } from "@/src/shared/utils/vendorHelper";
 
 export async function PUT(request: NextRequest) {
   try {
@@ -45,21 +46,19 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Get existing vendor
-    const existingVendor = await prisma.vendor.findUnique({
-      where: { userId: user.id },
-    });
+    // Get existing vendor using helper
+    const existingVendor = await getVendorByUser(user);
 
     if (!existingVendor) {
       return NextResponse.json(
-        { success: false, error: "Vendor profile not found" },
+        { success: false, error: "Vendor profile not found. Please complete vendor onboarding first." },
         { status: 404 }
       );
     }
 
     // Update vendor profile
     const updatedVendor = await prisma.vendor.update({
-      where: { userId: user.id },
+      where: { id: existingVendor.id },
       data: {
         businessName,
         storeDescription,
@@ -109,13 +108,11 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireRole(["VENDOR"]);
 
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: user.id },
-    });
+    const vendor = await getVendorByUser(user);
 
     if (!vendor) {
       return NextResponse.json(
-        { success: false, error: "Vendor profile not found" },
+        { success: false, error: "Vendor profile not found. Please complete vendor onboarding first." },
         { status: 404 }
       );
     }

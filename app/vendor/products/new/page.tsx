@@ -6,33 +6,41 @@ import AddProductForm from "@/app/vendor/products/new/AddProductForm";
 export default async function AddProductPage() {
   const user = await requireRole(["VENDOR"]);
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
+  // Get vendor profile - try by userId first, then by email
+  let vendor = await prisma.vendor.findUnique({
     where: { userId: user.id },
   });
+
+  // If not found by userId, try to find by contact email
+  if (!vendor && user.email) {
+    vendor = await prisma.vendor.findFirst({
+      where: { contactEmail: user.email },
+    });
+
+    // If found by email, link vendor to this user and update user role
+    if (vendor) {
+      await prisma.$transaction([
+        prisma.vendor.update({
+          where: { id: vendor.id },
+          data: { userId: user.id },
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: { role: "VENDOR" },
+        }),
+      ]);
+    }
+  }
 
   if (!vendor) {
     redirect("/vendor/onboarding");
   }
 
-  // Get all categories filtered by store theme
-  let categories = await prisma.category.findMany({
-    where: {
-      isActive: true,
-      storeThemes: {
-        has: vendor.storeTheme,
-      },
-    },
+  // Get all active categories (not filtered by theme to show all options)
+  const categories = await prisma.category.findMany({
+    where: { isActive: true },
     orderBy: { name: "asc" },
   });
-
-  // Fallback: If no categories found for theme (or theme is DEFAULT), fetch all active categories
-  if (categories.length === 0) {
-    categories = await prisma.category.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-    });
-  }
 
   // Debug: Log categories to console
   console.log("Categories fetched:", categories.length);

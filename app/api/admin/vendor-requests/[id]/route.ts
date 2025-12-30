@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      // Create vendor profile
+      // Create vendor profile - set as ACTIVE so it shows in stores immediately
       await prisma.vendor.create({
         data: {
           userId: user.id,
@@ -99,7 +99,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           storeDescription: vendorRequest.description,
           deliveryAreas: { zones: [] },
           deliveryCharges: { zones: [] },
-          status: "PENDING_APPROVAL",
+          status: "ACTIVE",
+          isActive: true,
         },
       });
 

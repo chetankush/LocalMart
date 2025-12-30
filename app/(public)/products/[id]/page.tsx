@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
 import ProductReviews from "./ProductReviews";
+import ProductPageClient from "./ProductPageClient";
 import { serializeProduct, serializeVendor } from "@/lib/utils/serialize";
 import { TrackProductView } from "@/components/TrackView";
 
@@ -137,118 +138,124 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const vendorData = serializeVendor(product.vendor);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Track product view */}
-      <TrackProductView
-        product={{
-          id: product.id,
-          name: product.name,
-          price: Number(product.price),
-          image: images[0] || "/placeholder-product.png",
-        }}
-      />
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav className="mb-6 text-sm">
-          <ol className="flex items-center space-x-2">
-            <li>
-              <a href="/" className="text-blue-600 hover:text-blue-700">
-                Home
-              </a>
-            </li>
-            <li className="text-gray-400">/</li>
-            <li>
-              <a href="/stores" className="text-blue-600 hover:text-blue-700">
-                Stores
-              </a>
-            </li>
-            <li className="text-gray-400">/</li>
-            <li>
-              <a
-                href={`/stores/${product.vendor.id}`}
-                className="text-blue-600 hover:text-blue-700"
-              >
-                {product.vendor.businessName}
-              </a>
-            </li>
-            <li className="text-gray-400">/</li>
-            <li className="text-gray-900 font-medium truncate max-w-xs">
-              {product.name}
-            </li>
-          </ol>
-        </nav>
-
-        {/* Main Product Section */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 lg:p-8">
-            {/* Image Gallery */}
-            <ImageGallery images={images} productName={product.name} />
-
-            {/* Product Info */}
-            <ProductInfo
-              product={productData}
-              vendor={vendorData}
-            />
-          </div>
-        </div>
-
-        {/* Product Description */}
-        <div className="bg-white rounded-xl shadow-sm p-6 lg:p-8 mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Product Description
-          </h2>
-          <div className="prose max-w-none">
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-              {product.description}
-            </p>
-          </div>
-
-          {/* Additional Details */}
-          {(product.weight || product.dimensions || product.sku) && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                Product Details
-              </h3>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {product.sku && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">SKU</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{product.sku}</dd>
-                  </div>
-                )}
-                {product.weight && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Weight</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {Number(product.weight).toFixed(2)} kg
-                    </dd>
-                  </div>
-                )}
-                {product.dimensions && typeof product.dimensions === 'object' && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">
-                      Dimensions
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900">
-                      {JSON.stringify(product.dimensions)}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          )}
-        </div>
-
-        {/* Reviews Section */}
-        <ProductReviews
-          productId={product.id}
-          productName={product.name}
-          averageRating={productData.averageRating}
-          reviewCount={product.reviewCount}
-          reviews={reviews}
-          ratingDistribution={distribution}
+    <ProductPageClient vendor={{
+      id: product.vendor.id,
+      businessName: product.vendor.businessName,
+      storeLogo: product.vendor.storeLogo,
+    }}>
+      <div className="min-h-screen bg-gray-50">
+        {/* Track product view */}
+        <TrackProductView
+          product={{
+            id: product.id,
+            name: product.name,
+            price: Number(product.price),
+            image: images[0] || "/placeholder-product.png",
+          }}
         />
+        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+          {/* Breadcrumb */}
+          <nav className="mb-6 text-sm">
+            <ol className="flex items-center space-x-2">
+              <li>
+                <a href="/" className="text-blue-600 hover:text-blue-700">
+                  Home
+                </a>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li>
+                <a href="/stores" className="text-blue-600 hover:text-blue-700">
+                  Stores
+                </a>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li>
+                <a
+                  href={`/stores/${product.vendor.id}`}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  {product.vendor.businessName}
+                </a>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li className="text-gray-900 font-medium truncate max-w-xs">
+                {product.name}
+              </li>
+            </ol>
+          </nav>
+
+          {/* Main Product Section */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6 lg:p-8">
+              {/* Image Gallery */}
+              <ImageGallery images={images} productName={product.name} />
+
+              {/* Product Info */}
+              <ProductInfo
+                product={productData}
+                vendor={vendorData}
+              />
+            </div>
+          </div>
+
+          {/* Product Description */}
+          <div className="bg-white rounded-xl shadow-sm p-6 lg:p-8 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Product Description
+            </h2>
+            <div className="prose max-w-none">
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {product.description}
+              </p>
+            </div>
+
+            {/* Additional Details */}
+            {(product.weight || product.dimensions || product.sku) && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Product Details
+                </h3>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {product.sku && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">SKU</dt>
+                      <dd className="mt-1 text-sm text-gray-900">{product.sku}</dd>
+                    </div>
+                  )}
+                  {product.weight && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">Weight</dt>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        {Number(product.weight).toFixed(2)} kg
+                      </dd>
+                    </div>
+                  )}
+                  {product.dimensions && typeof product.dimensions === 'object' && (
+                    <div>
+                      <dt className="text-sm font-medium text-gray-500">
+                        Dimensions
+                      </dt>
+                      <dd className="mt-1 text-sm text-gray-900">
+                        {JSON.stringify(product.dimensions)}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews Section */}
+          <ProductReviews
+            productId={product.id}
+            productName={product.name}
+            averageRating={productData.averageRating}
+            reviewCount={product.reviewCount}
+            reviews={reviews}
+            ratingDistribution={distribution}
+          />
+        </div>
       </div>
-    </div>
+    </ProductPageClient>
   );
 }

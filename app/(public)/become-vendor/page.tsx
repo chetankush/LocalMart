@@ -1,9 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/supabase/auth-provider";
+
+type VendorStatus = "NOT_STARTED" | "PENDING" | "APPROVED" | "PENDING_APPROVAL" | "ACTIVE" | "REJECTED" | "ADD_STORE";
+
+interface StoreInfo {
+  id: string;
+  businessName: string;
+  status: string;
+  isActive: boolean;
+}
+
+interface VendorData {
+  status: VendorStatus;
+  businessName?: string;
+  vendorId?: string;
+  rejectionReason?: string;
+  stores?: StoreInfo[];
+  canAddStore?: boolean;
+}
 
 export default function BecomeVendorPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [vendorData, setVendorData] = useState<VendorData>({ status: "NOT_STARTED" });
+  const [checkingStatus, setCheckingStatus] = useState(true);
+  const [isAddingNewStore, setIsAddingNewStore] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -14,293 +38,839 @@ export default function BecomeVendorPage() {
     address: "",
     description: "",
   });
-
-  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const businessTypes = [
-    "GROCERY",
-    "RESTAURANT",
-    "PHARMACY",
-    "ELECTRONICS",
-    "FASHION",
-    "HOME_SERVICES",
-    "OTHER",
+    { value: "GROCERY", label: "🛒 Grocery & Daily Needs", desc: "Kirana, supermarket, daily essentials" },
+    { value: "RESTAURANT", label: "🍽️ Restaurant & Food", desc: "Restaurant, cafe, food delivery" },
+    { value: "PHARMACY", label: "💊 Pharmacy & Medical", desc: "Medicine, healthcare products" },
+    { value: "ELECTRONICS", label: "📱 Electronics", desc: "Mobile, computer, gadgets" },
+    { value: "FASHION", label: "👗 Fashion & Clothing", desc: "Clothes, shoes, accessories" },
+    { value: "HOME_SERVICES", label: "🏠 Home & Kitchen", desc: "Furniture, appliances, decor" },
+    { value: "OTHER", label: "📦 Other", desc: "Any other business type" },
   ];
+
+  const steps = [
+    { id: 1, title: "Check Eligibility", icon: "✓" },
+    { id: 2, title: "Submit Application", icon: "📝" },
+    { id: 3, title: "Review Process", icon: "⏳" },
+    { id: 4, title: "Start Selling", icon: "🚀" },
+  ];
+
+  // Check existing vendor status on mount
+  useEffect(() => {
+    const checkVendorStatus = async () => {
+      if (!user) {
+        setCheckingStatus(false);
+        return;
+      }
+
+      try {
+        const { apiClient } = await import("@/lib/api/client");
+        const response = await apiClient.checkVendor();
+        const data = response.data;
+
+        if (!data) {
+          setVendorData({ status: "NOT_STARTED" });
+          setCurrentStep(user ? 2 : 1);
+          return;
+        }
+
+        const hasActiveStore = data.stores?.some((s) => s.status === "ACTIVE");
+        const allPendingApproval = data.stores?.every((s) => s.status === "PENDING_APPROVAL");
+
+        if (data.hasVendor && hasActiveStore) {
+          // Has at least one active store
+          const activeStore = data.stores?.find((s) => s.status === "ACTIVE");
+          setVendorData({ 
+            status: "ACTIVE", 
+            businessName: activeStore?.businessName,
+            vendorId: activeStore?.id,
+            stores: data.stores,
+            canAddStore: data.canAddStore
+          });
+          setCurrentStep(4);
+        } else if (data.hasVendor && allPendingApproval && data.stores?.length > 0) {
+          // All stores pending approval
+          setVendorData({ 
+            status: "PENDING_APPROVAL", 
+            businessName: data.stores[0]?.businessName,
+            stores: data.stores,
+            canAddStore: data.canAddStore
+          });
+          setCurrentStep(3);
+        } else if (data.vendorRequest?.status === "PENDING") {
+          setVendorData({ 
+            status: "PENDING", 
+            businessName: data.vendorRequest.businessName 
+          });
+          setCurrentStep(3);
+        } else if (data.vendorRequest?.status === "APPROVED") {
+          setVendorData({ 
+            status: "APPROVED", 
+            businessName: data.vendorRequest.businessName 
+          });
+          setCurrentStep(3);
+        } else if (data.vendorRequest?.status === "REJECTED") {
+          setVendorData({ 
+            status: "REJECTED",
+            rejectionReason: data.vendorRequest.rejectionReason 
+          });
+          setCurrentStep(2);
+        } else {
+          setVendorData({ status: "NOT_STARTED" });
+          setCurrentStep(user ? 2 : 1);
+        }
+
+        // Pre-fill form with user data
+        if (user) {
+          setFormData(prev => ({
+            ...prev,
+            email: user.email || "",
+            phone: user.phone || "",
+            fullName: user.user_metadata?.full_name || "",
+          }));
+        }
+      } catch (err) {
+        console.error("Error checking vendor status:", err);
+        setVendorData({ status: "NOT_STARTED" });
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    if (!authLoading) {
+      checkVendorStatus();
+    }
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
       const { apiClient } = await import("@/lib/api/client");
-      const data = await apiClient.createVendorRequest(formData);
+      
+      if (isAddingNewStore) {
+        // Existing vendor adding a new store
+        const data = await apiClient.createVendorStore({
+          businessName: formData.businessName,
+          businessType: formData.businessType,
+          city: formData.city,
+          address: formData.address,
+          description: formData.description,
+          state: "Madhya Pradesh",
+          contactPhone: formData.phone,
+        });
 
-      if (data.success) {
-        setSubmitted(true);
+        if (data.success) {
+          setVendorData(prev => ({ 
+            ...prev,
+            status: "PENDING_APPROVAL",
+          }));
+          setIsAddingNewStore(false);
+          setCurrentStep(3);
+          // Reset form for potential next store
+          setFormData(prev => ({
+            ...prev,
+            businessName: "",
+            businessType: "",
+            address: "",
+            description: "",
+          }));
+        } else {
+          setError(data.message || "Failed to submit store request. Please try again.");
+        }
       } else {
-        alert(data.error || "Failed to submit request");
-        setLoading(false);
+        // New vendor request
+        const data = await apiClient.createVendorRequest(formData);
+
+        if (data.success) {
+          setVendorData({ status: "PENDING", businessName: formData.businessName });
+          setCurrentStep(3);
+        } else {
+          setError(data.message || "Failed to submit request. Please try again.");
+        }
       }
-    } catch (error) {
-      console.error("Error submitting request:", error);
-      alert("Failed to submit request. Please try again.");
+    } catch (err: any) {
+      console.error("Error submitting request:", err);
+      setError(err.message || "Failed to submit request. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError("");
   };
 
-  if (submitted) {
+  if (authLoading || checkingStatus) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
-            <svg
-              className="h-8 w-8 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Request Submitted!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Thank you for your interest! We'll review your application and contact
-            you at {formData.email} within 2-3 business days.
-          </p>
-          <Link
-            href="/"
-            className="inline-block bg-blue-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Back to Homepage
-          </Link>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Checking your vendor status...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Become a Vendor
-            </h1>
-            <p className="text-gray-600">
-              Fill out this form to request vendor access. We'll review your
-              application and get back to you soon!
+  // Step Progress Bar Component
+  const StepProgress = () => (
+    <div className="mb-8">
+      <div className="flex items-center justify-between max-w-2xl mx-auto">
+        {steps.map((step, index) => (
+          <div key={step.id} className="flex items-center">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold transition-all ${
+                  currentStep >= step.id
+                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+                    : "bg-gray-200 text-gray-500"
+                }`}
+              >
+                {currentStep > step.id ? "✓" : step.icon}
+              </div>
+              <span className={`mt-2 text-xs font-medium text-center ${
+                currentStep >= step.id ? "text-orange-600" : "text-gray-500"
+              }`}>
+                {step.title}
+              </span>
+            </div>
+            {index < steps.length - 1 && (
+              <div className={`w-16 sm:w-24 h-1 mx-2 rounded ${
+                currentStep > step.id ? "bg-orange-500" : "bg-gray-200"
+              }`} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Step 1: Not logged in - Show benefits and sign in prompt
+  const renderStep1 = () => (
+    <div className="max-w-4xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          Start Selling on <span className="text-orange-500">NearStore</span>
+        </h1>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          Join thousands of local vendors and reach customers in your area. 
+          It's free to get started!
+        </p>
+      </div>
+
+      {/* Benefits Grid */}
+      <div className="grid md:grid-cols-3 gap-6 mb-12">
+        {[
+          { icon: "🏪", title: "Your Own Store", desc: "Get a beautiful online storefront with your branding" },
+          { icon: "📱", title: "Easy Management", desc: "Manage products, orders & customers from one dashboard" },
+          { icon: "🚀", title: "Grow Your Business", desc: "Reach more customers and increase your sales" },
+          { icon: "💰", title: "No Commission", desc: "Keep 100% of your earnings, no hidden fees" },
+          { icon: "📦", title: "Inventory Tools", desc: "Track stock, set alerts, manage variants easily" },
+          { icon: "📊", title: "Analytics", desc: "Understand your customers with detailed insights" },
+        ].map((benefit, i) => (
+          <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="text-4xl mb-4">{benefit.icon}</div>
+            <h3 className="font-bold text-gray-900 mb-2">{benefit.title}</h3>
+            <p className="text-gray-600 text-sm">{benefit.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-center text-white">
+        <h2 className="text-2xl font-bold mb-4">Ready to get started?</h2>
+        <p className="mb-6 opacity-90">Sign in or create an account to begin your vendor journey</p>
+        <Link
+          href="/sign-in?redirect=/become-vendor"
+          className="inline-block bg-white text-orange-600 px-8 py-3 rounded-xl font-bold hover:bg-orange-50 transition-colors shadow-lg"
+        >
+          Sign In to Continue →
+        </Link>
+      </div>
+    </div>
+  );
+
+  // Step 2: Application Form
+  const renderStep2 = () => (
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Tell us about your business
+        </h1>
+        <p className="text-gray-600">
+          Fill in the details below. We'll review your application within 24-48 hours.
+        </p>
+      </div>
+
+      {vendorData.status === "REJECTED" && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">❌</span>
+            <div>
+              <h3 className="font-semibold text-red-800">Previous application was rejected</h3>
+              <p className="text-red-700 text-sm mt-1">
+                {vendorData.rejectionReason || "Please review your details and try again."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        {/* Personal Info */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+            Personal Information
+          </h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                placeholder="Your full name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                placeholder="your@email.com"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                pattern="[0-9]{10}"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                placeholder="10-digit mobile number"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Business Info */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+            Business Details
+          </h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Store Name *</label>
+              <input
+                type="text"
+                name="businessName"
+                value={formData.businessName}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                placeholder="Your store name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Business Type *</label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {businessTypes.map((type) => (
+                  <label
+                    key={type.value}
+                    className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.businessType === type.value
+                        ? "border-orange-500 bg-orange-50"
+                        : "border-gray-200 hover:border-orange-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="businessType"
+                      value={type.value}
+                      checked={formData.businessType === type.value}
+                      onChange={handleChange}
+                      className="sr-only"
+                      required
+                    />
+                    <span className="text-lg mb-1">{type.label}</span>
+                    <span className="text-xs text-gray-500">{type.desc}</span>
+                    {formData.businessType === type.value && (
+                      <span className="absolute top-2 right-2 text-orange-500">✓</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  readOnly
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600"
+                />
+                <p className="text-xs text-gray-500 mt-1">Currently serving Guna, MP only</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Store Address *</label>
+              <textarea
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                required
+                rows={2}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+                placeholder="Street, Area, Landmark"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">About Your Business</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+                placeholder="Tell customers what makes your store special..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* What's Next */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 mb-6">
+          <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+            <span>💡</span> What happens after you submit?
+          </h3>
+          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+            <li>Our team reviews your application (24-48 hours)</li>
+            <li>You'll receive an email notification</li>
+            <li>Once approved, set up your store and start adding products</li>
+            <li>Go live and start receiving orders!</li>
+          </ol>
+        </div>
+
+        {/* Submit */}
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Submitting...
+              </>
+            ) : (
+              <>Submit Application →</>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  // Step 3: Pending/Under Review
+  const renderStep3 = () => (
+    <div className="max-w-2xl mx-auto text-center">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        {vendorData.status === "PENDING" && (
+          <>
+            <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl">⏳</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Under Review</h1>
+            <p className="text-gray-600 mb-6">
+              We're reviewing your application for <strong>{vendorData.businessName}</strong>. 
+              This usually takes 24-48 hours.
             </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+              <p className="text-amber-800 text-sm">
+                📧 We'll send you an email at your registered address once your application is reviewed.
+              </p>
+            </div>
+          </>
+        )}
+
+        {vendorData.status === "APPROVED" && (
+          <>
+            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl">✅</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Approved!</h1>
+            <p className="text-gray-600 mb-6">
+              Great news! Your application for <strong>{vendorData.businessName}</strong> has been approved.
+              Your store is being set up.
+            </p>
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+              <p className="text-green-800 text-sm">
+                🎉 You'll be able to access your vendor dashboard shortly.
+              </p>
+            </div>
+          </>
+        )}
+
+        {vendorData.status === "PENDING_APPROVAL" && (
+          <>
+            <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-5xl">🏪</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Store Awaiting Activation</h1>
+            <p className="text-gray-600 mb-6">
+              Your store <strong>{vendorData.businessName}</strong> has been created and is awaiting 
+              final activation by our team.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <p className="text-blue-800 text-sm">
+                🔔 You'll receive a notification once your store is live.
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Timeline */}
+        <div className="border-t border-gray-100 pt-6 mt-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Your Journey</h3>
+          <div className="space-y-4 text-left">
+            {[
+              { done: true, label: "Application submitted", icon: "✓" },
+              { done: vendorData.status !== "PENDING", label: "Application reviewed", icon: vendorData.status === "PENDING" ? "⏳" : "✓" },
+              { done: vendorData.status === "PENDING_APPROVAL" || vendorData.status === "ACTIVE", label: "Store created", icon: vendorData.status === "APPROVED" ? "⏳" : (vendorData.status === "PENDING_APPROVAL" || vendorData.status === "ACTIVE") ? "✓" : "○" },
+              { done: vendorData.status === "ACTIVE", label: "Store activated", icon: vendorData.status === "ACTIVE" ? "✓" : "○" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  item.done ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                }`}>
+                  {item.icon}
+                </span>
+                <span className={item.done ? "text-gray-900" : "text-gray-500"}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Link
+          href="/"
+          className="inline-block mt-6 text-orange-600 font-medium hover:text-orange-700"
+        >
+          ← Back to Homepage
+        </Link>
+      </div>
+    </div>
+  );
+
+  // Step 4: Active Vendor - Success
+  const renderStep4 = () => (
+    <div className="max-w-3xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center mb-6">
+        <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <span className="text-5xl">🎉</span>
+        </div>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">You're All Set!</h1>
+        <p className="text-gray-600 mb-6">
+          Your store <strong>{vendorData.businessName}</strong> is live and ready to receive orders.
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          <Link
+            href="/vendor/dashboard"
+            className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+          >
+            🏪 Go to Dashboard
+          </Link>
+          <Link
+            href={`/stores/${vendorData.vendorId}`}
+            className="bg-white border-2 border-orange-500 text-orange-600 py-4 px-6 rounded-xl font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
+          >
+            👁️ View Your Store
+          </Link>
+        </div>
+
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 text-left mb-6">
+          <h3 className="font-semibold text-blue-900 mb-3">Quick Start Guide</h3>
+          <ul className="space-y-2 text-sm text-blue-800">
+            <li className="flex items-start gap-2">
+              <span>1️⃣</span>
+              <span>Add your products with photos and prices</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>2️⃣</span>
+              <span>Set up your delivery areas and charges</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>3️⃣</span>
+              <span>Customize your store theme and branding</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span>4️⃣</span>
+              <span>Share your store link with customers</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Your Stores Section */}
+      {vendorData.stores && vendorData.stores.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Your Stores</h2>
+            <span className="text-sm text-gray-500">{vendorData.stores.length} store(s)</span>
+          </div>
+          <div className="space-y-3">
+            {vendorData.stores.map((store) => (
+              <div
+                key={store.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                    <span className="text-2xl">🏪</span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{store.businessName}</h3>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        store.status === "ACTIVE"
+                          ? "bg-green-100 text-green-700"
+                          : store.status === "PENDING_APPROVAL"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {store.status === "ACTIVE" ? "✓ Active" : store.status === "PENDING_APPROVAL" ? "⏳ Pending Approval" : store.status}
+                    </span>
+                  </div>
+                </div>
+                {store.status === "ACTIVE" && (
+                  <Link
+                    href={`/stores/${store.id}`}
+                    className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+                  >
+                    View →
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add Another Store Button */}
+      {vendorData.canAddStore && (
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border-2 border-dashed border-purple-200 p-6 text-center">
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">➕</span>
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Want to add another store?</h3>
+          <p className="text-gray-600 text-sm mb-4">
+            Expand your business by opening another store location
+          </p>
+          <button
+            onClick={() => {
+              setIsAddingNewStore(true);
+              setVendorData(prev => ({ ...prev, status: "ADD_STORE" }));
+              setCurrentStep(2);
+              // Reset form for new store
+              setFormData(prev => ({
+                ...prev,
+                businessName: "",
+                businessType: "",
+                address: "",
+                description: "",
+              }));
+            }}
+            className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-all"
+          >
+            + Add Another Store
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // Render Add Store Form (for existing vendors)
+  const renderAddStoreForm = () => (
+    <div className="max-w-2xl mx-auto">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Add a New Store
+        </h1>
+        <p className="text-gray-600">
+          Fill in the details for your new store location. It will be reviewed within 24-48 hours.
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Store Name *</label>
+            <input
+              type="text"
+              name="businessName"
+              value={formData.businessName}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              placeholder="Your new store name"
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Personal Information */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Personal Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="fullName"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="John Doe"
-                  />
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone *</label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              required
+              pattern="[0-9]{10}"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              placeholder="10-digit mobile number for this store"
+            />
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="john@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    required
-                    pattern="[0-9]{10}"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="9876543210"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Business Information */}
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Business Information
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="businessName"
-                    value={formData.businessName}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="My Store"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Type *
-                  </label>
-                  <select
-                    name="businessType"
-                    value={formData.businessType}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select a type</option>
-                    {businessTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    required
-                    readOnly
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Guna"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Currently serving Guna, MP only
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Address *
-                  </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    required
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Street, Area, Guna, Madhya Pradesh"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Business Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Tell us about your business..."
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Information Notice */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex">
-                <svg
-                  className="h-5 w-5 text-blue-400 mr-2"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Business Type *</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {businessTypes.map((type) => (
+                <label
+                  key={type.value}
+                  className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    formData.businessType === type.value
+                      ? "border-orange-500 bg-orange-50"
+                      : "border-gray-200 hover:border-orange-300"
+                  }`}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                    clipRule="evenodd"
+                  <input
+                    type="radio"
+                    name="businessType"
+                    value={type.value}
+                    checked={formData.businessType === type.value}
+                    onChange={handleChange}
+                    className="sr-only"
+                    required
                   />
-                </svg>
-                <div className="text-sm text-blue-700">
-                  <p className="font-semibold mb-1">What happens next?</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>We'll review your application within 2-3 business days</li>
-                    <li>You'll receive an email with next steps</li>
-                    <li>Once approved, you'll get access to the vendor dashboard</li>
-                  </ul>
-                </div>
-              </div>
+                  <span className="text-lg mb-1">{type.label}</span>
+                  <span className="text-xs text-gray-500">{type.desc}</span>
+                  {formData.businessType === type.value && (
+                    <span className="absolute top-2 right-2 text-orange-500">✓</span>
+                  )}
+                </label>
+              ))}
             </div>
+          </div>
 
-            {/* Submit Button */}
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? "Submitting..." : "Submit Request"}
-              </button>
-              <Link
-                href="/"
-                className="flex-1 text-center border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </Link>
-            </div>
-          </form>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Store Address *</label>
+            <textarea
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              required
+              rows={2}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+              placeholder="Street, Area, Landmark"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">About This Store</label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+              placeholder="Tell customers what makes this store special..."
+            />
+          </div>
         </div>
+
+        <div className="flex gap-4 mt-6">
+          <button
+            type="button"
+            onClick={() => {
+              setIsAddingNewStore(false);
+              setVendorData(prev => ({ ...prev, status: "ACTIVE" }));
+              setCurrentStep(4);
+            }}
+            className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-200 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Submitting...
+              </>
+            ) : (
+              <>Submit Store Request →</>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 py-12 px-4">
+      <div className="max-w-5xl mx-auto">
+        {/* Show progress only for logged in users */}
+        {user && !isAddingNewStore && <StepProgress />}
+        
+        {/* Render appropriate step */}
+        {!user && renderStep1()}
+        {user && vendorData.status === "NOT_STARTED" && !isAddingNewStore && renderStep2()}
+        {user && vendorData.status === "REJECTED" && !isAddingNewStore && renderStep2()}
+        {user && isAddingNewStore && renderAddStoreForm()}
+        {user && (vendorData.status === "PENDING" || vendorData.status === "APPROVED" || vendorData.status === "PENDING_APPROVAL") && !isAddingNewStore && renderStep3()}
+        {user && vendorData.status === "ACTIVE" && !isAddingNewStore && renderStep4()}
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ const Navbar = () => {
   const { user, signOut, loading } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [isApprovedVendor, setIsApprovedVendor] = useState(false);
+  const [vendorStatus, setVendorStatus] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any>(null);
@@ -41,26 +42,54 @@ const Navbar = () => {
   // Only show "Add Your Store" button on landing page and browse stores page
   const shouldShowAddStoreButton = pathname === "/" || pathname === "/stores";
 
-  // Check if user is an approved vendor
+  // Check if user is an approved vendor or has a pending request
   useEffect(() => {
     if (user) {
       import("@/lib/api/client").then(({ apiClient }) => {
         apiClient
           .checkVendor()
-          .then((data) => {
-            if (data.success !== false) {
-              setIsApprovedVendor(data.isVendor && data.hasVendor);
+          .then((response) => {
+            const data = response.data;
+            
+            if (!data) {
+              setIsApprovedVendor(false);
+              setVendorStatus(null);
+              return;
+            }
+
+            // Check if vendor has at least one ACTIVE store
+            const hasActiveStore = data.stores?.some((s) => s.status === "ACTIVE");
+            
+            if (data.hasVendor && hasActiveStore) {
+              // Has at least one active store - show dashboard
+              setIsApprovedVendor(true);
+              setVendorStatus(null);
+            } else if (data.vendorRequest?.status === "PENDING") {
+              // Vendor request is pending
+              setIsApprovedVendor(false);
+              setVendorStatus("PENDING");
+            } else if (data.hasVendor && data.stores?.every((s) => s.status === "PENDING_APPROVAL")) {
+              // All stores are pending approval
+              setIsApprovedVendor(false);
+              setVendorStatus("PENDING_APPROVAL");
+            } else if (data.hasVendor && data.stores?.length > 0) {
+              // Has stores but none active - still show dashboard
+              setIsApprovedVendor(true);
+              setVendorStatus(null);
             } else {
               setIsApprovedVendor(false);
+              setVendorStatus(null);
             }
           })
-          .catch(() => {
-            // Silently handle errors (auth or network)
+          .catch((err) => {
+            console.error("checkVendor error:", err);
             setIsApprovedVendor(false);
+            setVendorStatus(null);
           });
       });
     } else {
       setIsApprovedVendor(false);
+      setVendorStatus(null);
     }
   }, [user]);
 
@@ -166,26 +195,48 @@ const Navbar = () => {
         <div className="flex justify-between items-center p-4 gap-4 h-16 w-full px-6">
         <div className="flex items-center gap-4">
           {branding ? (
-            <button
-              onClick={(e) => handleNavigation(`/stores/${branding.storeId}`, e)}
-              onMouseEnter={() => prefetchRoute(router, `/stores/${branding.storeId}`)}
-              className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity bg-transparent border-none"
-            >
-              {loadingLink === `/stores/${branding.storeId}` && <LoadingSpinner size="sm" />}
-              {branding.storeLogo && (
-                <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white">
-                  <Image
-                    src={branding.storeLogo}
-                    alt={branding.storeName}
-                    fill
-                    className="object-cover"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => handleNavigation("/stores", e)}
+                onMouseEnter={() => prefetchRoute(router, "/stores")}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-all cursor-pointer active:scale-95 bg-transparent border-none"
+                title="Back to stores"
+              >
+                <svg
+                  className="w-5 h-5 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
                   />
-                </div>
-              )}
-              <span className="text-2xl font-bold text-white">
-                {branding.storeName}
-              </span>
-            </button>
+                </svg>
+              </button>
+              <button
+                onClick={(e) => handleNavigation(`/stores/${branding.storeId}`, e)}
+                onMouseEnter={() => prefetchRoute(router, `/stores/${branding.storeId}`)}
+                className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity bg-transparent border-none"
+              >
+                {loadingLink === `/stores/${branding.storeId}` && <LoadingSpinner size="sm" />}
+                {branding.storeLogo && (
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white">
+                    <Image
+                      src={branding.storeLogo}
+                      alt={branding.storeName}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <span className="text-2xl font-bold text-white">
+                  {branding.storeName}
+                </span>
+              </button>
+            </div>
           ) : (
             <button
               onClick={(e) => handleNavigation("/", e)}
@@ -430,10 +481,10 @@ const Navbar = () => {
             <button
               onClick={(e) => handleNavigation("/become-vendor", e)}
               onMouseEnter={() => prefetchRoute(router, "/become-vendor")}
-              className="px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-bold hover:bg-orange-600 transition-all shadow-md hover:scale-105 cursor-pointer active:scale-100 flex items-center gap-2"
+              className="px-4 py-2 bg-yellow-400 text-black rounded-full text-sm font-bold hover:bg-yellow-500 transition-all shadow-md hover:scale-105 cursor-pointer active:scale-100 flex items-center gap-2"
             >
               {loadingLink === "/become-vendor" && <LoadingSpinner size="sm" />}
-              Add Your Store
+              {isApprovedVendor ? "Add More Stores" : "Add Your Store"}
             </button>
           )}
 
@@ -510,6 +561,30 @@ const Navbar = () => {
                         >
                           {loadingLink === "/vendor/dashboard" && <LoadingSpinner size="sm" />}
                           <span>🏪 Vendor Dashboard</span>
+                        </button>
+                      )}
+                      {!isApprovedVendor && vendorStatus === "PENDING" && (
+                        <button
+                          onClick={(e) => {
+                            setShowDropdown(false);
+                            handleNavigation("/become-vendor", e);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 cursor-pointer transition-colors flex items-center gap-2"
+                        >
+                          <span>⏳ Request Pending</span>
+                          <span className="text-xs text-amber-500">View Status →</span>
+                        </button>
+                      )}
+                      {!isApprovedVendor && vendorStatus === "PENDING_APPROVAL" && (
+                        <button
+                          onClick={(e) => {
+                            setShowDropdown(false);
+                            handleNavigation("/become-vendor", e);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors flex items-center gap-2"
+                        >
+                          <span>🏪 Store Awaiting Approval</span>
+                          <span className="text-xs text-blue-500">View →</span>
                         </button>
                       )}
                       <button

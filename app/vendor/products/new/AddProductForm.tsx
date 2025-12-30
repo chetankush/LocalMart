@@ -32,23 +32,26 @@ interface AddProductFormProps {
 
 export default function AddProductForm({
   vendorId,
-  categories,
+  categories: initialCategories,
 }: AddProductFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
+  // Local categories list that can be extended with new categories
+  const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
+
   // Debug: Log categories received
-  console.log("AddProductForm received categories:", categories.length);
+  console.log("AddProductForm received categories:", localCategories.length);
   console.log(
     "Category names:",
-    categories.map((c) => c.name)
+    localCategories.map((c) => c.name)
   );
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    categoryId: categories && categories.length > 0 ? categories[0]?.id : "",
+    categoryId: initialCategories && initialCategories.length > 0 ? initialCategories[0]?.id : "",
     price: "",
     compareAtPrice: "",
     sku: "",
@@ -63,6 +66,11 @@ export default function AddProductForm({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
+
+  // Category search/combobox state
+  const [categorySearchQuery, setCategorySearchQuery] = useState("");
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [templateCategoryName, setTemplateCategoryName] = useState(""); // Store template's category name if not in list
 
   // Template selection state
   const [showTemplates, setShowTemplates] = useState(true);
@@ -236,26 +244,103 @@ export default function AddProductForm({
   const handleRemoveImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // Function to add a new category to the local list
+  const addCategoryToLocalList = (categoryName: string): string => {
+    // Check if category already exists
+    const existingCategory = localCategories.find(
+      c => c.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    if (existingCategory) {
+      return existingCategory.id;
+    }
+    
+    // Create a temporary ID for the new category
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newCategory: Category = {
+      id: tempId,
+      name: categoryName,
+    };
+    
+    setLocalCategories(prev => [...prev, newCategory]);
+    console.log("Added new category to local list:", newCategory);
+    return tempId;
+  };
+
   const handleUseTemplate = async (template: ProductTemplate) => {
     setSelectedTemplate(template);
 
     // Find matching category by ID or Name
-    let targetCategoryId = formData.categoryId; // Default to current selection
+    let targetCategoryId = ""; // Start empty to ensure we find a match
     
-    // Check if the template's category ID exists in our categories list
-    const categoryExists = categories.some(c => c.id === template.category.id);
+    console.log("=== TEMPLATE CATEGORY MATCHING ===");
+    console.log("Template category:", template.category);
+    console.log("Available categories:", localCategories.map(c => ({ id: c.id, name: c.name })));
     
-    if (categoryExists) {
-      targetCategoryId = template.category.id;
-    } else {
-      // Try to find by name
-      const matchedCategory = categories.find(c => 
-        c.name.toLowerCase() === template.category.name.toLowerCase()
+    const templateCatName = template.category?.name?.toLowerCase() || "";
+    let matchedCategoryName = "";
+    
+    // 1. First try exact ID match
+    const exactIdMatch = localCategories.find(c => c.id === template.category?.id);
+    if (exactIdMatch) {
+      targetCategoryId = exactIdMatch.id;
+      matchedCategoryName = exactIdMatch.name;
+      console.log("Found exact ID match:", exactIdMatch.name);
+    }
+    
+    // 2. Try exact name match (case-insensitive)
+    if (!targetCategoryId) {
+      const exactNameMatch = localCategories.find(c => 
+        c.name.toLowerCase() === templateCatName
       );
-      if (matchedCategory) {
-        targetCategoryId = matchedCategory.id;
+      if (exactNameMatch) {
+        targetCategoryId = exactNameMatch.id;
+        matchedCategoryName = exactNameMatch.name;
+        console.log("Found exact name match:", exactNameMatch.name);
       }
     }
+    
+    // 3. Try partial name match - category name contains template category name
+    if (!targetCategoryId && templateCatName) {
+      const partialMatch = localCategories.find(c => 
+        c.name.toLowerCase().includes(templateCatName) ||
+        templateCatName.includes(c.name.toLowerCase())
+      );
+      if (partialMatch) {
+        targetCategoryId = partialMatch.id;
+        matchedCategoryName = partialMatch.name;
+        console.log("Found partial match:", partialMatch.name);
+      }
+    }
+    
+    // 4. Try matching by keywords in category name
+    if (!targetCategoryId && templateCatName) {
+      const templateWords = templateCatName.split(/[\s,&]+/).filter(w => w.length > 2);
+      const keywordMatch = localCategories.find(c => {
+        const categoryWords = c.name.toLowerCase().split(/[\s,&]+/);
+        return templateWords.some(tw => categoryWords.some(cw => cw.includes(tw) || tw.includes(cw)));
+      });
+      if (keywordMatch) {
+        targetCategoryId = keywordMatch.id;
+        matchedCategoryName = keywordMatch.name;
+        console.log("Found keyword match:", keywordMatch.name);
+      }
+    }
+    
+    // 5. If no match found, ADD the template's category to the local list
+    if (!targetCategoryId && template.category?.name) {
+      console.log("No match found, adding template category to list:", template.category.name);
+      targetCategoryId = addCategoryToLocalList(template.category.name);
+      matchedCategoryName = template.category.name;
+      setTemplateCategoryName("");
+      setCategorySearchQuery(template.category.name);
+    } else if (targetCategoryId) {
+      // Clear template category name since we found a match
+      setTemplateCategoryName("");
+      setCategorySearchQuery(matchedCategoryName);
+    }
+    
+    console.log("Final selected categoryId:", targetCategoryId);
 
     // Auto-fill form with template data
     setFormData((prev) => ({
@@ -327,36 +412,70 @@ export default function AddProductForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("=== PRODUCT CREATION START ===");
+    console.log("Step 1: Form submitted");
+    console.log("Step 1a: vendorId prop received:", vendorId);
+    console.log("Step 1b: vendorId type:", typeof vendorId);
 
     // Validate images
     if (images.length === 0) {
+      console.log("Step 2: FAILED - No images");
       alert("Please add at least one product image");
       return;
     }
+    console.log("Step 2: Images validated", { imageCount: images.length });
+
+    // Check if we have a valid category (either existing ID or new category name)
+    const isTempCategory = formData.categoryId && formData.categoryId.startsWith("temp-");
+    const hasExistingCategory = formData.categoryId && !isTempCategory && localCategories.some(c => c.id === formData.categoryId);
+    
+    // Get the category name for new categories
+    let categoryNameToCreate = "";
+    if (isTempCategory) {
+      // Find the temp category name from local list
+      const tempCategory = localCategories.find(c => c.id === formData.categoryId);
+      categoryNameToCreate = tempCategory?.name || categorySearchQuery || templateCategoryName;
+    } else if (!hasExistingCategory) {
+      categoryNameToCreate = categorySearchQuery || templateCategoryName;
+    }
+    
+    const hasNewCategoryName = isTempCategory || (!hasExistingCategory && categoryNameToCreate);
 
     // Validate required fields
     if (
       !formData.name ||
       !formData.description ||
-      !formData.categoryId ||
+      (!hasExistingCategory && !hasNewCategoryName) ||
       !formData.price
     ) {
-      alert("Please fill in all required fields");
+      console.log("Step 3: FAILED - Missing required fields", {
+        name: !!formData.name,
+        description: !!formData.description,
+        hasExistingCategory,
+        hasNewCategoryName,
+        isTempCategory,
+        categoryNameToCreate,
+        price: !!formData.price,
+      });
+      alert("Please fill in all required fields including a category");
       return;
     }
-
-    // Validate category exists
-    const isValidCategory = categories.some(c => c.id === formData.categoryId);
-    if (!isValidCategory) {
-      alert("Invalid category selected. Please select a category from the list.");
-      return;
-    }
+    console.log("Step 3: Required fields validated");
+    console.log("Step 4: Category info", { 
+      hasExistingCategory, 
+      hasNewCategoryName,
+      isTempCategory,
+      categoryId: formData.categoryId,
+      categoryNameToCreate 
+    });
 
     setLoading(true);
 
     try {
-      const { apiClient } = await import("@/lib/api/client");
-      const data = await apiClient.createVendorProduct({
+      console.log("Step 5: Preparing API request");
+      
+      // Build product data - send categoryName if it's a new category
+      const productData: Record<string, unknown> = {
         ...formData,
         vendorId,
         images,
@@ -368,20 +487,45 @@ export default function AddProductForm({
         stockQuantity: parseInt(formData.stockQuantity) || 0,
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
-      });
+      };
+
+      // If using a new category name instead of existing ID (temp category or no valid ID)
+      if (hasNewCategoryName && categoryNameToCreate) {
+        productData.categoryName = categoryNameToCreate;
+        delete productData.categoryId; // Remove temp/invalid categoryId
+        console.log("Step 5a: Using new category name:", categoryNameToCreate);
+      } else if (hasExistingCategory) {
+        console.log("Step 5a: Using existing category ID:", formData.categoryId);
+      }
+
+      console.log("Step 6: Product data prepared", JSON.stringify(productData, null, 2));
+      console.log("Step 7: VendorId being sent:", vendorId);
+
+      const { apiClient } = await import("@/lib/api/client");
+      console.log("Step 8: API client imported, calling createVendorProduct...");
+      
+      const data = await apiClient.createVendorProduct(productData);
+      console.log("Step 9: API response received", JSON.stringify(data, null, 2));
 
       if (data.success) {
+        console.log("Step 10: SUCCESS - Product created!");
         alert("Product added successfully!");
         router.push("/vendor/products");
       } else {
+        console.log("Step 10: FAILED - API returned error", { message: data.message });
         alert(data.message || "Failed to add product");
       }
-    } catch (error) {
-      console.error("Product creation error:", error);
-      alert("Something went wrong. Please try again.");
+    } catch (error: any) {
+      console.error("Step 10: EXCEPTION - Product creation error:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error status:", error?.status);
+      console.error("Error response:", error?.response);
+      console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+      alert(error?.message || "Something went wrong. Please try again.");
     }
 
     setLoading(false);
+    console.log("=== PRODUCT CREATION END ===");
   };
 
   return (
@@ -749,49 +893,159 @@ export default function AddProductForm({
               Category *
             </label>
             <div className="flex gap-2">
-              <select
-                name="categoryId"
-                value={formData.categoryId}
-                onChange={handleChange}
-                required
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {categories && categories.length > 0 ? (
-                  categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No categories available</option>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={categorySearchQuery || (formData.categoryId ? localCategories.find(c => c.id === formData.categoryId)?.name : "") || templateCategoryName}
+                  onChange={(e) => {
+                    setCategorySearchQuery(e.target.value);
+                    setShowCategoryDropdown(true);
+                    setTemplateCategoryName("");
+                  }}
+                  onFocus={() => setShowCategoryDropdown(true)}
+                  onBlur={() => {
+                    // Delay hiding to allow click on dropdown items
+                    setTimeout(() => setShowCategoryDropdown(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    // Allow adding category by pressing Enter when no match found
+                    if (e.key === "Enter" && categorySearchQuery) {
+                      e.preventDefault();
+                      const matchingCategory = localCategories.find(
+                        c => c.name.toLowerCase() === categorySearchQuery.toLowerCase()
+                      );
+                      if (matchingCategory) {
+                        setFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
+                        setCategorySearchQuery(matchingCategory.name);
+                      } else {
+                        // Add new category
+                        const newId = addCategoryToLocalList(categorySearchQuery);
+                        setFormData(prev => ({ ...prev, categoryId: newId }));
+                      }
+                      setShowCategoryDropdown(false);
+                    }
+                  }}
+                  placeholder="Type to search or add a new category..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {/* Dropdown arrow */}
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <ChevronDown className={`w-5 h-5 transition-transform ${showCategoryDropdown ? "rotate-180" : ""}`} />
+                </button>
+                
+                {/* Dropdown list */}
+                {showCategoryDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    {/* Option to add new category if search query doesn't match exactly */}
+                    {categorySearchQuery && !localCategories.some(c => c.name.toLowerCase() === categorySearchQuery.toLowerCase()) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newId = addCategoryToLocalList(categorySearchQuery);
+                          setFormData(prev => ({ ...prev, categoryId: newId }));
+                          setShowCategoryDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 text-green-700 font-medium border-b border-green-200 flex items-center gap-2"
+                      >
+                        <span className="text-lg">+</span> Add &quot;{categorySearchQuery}&quot; as new category
+                      </button>
+                    )}
+                    
+                    {localCategories
+                      .filter(c => 
+                        !categorySearchQuery || 
+                        c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                      )
+                      .map((category) => (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, categoryId: category.id }));
+                            setCategorySearchQuery(category.name);
+                            setTemplateCategoryName("");
+                            setShowCategoryDropdown(false);
+                          }}
+                          className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                            formData.categoryId === category.id ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-700"
+                          }`}
+                        >
+                          <span>{category.name}</span>
+                          {category.id.startsWith("temp-") && (
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">New</span>
+                          )}
+                        </button>
+                      ))}
+                    {localCategories.filter(c => 
+                      !categorySearchQuery || 
+                      c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+                    ).length === 0 && !categorySearchQuery && (
+                      <div className="px-4 py-3 text-gray-500 text-sm">
+                        No categories available. Type to add a new one.
+                      </div>
+                    )}
+                  </div>
                 )}
-              </select>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowAddCategory(!showAddCategory)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
               >
                 + Add New
               </button>
             </div>
+            
+            {/* Info about new categories */}
+            {formData.categoryId && formData.categoryId.startsWith("temp-") && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center gap-2">
+                <span>ℹ️</span>
+                <span>New category &quot;{localCategories.find(c => c.id === formData.categoryId)?.name}&quot; will be created when you save the product.</span>
+              </div>
+            )}
 
             {showAddCategory && (
               <div className="mt-3 p-4 bg-gray-50 rounded-lg border">
+                <p className="text-sm text-gray-600 mb-2">Add a new category manually:</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        if (newCategoryName.trim()) {
+                          const newId = addCategoryToLocalList(newCategoryName.trim());
+                          setFormData(prev => ({ ...prev, categoryId: newId }));
+                          setCategorySearchQuery(newCategoryName.trim());
+                          setNewCategoryName("");
+                          setShowAddCategory(false);
+                        }
+                      }
+                    }}
                     placeholder="Enter new category name"
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
                   <button
                     type="button"
-                    onClick={handleAddCategory}
-                    disabled={addingCategory}
+                    onClick={() => {
+                      if (newCategoryName.trim()) {
+                        const newId = addCategoryToLocalList(newCategoryName.trim());
+                        setFormData(prev => ({ ...prev, categoryId: newId }));
+                        setCategorySearchQuery(newCategoryName.trim());
+                        setNewCategoryName("");
+                        setShowAddCategory(false);
+                      }
+                    }}
+                    disabled={!newCategoryName.trim()}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
                   >
-                    {addingCategory ? "Adding..." : "Add"}
+                    Add
                   </button>
                   <button
                     type="button"

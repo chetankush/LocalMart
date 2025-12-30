@@ -61,13 +61,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET - Get all vendor requests (admin only)
+// GET - Get all vendor requests (admin only) or filter by email
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const email = searchParams.get("email");
 
-    const where = status ? { status } : {};
+    const where: any = {};
+    if (status) {
+      where.status = status;
+    }
+    if (email) {
+      where.email = email;
+    }
 
     const requests = await prisma.vendorRequest.findMany({
       where,
