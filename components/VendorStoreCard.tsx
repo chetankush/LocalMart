@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Settings, ExternalLink, Package, ShoppingCart } from "lucide-react";
+import { MapPin, Settings, ExternalLink, Package, ShoppingCart, Store } from "lucide-react";
 
 interface VendorStoreCardProps {
   store: {
@@ -71,10 +71,10 @@ export default function VendorStoreCard({
 
   return (
     <div
-      className={`w-full rounded-3xl bg-white shadow-lg p-4 border-2 transition-all duration-300 cursor-pointer relative ${
+      className={`w-full rounded-3xl bg-white p-4 border-2 transition-all duration-300 cursor-pointer relative ${
         isSelected
-          ? "border-blue-500 shadow-blue-100"
-          : "border-gray-200 hover:shadow-xl hover:border-gray-400"
+          ? "border-blue-500"
+          : "border-gray-200 hover:border-gray-400"
       }`}
       onClick={() => onSelect?.(store.id)}
     >
@@ -95,8 +95,8 @@ export default function VendorStoreCard({
             className="object-cover hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-7xl bg-gradient-to-br from-orange-100 to-orange-200">
-            🏪
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-200">
+            <Store className="w-20 h-20 text-orange-400" />
           </div>
         )}
 

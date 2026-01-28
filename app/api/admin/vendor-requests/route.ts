@@ -1,95 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 
-// POST - Create new vendor request
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { fullName, email, phone, businessName, businessType, city, address, description } = body;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-    // Validate required fields
-    if (!fullName || !email || !phone || !businessName || !businessType || !city || !address) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
-
-    // Check if email already has a pending or approved request
-    const existingRequest = await prisma.vendorRequest.findFirst({
-      where: {
-        email,
-        status: { in: ["PENDING", "APPROVED"] },
-      },
-    });
-
-    if (existingRequest) {
-      return NextResponse.json(
-        { error: "A vendor request already exists for this email" },
-        { status: 409 }
-      );
-    }
-
-    // Create vendor request
-    const vendorRequest = await prisma.vendorRequest.create({
-      data: {
-        fullName,
-        email,
-        phone,
-        businessName,
-        businessType,
-        city,
-        address,
-        description,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Vendor request submitted successfully",
-        data: vendorRequest,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Error creating vendor request:", error);
-    return NextResponse.json(
-      { error: "Failed to submit vendor request" },
-      { status: 500 }
-    );
-  }
-}
-
-// GET - Get all vendor requests (admin only) or filter by email
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Forward query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const email = searchParams.get("email");
+    const query = status ? `?status=${status}` : "";
 
-    const where: any = {};
-    if (status) {
-      where.status = status;
-    }
-    if (email) {
-      where.email = email;
-    }
-
-    const requests = await prisma.vendorRequest.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
+    const response = await fetch(`${API_BASE_URL}/vendor-requests${query}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: requests,
-    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Failed to fetch vendor requests" }));
+      return NextResponse.json({ error: error.message }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching vendor requests:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch vendor requests" },
-      { status: 500 }
-    );
+    console.error("Vendor requests fetch error:", error);
+    return NextResponse.json({ error: "Error fetching vendor requests" }, { status: 500 });
   }
 }

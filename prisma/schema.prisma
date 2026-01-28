@@ -130,6 +130,7 @@ model User {
   favoriteStores            FavoriteStore[]
   notifications             Notification[]
   backInStockSubscriptions  BackInStockSubscription[]
+  areaNotificationSubscriptions AreaNotificationSubscription[]
 
   @@index([email])
   @@index([phone])
@@ -693,6 +694,7 @@ enum NotificationType {
   NEW_COLLECTION        // Vendor posted new product
   BACK_IN_STOCK        // Product is back in stock
   VENDOR_BROADCAST     // Manual message from vendor
+  NEW_STORE_IN_AREA    // New store opened in subscribed area
 }
 
 model Notification {
@@ -733,3 +735,22 @@ model BackInStockSubscription {
   @@index([productId])
   @@map("back_in_stock_subscriptions")
 }
+
+// Area notification subscription - notify when new stores open in an area
+model AreaNotificationSubscription {
+  id              String    @id @default(uuid())
+  userId          String
+  pincode         String
+  city            String?
+  locality        String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pincode])
+  @@index([pincode])
+  @@index([userId])
+  @@map("area_notification_subscriptions")
+}
+

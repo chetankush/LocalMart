@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { Store } from "lucide-react";
 
 interface StoreImageCarouselProps {
   images: string[];
@@ -22,7 +23,7 @@ export default function StoreImageCarousel({
   if (allImages.length === 0) {
     return (
       <div className="h-64 lg:h-96 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
-        <div className="text-6xl">🏪</div>
+        <Store className="w-16 h-16 text-blue-500" />
       </div>
     );
   }

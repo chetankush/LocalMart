@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useBusinessCategories } from '@/hooks/useBusinessCategories';
 
 interface VendorOnboardingWizardProps {
   userId: string;
@@ -13,6 +14,9 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
+
+  // Use shared hook for dynamic business categories
+  const { categories: businessCategories, loading: categoriesLoading } = useBusinessCategories(true);
 
   const [formData, setFormData] = useState({
     // Step 1: Business Basics
@@ -165,21 +169,25 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Business Type <span className="text-red-500">*</span>
               </label>
-              <select
-                name="businessType"
-                value={formData.businessType}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-              >
-                <option value="GROCERY">Grocery / Kirana Store</option>
-                <option value="RESTAURANT">Restaurant / Food</option>
-                <option value="PHARMACY">Pharmacy / Medical</option>
-                <option value="ELECTRONICS">Electronics</option>
-                <option value="FASHION">Fashion / Clothing</option>
-                <option value="HOME_SERVICES">Home Services</option>
-                <option value="OTHER">Other</option>
-              </select>
+              {categoriesLoading ? (
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                  Loading categories...
+                </div>
+              ) : (
+                <select
+                  name="businessType"
+                  value={formData.businessType}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+                >
+                  {businessCategories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      {category.icon && `${category.icon} `}{category.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <p className="text-xs text-gray-500 mt-1">
                 This helps us suggest relevant products for your store
               </p>

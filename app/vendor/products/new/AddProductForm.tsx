@@ -203,6 +203,8 @@ export default function AddProductForm({
     setUploadingImages(true);
 
     try {
+      const { apiClient } = await import("@/lib/api/client");
+
       const uploadPromises = Array.from(files).map(async (file) => {
         // Validate file
         if (!file.type.startsWith("image/")) {
@@ -213,22 +215,13 @@ export default function AddProductForm({
           throw new Error("Each image must be less than 5MB");
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "product");
+        const response = await apiClient.vendorUpload(file, "product");
 
-        const res = await fetch("/api/vendor/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Failed to upload image");
+        if (!response.success) {
+          throw new Error("Failed to upload image");
         }
 
-        return data.url;
+        return response.url;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);

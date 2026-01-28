@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Store as StoreIcon, MapPin, Bell } from "lucide-react";
 import StoreCard from "./StoreCard";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 interface Store {
   id: string;
@@ -301,21 +304,70 @@ export default function StoresListingSection({
                 )}
               </>
             ) : (
-              <div className="text-center py-16">
-                <div className="text-6xl mb-4">🏪</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  No Stores Found
+              <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-blue-50 to-white rounded-2xl border border-blue-100">
+                {/* Illustration */}
+                <div className="relative mb-6">
+                  <div className="w-28 h-28 bg-blue-100 rounded-full flex items-center justify-center relative overflow-hidden">
+                    <StoreIcon className="w-14 h-14 text-blue-500" />
+                    <div className="absolute top-2 left-2 w-3 h-3 bg-blue-200 rounded-full animate-pulse" />
+                    <div className="absolute bottom-4 right-2 w-2 h-2 bg-blue-300 rounded-full animate-pulse delay-300" />
+                  </div>
+                  <div className="absolute -top-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg border border-gray-100">
+                    <span className="text-2xl">😔</span>
+                  </div>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">
+                  {allStores.length === 0
+                    ? "Oh no! No stores available yet"
+                    : "No stores match your filters"}
                 </h3>
-                <p className="text-gray-600 mb-4">
-                  Try adjusting your filters to see more results
+                <p className="text-gray-500 text-center max-w-md mb-6">
+                  {allStores.length === 0
+                    ? "We're working hard to bring local stores to your neighborhood. Great things are coming soon!"
+                    : "Try adjusting your filters or browse all stores to find what you're looking for."}
                 </p>
-                {selectedCategories.length > 0 && (
-                  <button
-                    onClick={() => setSelectedCategories([])}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Clear Filters
-                  </button>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {selectedCategories.length > 0 && (
+                    <Button
+                      onClick={() => setSelectedCategories([])}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-semibold"
+                    >
+                      Clear All Filters
+                    </Button>
+                  )}
+
+                  {allStores.length === 0 && (
+                    <Button
+                      onClick={() => alert("We'll notify you when stores are available!")}
+                      variant="outline"
+                      className="px-6 py-3 rounded-full font-semibold flex items-center gap-2"
+                    >
+                      <Bell className="w-5 h-5" />
+                      Notify Me
+                    </Button>
+                  )}
+                </div>
+
+                {/* Browse other areas */}
+                {allStores.length === 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200 w-full max-w-md">
+                    <p className="text-sm text-gray-500 text-center mb-3">
+                      Meanwhile, check out stores in other areas
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {["Mumbai", "Delhi", "Bangalore", "Pune"].map((city) => (
+                        <Link
+                          key={city}
+                          href={`/stores?city=${city}`}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 transition-colors"
+                        >
+                          {city}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

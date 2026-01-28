@@ -72,7 +72,7 @@ export default function StoreSelector({ stores, currentStoreId, onStoreChange }:
                     {store.storeLogo ? (
                       <img src={store.storeLogo} alt="" className="w-full h-full object-cover rounded-lg" />
                     ) : (
-                      <span className="text-xl">🏪</span>
+                      <Store className="w-5 h-5 text-orange-500" />
                     )}
                   </div>
                   <div className="flex-1 text-left">

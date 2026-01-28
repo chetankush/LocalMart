@@ -1,7 +1,19 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import Link from "next/link";
+import { Store } from "lucide-react";
 import DashboardClient from "./DashboardClient";
+
+// Helper function to serialize Prisma objects with Decimal values
+function serializeData<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, (key, value) => {
+    // Convert Decimal to number
+    if (value !== null && typeof value === 'object' && 'toNumber' in value) {
+      return value.toNumber();
+    }
+    return value;
+  }));
+}
 
 export default async function VendorDashboardPage() {
   const user = await getCurrentUser();
@@ -89,7 +101,9 @@ export default async function VendorDashboardPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">🏪</div>
+          <div className="mb-4">
+            <Store className="w-16 h-16 text-orange-500 mx-auto" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             No Vendor Profile Found
           </h1>
@@ -157,8 +171,8 @@ export default async function VendorDashboardPage() {
       isActive: vendor.isActive,
       city: vendor.city,
       storeLogo: vendor.storeLogo,
-      products: vendor.products,
-      orders: vendor.orders,
+      products: serializeData(vendor.products),
+      orders: serializeData(vendor.orders),
       stats,
     };
 
@@ -206,8 +220,8 @@ export default async function VendorDashboardPage() {
     isActive: activeStore.isActive,
     city: activeStore.city,
     storeLogo: activeStore.storeLogo,
-    products: activeStore.products,
-    orders: activeStore.orders,
+    products: serializeData(activeStore.products),
+    orders: serializeData(activeStore.orders),
     stats,
   };
 

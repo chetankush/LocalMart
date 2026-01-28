@@ -84,8 +84,9 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     try {
       const { apiClient } = await import("@/lib/api/client");
-      // Note: Backend doesn't support markAll, so we'll mark each individually
-      // For now, we'll just update the UI
+      await apiClient.markAllNotificationsRead();
+
+      // Update UI after successful backend call
       setNotifications(
         notifications.map((n) => ({ ...n, isRead: true }))
       );
@@ -127,6 +128,20 @@ export default function NotificationBell() {
       fetchNotifications();
     }
   }, [isOpen, user]);
+
+  // Poll for new notifications every 30 seconds (like YouTube)
+  useEffect(() => {
+    if (!user) return;
+
+    const pollInterval = setInterval(() => {
+      // Only poll if dropdown is closed to avoid conflicts
+      if (!isOpen) {
+        fetchNotifications();
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [user, isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -245,14 +260,12 @@ export default function NotificationBell() {
     return "#";
   };
 
-  if (!user) return null;
-
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell Icon */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+        onClick={() => user ? setIsOpen(!isOpen) : null}
+        className="relative p-2 text-white hover:bg-gray-800 rounded-full transition-colors"
       >
         <svg
           className="w-6 h-6"
@@ -268,16 +281,16 @@ export default function NotificationBell() {
           />
         </svg>
 
-        {/* Unread Badge */}
+        {/* Instagram-style notification bubble - only show when there are unread notifications */}
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-600 rounded-full">
+          <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[10px] font-bold text-white bg-red-500 rounded-full leading-none">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
-      {isOpen && (
+      {/* Dropdown - only show when user is logged in */}
+      {isOpen && user && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-[600px] flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">

@@ -1,4 +1,7 @@
 @theme {
   --font-family-sans: var(--font-roboto), system-ui, -apple-system, sans-serif;
   --font-family-heading: var(--font-montserrat), system-ui, -apple-system, sans-serif;
+  
+  /* Custom breakpoints */
+  --breakpoint-xs: 320px;
 }

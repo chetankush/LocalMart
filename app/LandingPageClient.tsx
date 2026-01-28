@@ -4,9 +4,31 @@ import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { LANDING_CATEGORIES } from "@/constants/landingCategories";
+// Dynamic categories now loaded from useBusinessCategories hook
 import ModernStoreCard from "@/components/ModernStoreCard";
 import RecentlyViewed from "@/components/RecentlyViewed";
+import TrustSection from "@/components/TrustSection";
+import { useLocation } from "@/context/LocationContext";
+import HowItWorks from "@/components/HowItWorks";
+import DealsCorner from "@/components/DealsCorner";
+import QuickStoreFilters from "@/components/QuickStoreFilters";
+import LocalDiscovery from "@/components/LocalDiscovery";
+import HeroGrid from "@/components/HeroGrid";
+import ProductRail from "@/components/ProductRail";
+import PromoBanner from "@/components/PromoBanner";
+import CategoryGridRail from "@/components/CategoryGridRail";
+import EmptyStoresState from "@/components/EmptyStoresState";
+import LocationSelectorModal from "@/components/LocationSelectorModal";
+import { useBusinessCategories } from "@/hooks/useBusinessCategories";
+import {
+  ShoppingBasket,
+  Utensils,
+  Pill,
+  Smartphone,
+  Shirt,
+  Wrench,
+  Store
+} from "lucide-react";
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
@@ -36,7 +58,10 @@ interface Vendor {
 interface Product {
   id: string;
   name: string;
+  description: string;
   price: any;
+  compareAtPrice: any;
+  sku: string | null;
   images: any;
   stockQuantity: number;
   averageRating: any;
@@ -61,150 +86,16 @@ interface LandingPageClientProps {
   categories: Category[];
 }
 
-// Predefined categories with icons and colors - Daily essentials first
-const defaultCategories = [
-  {
-    name: "Daily Needs",
-    icon: "🛒",
-    bgColor: "bg-gradient-to-br from-green-400 to-emerald-500",
-    slug: "daily-needs",
-  },
-  {
-    name: "Grocery",
-    icon: "🍎",
-    bgColor: "bg-gradient-to-br from-lime-400 to-green-500",
-    slug: "grocery",
-  },
-  {
-    name: "Cosmetics",
-    icon: "💄",
-    bgColor: "bg-gradient-to-br from-pink-400 to-rose-500",
-    slug: "cosmetics",
-  },
-  {
-    name: "Medical",
-    icon: "💊",
-    bgColor: "bg-gradient-to-br from-blue-400 to-cyan-500",
-    slug: "medical",
-  },
-  {
-    name: "Milk & Dairy",
-    icon: "🥛",
-    bgColor: "bg-gradient-to-br from-sky-400 to-blue-400",
-    slug: "dairy",
-  },
-  {
-    name: "Dry Fruits",
-    icon: "🥜",
-    bgColor: "bg-gradient-to-br from-amber-400 to-orange-500",
-    slug: "dry-fruits",
-  },
-  {
-    name: "Clothing",
-    icon: "👕",
-    bgColor: "bg-gradient-to-br from-purple-400 to-pink-500",
-    slug: "clothing",
-  },
-  {
-    name: "Shoes",
-    icon: "👟",
-    bgColor: "bg-gradient-to-br from-indigo-400 to-purple-500",
-    slug: "shoes",
-  },
-  {
-    name: "Electronics",
-    icon: "⚡",
-    bgColor: "bg-gradient-to-br from-yellow-400 to-orange-400",
-    slug: "electronics",
-  },
-  {
-    name: "Mobiles & Tablets",
-    icon: "📱",
-    bgColor: "bg-gradient-to-br from-violet-400 to-purple-500",
-    slug: "mobiles",
-  },
-  {
-    name: "Home & Kitchen",
-    icon: "🏠",
-    bgColor: "bg-gradient-to-br from-teal-400 to-cyan-500",
-    slug: "home-kitchen",
-  },
-  {
-    name: "Beauty & Personal Care",
-    icon: "✨",
-    bgColor: "bg-gradient-to-br from-fuchsia-400 to-pink-500",
-    slug: "beauty",
-  },
-  {
-    name: "Toys & Games",
-    icon: "🎮",
-    bgColor: "bg-gradient-to-br from-red-400 to-pink-500",
-    slug: "toys",
-  },
-  {
-    name: "Books & Stationery",
-    icon: "📚",
-    bgColor: "bg-gradient-to-br from-blue-400 to-indigo-500",
-    slug: "books",
-  },
-  {
-    name: "Sports & Fitness",
-    icon: "⚽",
-    bgColor: "bg-gradient-to-br from-green-500 to-emerald-600",
-    slug: "sports",
-  },
-  {
-    name: "Pet Supplies",
-    icon: "🐾",
-    bgColor: "bg-gradient-to-br from-orange-400 to-red-400",
-    slug: "pets",
-  },
-  {
-    name: "Automotive",
-    icon: "🚗",
-    bgColor: "bg-gradient-to-br from-gray-500 to-slate-600",
-    slug: "automotive",
-  },
-  {
-    name: "Garden & Outdoor",
-    icon: "🌱",
-    bgColor: "bg-gradient-to-br from-lime-500 to-green-600",
-    slug: "garden",
-  },
-];
 
-// Category icons and colors for business types
-const categoryConfig: {
-  [key: string]: { icon: string; bgColor: string };
-} = {
-  GROCERY: {
-    icon: "🛒",
-    bgColor: "bg-gradient-to-br from-green-400 to-emerald-500",
-  },
-  RESTAURANT: {
-    icon: "🍕",
-    bgColor: "bg-gradient-to-br from-orange-400 to-red-500",
-  },
-  PHARMACY: {
-    icon: "💊",
-    bgColor: "bg-gradient-to-br from-blue-400 to-cyan-500",
-  },
-  ELECTRONICS: {
-    icon: "📱",
-    bgColor: "bg-gradient-to-br from-purple-400 to-indigo-500",
-  },
-  FASHION: {
-    icon: "👕",
-    bgColor: "bg-gradient-to-br from-pink-400 to-rose-500",
-  },
-  HOME_SERVICES: {
-    icon: "🔧",
-    bgColor: "bg-gradient-to-br from-yellow-400 to-amber-500",
-  },
-  OTHER: {
-    icon: "🏪",
-    bgColor: "bg-gradient-to-br from-gray-400 to-slate-500",
-  },
+// Icon mapping for business types (used with dynamic categories)
+const businessTypeIcons: { [key: string]: React.ReactNode } = {
+  GROCERY: <ShoppingBasket className="w-4 h-4" />,
+  RESTAURANT: <Utensils className="w-4 h-4" />,
+  PHARMACY: <Pill className="w-4 h-4" />,
+  ELECTRONICS: <Smartphone className="w-4 h-4" />,
+  FASHION: <Shirt className="w-4 h-4" />,
+  HOME_SERVICES: <Wrench className="w-4 h-4" />,
+  OTHER: <Store className="w-4 h-4" />,
 };
 
 // Carousel Configuration - Easy to update
@@ -228,12 +119,28 @@ const BANNERS = [
     title: "CMF Phone 2 Pro",
     subtitle: "Unique design. Festive price - ₹16,999",
     pattern: "default",
-    imageUrl: "/c3.webp", // CMF Phone offer
     linkUrl: "/stores",
   },
 ];
 
 // Auto-rotate carousel every 4 seconds - Easy to change interval
+// Festive/Occasion Configuration - Update this section for different events
+const SEASONAL_CONFIG = {
+  title: "All you need for Valentine's Day",
+  groups: [
+    {
+      name: "Everything Valentine's",
+      link: "/products?tag=valentine",
+      tag: "valentine"
+    },
+    {
+      name: "Gifts for Her",
+      link: "/products?tag=for-her",
+      tag: "for-her"
+    }
+  ]
+};
+
 const CAROUSEL_INTERVAL = 4000;
 
 export default function LandingPageClient({
@@ -252,6 +159,12 @@ export default function LandingPageClient({
   const [isNavigating, setIsNavigating] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { location } = useLocation();
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+
+  // Use dynamic business categories from API
+  const { categories: businessCategories, getCategoryDisplay } = useBusinessCategories(true);
 
   // Optimized navigation handler for instant navigation
   const handleNavigation = (href: string, e?: React.MouseEvent) => {
@@ -302,60 +215,116 @@ export default function LandingPageClient({
     setShowRightScroll(scrollLeft < maxScroll - 10);
   };
 
-  // Get unique business types from vendors
-  const businessTypes = Array.from(
-    new Set(vendors.map((v) => v.businessType))
-  ).slice(0, 8);
+  // Filter vendors based on selected category AND quick filters
+  const filteredVendors = vendors
+    .filter((vendor) => {
+      // 1. Category Filter
+      if (selectedCategory && vendor.businessType !== selectedCategory) {
+        return false;
+      }
+      
+      // 2. Quick Filters
+      if (activeFilter === "open") {
+        // Mock logic for "Open Now" - in real app check operating hours
+        return true; 
+      }
+      if (activeFilter === "rating") {
+        return Number(vendor.averageRating) >= 4.0;
+      }
+      if (activeFilter === "fast") {
+        // Mock logic - assume all local are fast for now
+        return true;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+        if (activeFilter === "nearby") {
+           // Mock sort - in real app use geospatial distance
+           return 0;
+        }
+        return 0;
+    });
 
-  // Filter vendors based on selected category
-  const filteredVendors = selectedCategory
-    ? vendors.filter((vendor) => vendor.businessType === selectedCategory)
-    : vendors;
+  // Sort vendors for different sections to ensure consistent top rated view
+  // User requested to show all stores here since data might be limited in specific regions
+  const topRatedVendors = [...vendors]
+    .sort((a, b) => Number(b.averageRating) - Number(a.averageRating))
+    .slice(0, 8);
 
-  // Sort vendors for different sections
-  const topRatedVendors = vendors.slice(0, 4);
+  // Filter stores by location
+  const nearbyVendors = location?.city || location?.pincode
+    ? vendors.filter((vendor) => {
+        // Match by city
+        if (location.city && vendor.city?.toLowerCase() === location.city.toLowerCase()) {
+          return true;
+        }
+        // Match by locality if available
+        if (location.locality && vendor.locality?.toLowerCase().includes(location.locality.toLowerCase())) {
+          return true;
+        }
+        return false;
+      })
+    : [];
+
+  // Sort products for specific sections
+  const cheapestProducts = [...featuredProducts]
+    .sort((a, b) => Number(a.price) - Number(b.price));
+
+  const mostPopProducts = [...featuredProducts]
+    .sort((a, b) => b.reviewCount - a.reviewCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Categories Bar - Modern Circular Images */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 xl:px-8">
           <div className="relative py-2">
             {/* Gradient fade on left */}
             {showLeftScroll && (
-              <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
             )}
 
             {/* Gradient fade on right */}
             {showRightScroll && (
-              <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
             )}
 
             <div
               id="categories-scroll"
               onScroll={handleCategoryScroll}
-              className="flex items-center gap-6 overflow-x-auto scrollbar-hide  px-12"
+              className="flex items-center gap-3 sm:gap-6 overflow-x-auto scrollbar-hide px-6 sm:px-12"
             >
-              {LANDING_CATEGORIES.map((category) => {
+              {businessCategories.map((category) => {
                 const isLoading =
-                  loadingLink === `/stores?category=${category.slug}`;
+                  loadingLink === `/stores?category=${category.value}`;
+                // Default gradient background if no image
+                const gradientClass = category.gradient
+                  ? `bg-gradient-to-br ${category.gradient}`
+                  : "bg-gradient-to-br from-gray-400 to-gray-500";
                 return (
                   <button
-                    key={category.slug}
+                    key={category.value}
                     onClick={(e) =>
-                      handleNavigation(`/stores?category=${category.slug}`, e)
+                      handleNavigation(`/stores?category=${category.value}`, e)
                     }
-                    className="flex flex-col items-center min-w-[90px] flex-shrink-0 pt-1 group cursor-pointer bg-transparent border-none"
+                    className="flex flex-col items-center min-w-[60px] sm:min-w-[90px] flex-shrink-0 pt-1 group cursor-pointer bg-transparent border-none"
                   >
                     {/* Circular Image with Spacing */}
-                    <div className="relative w-16 h-16 rounded-full ring-2 ring-gray-300 group-hover:ring-orange-400 transition-all duration-300 p-1 bg-white group-hover:scale-110 group-active:scale-100">
+                    <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-full ring-2 ring-gray-300 group-hover:ring-orange-400 transition-all duration-300 p-0.5 sm:p-1 bg-white group-hover:scale-110 group-active:scale-100">
                       <div className="relative w-full h-full rounded-full overflow-hidden">
-                        <Image
-                          src={category.imageUrl}
-                          alt={category.name}
-                          fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
+                        {category.imageUrl ? (
+                          <Image
+                            src={category.imageUrl}
+                            alt={category.name}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className={`w-full h-full ${gradientClass} flex items-center justify-center`}>
+                            <span className="text-xl sm:text-2xl">{category.icon || "📦"}</span>
+                          </div>
+                        )}
                         {isLoading && (
                           <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
                             <LoadingSpinner size="sm" />
@@ -363,7 +332,7 @@ export default function LandingPageClient({
                         )}
                       </div>
                     </div>
-                    <span className="text-xs  mt-2 font-semibold text-gray-700 text-center leading-tight line-clamp-2 group-hover:text-orange-500 transition-colors max-w-[90px]">
+                    <span className="text-[10px] sm:text-xs mt-1.5 sm:mt-2 font-semibold text-gray-700 text-center leading-tight line-clamp-2 group-hover:text-orange-500 transition-colors max-w-[60px] sm:max-w-[90px]">
                       {category.name}
                     </span>
                   </button>
@@ -384,7 +353,7 @@ export default function LandingPageClient({
                     });
                   }
                 }}
-                className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
+                className="absolute left-0 top-1/2 -translate-y-1/2 hidden sm:flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
                 aria-label="View previous categories"
               >
                 <svg
@@ -413,7 +382,7 @@ export default function LandingPageClient({
                     scrollContainer.scrollBy({ left: 300, behavior: "smooth" });
                   }
                 }}
-                className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-10 h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
+                className="absolute right-0 top-1/2 -translate-y-1/2 hidden sm:flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-white text-gray-700 hover:text-orange-500 hover:bg-gray-50 rounded-full transition-all shadow-md border border-gray-200 z-20 cursor-pointer hover:scale-110 active:scale-95"
                 aria-label="View more categories"
               >
                 <svg
@@ -434,98 +403,47 @@ export default function LandingPageClient({
           </div>
         </div>
       </div>
-      {/* Carousel Banner - Bootstrap Style */}
-      <div className="relative overflow-hidden bg-gray-100 h-[280px] md:h-[270px]">
-        {/* Carousel Inner */}
-        <div className="relative w-full h-full">
-          {BANNERS.map((banner, index) => (
-            <div
-              key={index}
-              className={`absolute w-full h-full transition-all duration-700 ease-in-out ${
-                index === currentBanner
-                  ? "opacity-100 visible z-10"
-                  : "opacity-0 invisible z-0"
-              }`}
-            >
-              <Link
-                href={banner.linkUrl}
-                prefetch={true}
-                className="block w-full h-full cursor-pointer"
-              >
-                <Image
-                  src={banner.imageUrl}
-                  alt={banner.title}
-                  fill
-                  className="object-cover transition-transform duration-300 hover:scale-105"
-                  priority={index === 0}
-                  unoptimized
-                />
-              </Link>
-            </div>
-          ))}
-        </div>
+      {/* Hero Grid Section - Split Banner Style */}
+      <HeroGrid />
 
-        {/* Indicators */}
-        <ol className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
-          {BANNERS.map((_, index) => (
-            <li
-              key={index}
-              onClick={() => setCurrentBanner(index)}
-              className={`w-2 h-2 rounded-full cursor-pointer transition-all hover:scale-110 active:scale-95 ${
-                index === currentBanner
-                  ? "bg-white w-6"
-                  : "bg-white/60 hover:bg-white/80"
-              }`}
-              aria-label={`Slide ${index + 1}`}
-            />
-          ))}
-        </ol>
-
-        {/* Left Control */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            setCurrentBanner((prev) =>
-              prev === 0 ? BANNERS.length - 1 : prev - 1
-            );
-          }}
-          className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/30 hover:bg-white/50 rounded-full flex items-center justify-center text-white z-20 transition-all cursor-pointer hover:scale-110 active:scale-95"
-          aria-label="Previous"
-        >
-          <span className="text-xl md:text-2xl font-bold">&lsaquo;</span>
-        </button>
-
-        {/* Right Control */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            setCurrentBanner((prev) => (prev + 1) % BANNERS.length);
-          }}
-          className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-white/30 hover:bg-white/50 rounded-full flex items-center justify-center text-white z-20 transition-all cursor-pointer hover:scale-110 active:scale-95"
-          aria-label="Next"
-        >
-          <span className="text-xl md:text-2xl font-bold">&rsaquo;</span>
-        </button>
-      </div>
-      
-      {/* Recently Viewed Section */}
-      <RecentlyViewed />
-      
       {/* Featured Stores Section with Filters */}
-      <div className="py-12 bg-white">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Featured Stores
-            </h2>
+      <div className="py-6 sm:py-8 lg:py-12 bg-white scroll-mt-20" id="stores-section">
+        <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+
+          {/* Quick Filters Bar - Sticky specific to this section context if needed, but placed here for flow */}
+          <div className="mb-6">
+             <QuickStoreFilters
+               activeFilter={activeFilter}
+               onFilterChange={setActiveFilter}
+             />
+          </div>
+
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <div className="flex flex-col">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+                {location?.locality || location?.city
+                  ? `Stores in ${location.locality || location.city}`
+                  : "Top Stores Near You"}
+              </h2>
+              {location?.locality || location?.city ? (
+                <p className="text-sm text-gray-500 mt-1">
+                  Discover local favorites in your neighborhood
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500 mt-1">
+                  Set your location to see stores near you
+                </p>
+              )}
+            </div>
             <button
               onClick={(e) => handleNavigation("/stores", e)}
-              className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
+              className="text-sm sm:text-base text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-1 sm:gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
             >
               {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
-              View More
+              <span className="hidden xs:inline">View More</span>
+              <span className="xs:hidden">More</span>
               <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -540,110 +458,206 @@ export default function LandingPageClient({
             </button>
           </div>
 
-          {/* Category Filters */}
-          <div className="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
+          {/* Category Filters - Using dynamic business categories */}
+          <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto scrollbar-hide pb-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 ${
                 selectedCategory === null
-                  ? "bg-orange-500 text-white shadow-md hover:bg-orange-600"
-                  : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                  ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-800 hover:shadow-sm"
               }`}
             >
+              {selectedCategory === null && <div className="w-3.5 h-3.5">✓</div>}
               All Stores
             </button>
-            {businessTypes.map((type) => (
+            {businessCategories.map((category) => (
               <button
-                key={type}
+                key={category.value}
                 onClick={() =>
-                  setSelectedCategory(type === selectedCategory ? null : type)
+                  setSelectedCategory(category.value === selectedCategory ? null : category.value)
                 }
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
-                  selectedCategory === type
-                    ? "bg-orange-500 text-white shadow-md hover:bg-orange-600"
-                    : "bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 ${
+                  selectedCategory === category.value
+                    ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-gray-800 hover:shadow-sm"
                 }`}
               >
-                {categoryConfig[type]?.icon} {type.replace("_", " ")}
+                {selectedCategory === category.value ? (
+                   <div className="w-3.5 h-3.5">✓</div>
+                ) : (
+                   category.icon ? <span>{category.icon}</span> : businessTypeIcons[category.value] || <Store className="w-4 h-4" />
+                )}
+                <span>{category.name}</span>
               </button>
             ))}
           </div>
 
-          {/* Modern Store Grid with ModernStoreCard Component */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredVendors.slice(0, 8).map((vendor) => (
-              <ModernStoreCard
-                key={vendor.id}
-                store={vendor}
-                onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
-                isLoading={loadingLink === `/stores/${vendor.id}`}
-                showRatingBadge={false}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-      {/* Top Rated Stores Section */}
-      <div className="py-12 bg-gray-100">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-              ⭐ Top Rated Stores
-            </h2>
-            <button
-              onClick={(e) => handleNavigation("/stores?sort=rating", e)}
-              className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
-            >
-              {loadingLink === "/stores?sort=rating" && (
-                <LoadingSpinner size="sm" />
-              )}
-              View More
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
+          {/* Store Grid - Shows different content based on location and availability */}
+          {(() => {
+            // Determine which stores to show based on location
+            const hasLocation = !!(location?.city || location?.locality || location?.pincode);
+            const storesToShow = hasLocation ? nearbyVendors : topRatedVendors;
+
+            // Apply category filter
+            const displayStores = selectedCategory
+              ? storesToShow.filter(v => v.businessType === selectedCategory)
+              : storesToShow;
+
+            // Case 1: No stores available at all in database
+            if (vendors.length === 0) {
+              return (
+                <EmptyStoresState
+                  variant="no-stores"
+                  locationName={location?.locality || location?.city || "this area"}
+                  onSelectLocation={() => setShowLocationModal(true)}
+                  showNotifyButton={true}
+                  onNotifyMe={() => {
+                    // Could implement notify me functionality
+                    alert("We'll notify you when stores are available in your area!");
+                  }}
                 />
-              </svg>
-            </button>
-          </div>
+              );
+            }
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {topRatedVendors.map((vendor) => (
-              <ModernStoreCard
-                key={vendor.id}
-                store={vendor}
-                onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
-                isLoading={loadingLink === `/stores/${vendor.id}`}
-                showRatingBadge={true}
-              />
-            ))}
-          </div>
+            // Case 2: Location is set but no stores in that area
+            if (hasLocation && nearbyVendors.length === 0) {
+              return (
+                <div className="space-y-8">
+                  <EmptyStoresState
+                    variant="no-stores"
+                    locationName={location?.locality || location?.city || "your area"}
+                    onSelectLocation={() => setShowLocationModal(true)}
+                    showNotifyButton={true}
+                    onNotifyMe={() => {
+                      alert("We'll notify you when stores are available in your area!");
+                    }}
+                  />
+
+                  {/* Show top stores as fallback */}
+                  {topRatedVendors.length > 0 && (
+                    <div className="pt-6 border-t border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                        🌟 Meanwhile, check out our top-rated stores
+                      </h3>
+                      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                        {topRatedVendors.slice(0, 4).map((vendor) => (
+                          <ModernStoreCard
+                            key={vendor.id}
+                            store={vendor}
+                            onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                            isLoading={loadingLink === `/stores/${vendor.id}`}
+                            showRatingBadge={true}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Case 3: Category filter applied but no stores match
+            if (selectedCategory && displayStores.length === 0) {
+              return (
+                <EmptyStoresState
+                  variant="no-stores-category"
+                  category={selectedCategory.replace("_", " ")}
+                />
+              );
+            }
+
+            // Case 4: Normal display - stores available
+            return (
+              <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                {displayStores.slice(0, 8).map((vendor) => (
+                  <ModernStoreCard
+                    key={vendor.id}
+                    store={vendor}
+                    onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                    isLoading={loadingLink === `/stores/${vendor.id}`}
+                    showRatingBadge={hasLocation}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
-      {/* Featured Products Section */}
-      {featuredProducts.length > 0 && (
-        <div className="py-12 bg-white">
-          <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                🔥 Best Deals
-              </h2>
+      {/* Location Selector Modal */}
+      <LocationSelectorModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+      />
+
+      {/* Flash Deals Section - Commented out for now */}
+      {/* <DealsCorner /> */}
+      
+      {/* Category Grid Rail - "All you need for..." - Configurable Seasonal Section */}
+      <CategoryGridRail 
+        title={SEASONAL_CONFIG.title}
+        location={location?.locality || location?.city || "your area"}
+        groups={[
+            {
+                name: "Cheapest Products",
+                link: "/products?sort=price_asc",
+                products: cheapestProducts.slice(0, 4)
+            },
+            {
+                name: "Most Popular",
+                link: "/products?sort=popularity",
+                products: mostPopProducts.slice(0, 4)
+            },
+            ...SEASONAL_CONFIG.groups.map((group: any) => ({
+                ...group,
+                products: group.filter === 'price_high' 
+                  ? featuredProducts.filter(p => Number(p.price) > 500).slice(0, 4)
+                  : group.tag 
+                    ? featuredProducts.slice(0, 4) // In real app: filter by tag
+                    : featuredProducts.slice(0, 4).reverse() // Fallback/random
+            }))
+        ]}
+      />
+
+      {/* Product Rail 1 - Seasonal/Event */}
+      <ProductRail 
+        title="Valentine's Day gifts for all" 
+        subtitle="Surprises for everyone"
+        products={featuredProducts.slice(0, 8)}
+        viewAllLink="/products?tag=valentine"
+      />
+
+      {/* Product Rail 2 - Best Sellers */}
+      <div className="bg-gray-100">
+         <ProductRail 
+            title="Top 100+ gifts" 
+            products={featuredProducts.slice(2, 10)}
+            viewAllLink="/products"
+            bgColor="bg-gray-100"
+         />
+      </div>
+
+      {/* Additional Nearby Stores Section - Only show if we have more than 8 nearby stores */}
+      {location && nearbyVendors.length > 8 && (
+        <div className="py-6 sm:py-8 lg:py-12 bg-orange-50/50">
+          <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <div className="flex flex-col">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                  🚀 More Stores in {location.locality || location.city || "Your Area"}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Fast delivery available from these local stores
+                </p>
+              </div>
               <button
-                onClick={(e) => handleNavigation("/products", e)}
-                className="text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
+                onClick={(e) => handleNavigation("/stores", e)}
+                className="text-sm sm:text-base text-orange-600 hover:text-orange-700 font-semibold flex items-center gap-1 sm:gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
               >
-                {loadingLink === "/products" && <LoadingSpinner size="sm" />}
-                View More
+                <span>View All</span>
                 <svg
-                  className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                  className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -658,7 +672,161 @@ export default function LandingPageClient({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+              {nearbyVendors.slice(8, 12).map((vendor) => (
+                <ModernStoreCard
+                  key={vendor.id}
+                  store={vendor}
+                  onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                  isLoading={loadingLink === `/stores/${vendor.id}`}
+                  showRatingBadge={true}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recently Viewed Section */}
+      <RecentlyViewed />
+
+
+
+      {/* Local Discovery Section - Visual Break */}
+      <LocalDiscovery />
+      {/* Top Rated Stores Section */}
+      <div className="py-6 sm:py-8 lg:py-12 bg-gray-100">
+        <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <div className="flex flex-col">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+                ⭐ Top Rated Stores
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Highest rated stores loved by customers
+              </p>
+            </div>
+            {topRatedVendors.length > 0 && (
+              <button
+                onClick={(e) => handleNavigation("/stores?sort=rating", e)}
+                className="text-sm sm:text-base text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-1 sm:gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
+              >
+                {loadingLink === "/stores?sort=rating" && (
+                  <LoadingSpinner size="sm" />
+                )}
+                <span className="hidden xs:inline">View More</span>
+                <span className="xs:hidden">More</span>
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {topRatedVendors.length > 0 ? (
+            <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+              {topRatedVendors.map((vendor) => (
+                <ModernStoreCard
+                  key={vendor.id}
+                  store={vendor}
+                  onNavigate={(storeId) => handleNavigation(`/stores/${storeId}`)}
+                  isLoading={loadingLink === `/stores/${vendor.id}`}
+                  showRatingBadge={true}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-4 bg-white rounded-2xl border border-gray-200">
+              <div className="relative mb-6">
+                <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <span className="text-5xl">⭐</span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-lg">🔍</span>
+                </div>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">
+                No rated stores yet
+              </h3>
+              <p className="text-gray-500 text-center max-w-md mb-6">
+                Be the first to discover and review local stores! Help your community find the best places to shop.
+              </p>
+
+              <button
+                onClick={(e) => handleNavigation("/stores", e)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full font-semibold transition-all shadow-md hover:shadow-lg"
+              >
+                {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
+                Explore All Stores
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Featured Products Section */}
+      <div className="py-6 sm:py-8 lg:py-12 bg-white">
+        <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+          <div className="flex justify-between items-center mb-4 sm:mb-6">
+            <div className="flex flex-col">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+                🔥 Best Deals
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Hot products at amazing prices
+              </p>
+            </div>
+            {featuredProducts.length > 0 && (
+              <button
+                onClick={(e) => handleNavigation("/products", e)}
+                className="text-sm sm:text-base text-gray-700 hover:text-orange-500 font-semibold flex items-center gap-1 sm:gap-2 group transition-all cursor-pointer active:scale-95 bg-transparent border-none"
+              >
+                {loadingLink === "/products" && <LoadingSpinner size="sm" />}
+                <span className="hidden xs:inline">View More</span>
+                <span className="xs:hidden">More</span>
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {featuredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
               {featuredProducts.slice(0, 6).map((product) => (
                 <button
                   key={product.id}
@@ -672,10 +840,11 @@ export default function LandingPageClient({
                       <LoadingSpinner size="md" />
                     </div>
                   )}
-                  <div className="h-32 md:h-40 bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                  <div className="h-28 sm:h-32 md:h-40 bg-gray-50 flex items-center justify-center relative overflow-hidden">
                     {product.images &&
                     Array.isArray(product.images) &&
-                    (product.images as string[]).length > 0 ? (
+                    (product.images as string[]).length > 0 &&
+                    (product.images as string[])[0] ? (
                       <Image
                         src={(product.images as string[])[0]}
                         alt={product.name}
@@ -684,15 +853,15 @@ export default function LandingPageClient({
                         className="object-contain w-full h-full p-2 group-hover:scale-110 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="text-4xl">📦</div>
+                      <div className="text-3xl sm:text-4xl">📦</div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <h3 className="font-medium text-xs md:text-sm text-gray-900 mb-1 line-clamp-2 min-h-[2.5rem]">
+                  <div className="p-2 sm:p-3">
+                    <h3 className="font-medium text-[11px] sm:text-xs md:text-sm text-gray-900 mb-1 line-clamp-2 min-h-[2rem] sm:min-h-[2.5rem]">
                       {product.name}
                     </h3>
                     {product.averageRating && product.reviewCount > 0 ? (
-                      <div className="flex items-center text-xs text-gray-600 mb-1">
+                      <div className="flex items-center text-[10px] sm:text-xs text-gray-600 mb-1">
                         <span className="text-yellow-500">★</span>
                         <span className="ml-1">
                           {Number(product.averageRating).toFixed(1)} (
@@ -701,10 +870,10 @@ export default function LandingPageClient({
                       </div>
                     ) : null}
                     <div className="flex items-center justify-between">
-                      <span className="text-base md:text-lg font-bold text-gray-900">
+                      <span className="text-sm sm:text-base md:text-lg font-bold text-gray-900">
                         ₹{Number(product.price).toFixed(0)}
                       </span>
-                      <span className="text-xs text-green-600 font-semibold">
+                      <span className="text-[10px] sm:text-xs text-green-600 font-semibold">
                         In Stock
                       </span>
                     </div>
@@ -712,23 +881,68 @@ export default function LandingPageClient({
                 </button>
               ))}
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-orange-50 to-white rounded-2xl border border-orange-100">
+              <div className="relative mb-6">
+                <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-5xl">🛍️</span>
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white text-sm font-bold">0</span>
+                </div>
+              </div>
+
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">
+                No deals available right now
+              </h3>
+              <p className="text-gray-500 text-center max-w-md mb-6">
+                Our vendors are preparing amazing deals for you. Check back soon for exciting offers and discounts!
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={(e) => handleNavigation("/stores", e)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg"
+                >
+                  {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
+                  Browse Stores Instead
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      {/* How It Works Section */}
+      <HowItWorks />
+
       {/* CTA Section */}
-      <div className="bg-gradient-to-r from-black via-gray-900 to-black py-16">
+      <div className="bg-gradient-to-r from-black via-gray-900 to-black py-10 sm:py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="text-5xl mb-4">🎉</div>
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎉</div>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4">
             Start Selling on NearStore Today!
           </h2>
-          <p className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
             Join thousands of local businesses. Set up your store in minutes and
             reach customers in your area!
           </p>
           <button
             onClick={(e) => handleNavigation("/become-vendor", e)}
-            className="inline-flex items-center gap-3 px-8 py-4 bg-orange-500 text-white rounded-full font-bold text-lg hover:bg-orange-600 transition-all shadow-lg hover:scale-105 cursor-pointer active:scale-100"
+            className="inline-flex items-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 bg-orange-500 text-white rounded-full font-bold text-base sm:text-lg hover:bg-orange-600 transition-all shadow-lg hover:scale-105 cursor-pointer active:scale-100"
           >
             {loadingLink === "/become-vendor" && <LoadingSpinner size="md" />}
             Open Your Store Free →

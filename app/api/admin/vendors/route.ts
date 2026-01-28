@@ -1,69 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { createClient } from "@/lib/supabase/server";
 
-// Helper to check admin auth
-async function checkAdminAuth() {
-  const supabase = await createClient();
-  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-  if (!supabaseUser) {
-    return null;
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email: supabaseUser.email! },
-  });
-
-  if (!user || user.role !== "ADMIN") {
-    return null;
-  }
-
-  return user;
-}
-
-// GET - List all vendors (admin only)
 export async function GET(request: NextRequest) {
   try {
-    const admin = await checkAdminAuth();
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden. Admin access required." },
-        { status: 403 }
-      );
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    // Forward query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
+    const query = status ? `?status=${status}` : "";
 
-    const where: any = {};
-    if (status && status !== "ALL") {
-      where.status = status;
+    const response = await fetch(`${API_BASE_URL}/vendors${query}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Failed to fetch vendors" }));
+      return NextResponse.json({ error: error.message }, { status: response.status });
     }
 
-    const vendors = await prisma.vendor.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            email: true,
-            fullName: true,
-            phone: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: vendors,
-    });
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Admin vendors fetch error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch vendors" },
-      { status: 500 }
-    );
+    console.error("Vendors fetch error:", error);
+    return NextResponse.json({ error: "Error fetching vendors" }, { status: 500 });
   }
 }

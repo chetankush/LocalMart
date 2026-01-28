@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Store } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { addToCart } from "@/lib/redux/slices/cartSlice";
@@ -383,7 +384,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
                 className="object-cover w-full h-full"
               />
             ) : (
-              <div className="text-xl">🏪</div>
+              <Store className="w-5 h-5 text-orange-500" />
             )}
           </div>
           <div className="flex-1">

@@ -57,4 +57,59 @@ export const CATEGORY_OPTIONS: CategoryOption[] = [
     imageUrl: "https://images.unsplash.com/photo-1553830591-2f39e38a013c?w=400&h=400&fit=crop",
     gradient: "from-gray-500 to-slate-500"
   },
+  // Additional subcategories mapped to main types
+  {
+    value: "GROCERY",
+    label: "Dairy & Milk",
+    imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&h=400&fit=crop",
+    gradient: "from-blue-400 to-cyan-400"
+  },
+  {
+    value: "GROCERY",
+    label: "Fruits & Vegetables",
+    imageUrl: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400&h=400&fit=crop",
+    gradient: "from-green-400 to-lime-400"
+  },
+  {
+    value: "RESTAURANT",
+    label: "Fast Food",
+    imageUrl: "https://images.unsplash.com/photo-1561758033-d89a9ad46330?w=400&h=400&fit=crop",
+    gradient: "from-red-500 to-orange-500"
+  },
+  {
+    value: "RESTAURANT",
+    label: "Bakery & Cakes",
+    imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&h=400&fit=crop",
+    gradient: "from-amber-400 to-yellow-400"
+  },
+  {
+    value: "FASHION",
+    label: "Cosmetics",
+    imageUrl: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&h=400&fit=crop",
+    gradient: "from-pink-400 to-fuchsia-400"
+  },
+  {
+    value: "FASHION",
+    label: "Footwear",
+    imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
+    gradient: "from-red-400 to-rose-400"
+  },
+  {
+    value: "ELECTRONICS",
+    label: "Mobiles",
+    imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop",
+    gradient: "from-slate-500 to-gray-500"
+  },
+  {
+    value: "OTHER",
+    label: "Pet Supplies",
+    imageUrl: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=400&fit=crop",
+    gradient: "from-amber-500 to-yellow-500"
+  },
+  {
+    value: "OTHER",
+    label: "Books & Stationery",
+    imageUrl: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=400&fit=crop",
+    gradient: "from-emerald-500 to-teal-500"
+  },
 ];

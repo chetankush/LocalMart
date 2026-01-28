@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function BroadcastPage() {
@@ -12,11 +12,39 @@ export default function BroadcastPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check if user is authenticated vendor on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log("[BroadcastPage] Checking authentication...");
+      try {
+        const { apiClient } = await import("@/lib/api/client");
+        const result = await apiClient.checkVendor();
+        console.log("[BroadcastPage] Auth check result:", result);
+        
+        if (!result.data?.hasVendor) {
+          console.log("[BroadcastPage] User is not a vendor, redirecting...");
+          router.push("/become-vendor");
+          return;
+        }
+        
+        setIsLoading(false);
+      } catch (err: any) {
+        console.error("[BroadcastPage] Auth check error:", err);
+        router.push("/sign-in");
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    console.log("[BroadcastPage] Form submitted with data:", formData);
 
     // Validation
     if (!formData.title.trim()) {
@@ -37,23 +65,41 @@ export default function BroadcastPage() {
     setIsSubmitting(true);
 
     try {
+      console.log("[BroadcastPage] Sending broadcast...");
+      // Call NestJS backend API via apiClient
       const { apiClient } = await import("@/lib/api/client");
       const data = await apiClient.sendBroadcast(formData);
+      console.log("[BroadcastPage] Broadcast response:", data);
 
       if (data.success) {
         setSuccess(data.message);
         setFormData({ title: "", message: "" });
 
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push("/vendor/dashboard");
-      }, 2000);
+        // Redirect after 2 seconds
+        setTimeout(() => {
+          router.push("/vendor/dashboard");
+        }, 2000);
+      } else {
+        setError(data.error || data.message || "Failed to send broadcast");
+      }
     } catch (err: any) {
-      setError(err.message);
+      console.error("[BroadcastPage] Broadcast error:", err);
+      setError(err.message || "Failed to send broadcast");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

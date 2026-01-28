@@ -65,7 +65,10 @@ export default async function Home() {
     select: {
       id: true,
       name: true,
+      description: true,
       price: true,
+      compareAtPrice: true,
+      sku: true,
       images: true,
       stockQuantity: true,
       averageRating: true,

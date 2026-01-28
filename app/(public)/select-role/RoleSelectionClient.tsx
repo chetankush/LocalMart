@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Store, ShoppingBag } from "lucide-react";
 
 export default function RoleSelectionClient({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(false);
@@ -71,7 +72,7 @@ export default function RoleSelectionClient({ userId }: { userId: string }) {
             disabled={loading}
             className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-left text-white"
           >
-            <div className="text-5xl mb-4">🏪</div>
+            <div className="mb-4"><Store className="w-12 h-12 text-white" /></div>
             <h2 className="text-2xl font-bold mb-3">I want to Sell</h2>
             <p className="mb-4 opacity-90">
               Set up your online store, manage products, accept orders, and grow

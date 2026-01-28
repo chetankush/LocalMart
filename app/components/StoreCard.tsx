@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { Store } from "lucide-react";
 import FavoriteButton from "@/components/FavoriteButton";
 
 interface StoreCardProps {
@@ -36,7 +37,7 @@ export default function StoreCard({ store }: StoreCardProps) {
             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="text-6xl">🏪</div>
+          <Store className="w-16 h-16 text-orange-400" />
         )}
 
         {/* Favorite Button */}

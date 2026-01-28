@@ -2,19 +2,45 @@
 
 import { useState } from "react";
 import { StoreTheme } from "@/src/generated/prisma";
+import {
+  Store,
+  ShoppingCart,
+  Shirt,
+  Footprints,
+  Milk,
+  Tv,
+  Smartphone,
+  Star,
+  Package,
+  Sparkles,
+  Scissors,
+  Car,
+  Bike,
+  Pill,
+  Building2,
+  MoreHorizontal
+} from "lucide-react";
+import { ReactNode } from "react";
 
 interface ThemeSelectorProps {
   currentTheme: StoreTheme;
   onThemeChange: (theme: StoreTheme) => Promise<void>;
 }
 
-const THEME_OPTIONS = [
+const THEME_OPTIONS: {
+  value: StoreTheme;
+  label: string;
+  englishLabel: string;
+  description: string;
+  icon: ReactNode;
+  color: string;
+}[] = [
   {
     value: "KIRANA" as StoreTheme,
     label: "किराना स्टोर",
     englishLabel: "Kirana Store",
     description: "Traditional kirana store layout",
-    icon: "🏪",
+    icon: <Store className="w-full h-full" />,
     color: "bg-amber-100 border-amber-300 hover:bg-amber-200",
   },
   {
@@ -22,7 +48,7 @@ const THEME_OPTIONS = [
     label: "किराना और जनरल स्टोर",
     englishLabel: "Grocery & General Store",
     description: "Daily needs and grocery items",
-    icon: "🛒",
+    icon: <ShoppingCart className="w-full h-full" />,
     color: "bg-green-100 border-green-300 hover:bg-green-200",
   },
   {
@@ -30,7 +56,7 @@ const THEME_OPTIONS = [
     label: "कपड़े की दुकान",
     englishLabel: "Clothing Store",
     description: "Apparel and fashion items",
-    icon: "👕",
+    icon: <Shirt className="w-full h-full" />,
     color: "bg-purple-100 border-purple-300 hover:bg-purple-200",
   },
   {
@@ -38,7 +64,7 @@ const THEME_OPTIONS = [
     label: "जूते की दुकान",
     englishLabel: "Shoe Store",
     description: "Footwear collection",
-    icon: "👟",
+    icon: <Footprints className="w-full h-full" />,
     color: "bg-blue-100 border-blue-300 hover:bg-blue-200",
   },
   {
@@ -46,7 +72,7 @@ const THEME_OPTIONS = [
     label: "दूध और डेयरी",
     englishLabel: "Milk & Dairy Store",
     description: "Dairy products and milk",
-    icon: "🥛",
+    icon: <Milk className="w-full h-full" />,
     color: "bg-cyan-100 border-cyan-300 hover:bg-cyan-200",
   },
   {
@@ -54,7 +80,7 @@ const THEME_OPTIONS = [
     label: "इलेक्ट्रॉनिक्स",
     englishLabel: "Electronics Store",
     description: "Electronic items and appliances",
-    icon: "📺",
+    icon: <Tv className="w-full h-full" />,
     color: "bg-indigo-100 border-indigo-300 hover:bg-indigo-200",
   },
   {
@@ -62,7 +88,7 @@ const THEME_OPTIONS = [
     label: "मोबाइल और लैपटॉप",
     englishLabel: "Mobiles & Laptops",
     description: "Mobile phones and computers",
-    icon: "📱",
+    icon: <Smartphone className="w-full h-full" />,
     color: "bg-pink-100 border-pink-300 hover:bg-pink-200",
   },
   {
@@ -70,7 +96,7 @@ const THEME_OPTIONS = [
     label: "ब्रांड स्टोर",
     englishLabel: "Brand Store",
     description: "Brand specific products",
-    icon: "⭐",
+    icon: <Star className="w-full h-full" />,
     color: "bg-yellow-100 border-yellow-300 hover:bg-yellow-200",
   },
   {
@@ -78,7 +104,7 @@ const THEME_OPTIONS = [
     label: "थोक व्यापार",
     englishLabel: "Wholesale Store",
     description: "Bulk and wholesale items",
-    icon: "📦",
+    icon: <Package className="w-full h-full" />,
     color: "bg-orange-100 border-orange-300 hover:bg-orange-200",
   },
   {
@@ -86,7 +112,7 @@ const THEME_OPTIONS = [
     label: "सौंदर्य प्रसाधन",
     englishLabel: "Cosmetics Store",
     description: "Beauty and cosmetic products",
-    icon: "💄",
+    icon: <Sparkles className="w-full h-full" />,
     color: "bg-rose-100 border-rose-300 hover:bg-rose-200",
   },
   {
@@ -94,7 +120,7 @@ const THEME_OPTIONS = [
     label: "ब्यूटी पार्लर",
     englishLabel: "Beauty Parlour",
     description: "Beauty services and products",
-    icon: "💇",
+    icon: <Scissors className="w-full h-full" />,
     color: "bg-fuchsia-100 border-fuchsia-300 hover:bg-fuchsia-200",
   },
   {
@@ -102,7 +128,7 @@ const THEME_OPTIONS = [
     label: "ऑटो पार्ट्स",
     englishLabel: "Automotive Parts",
     description: "Vehicle parts and accessories",
-    icon: "🚗",
+    icon: <Car className="w-full h-full" />,
     color: "bg-gray-100 border-gray-300 hover:bg-gray-200",
   },
   {
@@ -110,7 +136,7 @@ const THEME_OPTIONS = [
     label: "साइकिल की दुकान",
     englishLabel: "Bicycle Store",
     description: "Bicycles and accessories",
-    icon: "🚲",
+    icon: <Bike className="w-full h-full" />,
     color: "bg-teal-100 border-teal-300 hover:bg-teal-200",
   },
   {
@@ -118,7 +144,7 @@ const THEME_OPTIONS = [
     label: "मेडिकल स्टोर",
     englishLabel: "Medicine Store",
     description: "Medicines and healthcare",
-    icon: "💊",
+    icon: <Pill className="w-full h-full" />,
     color: "bg-red-100 border-red-300 hover:bg-red-200",
   },
   {
@@ -126,7 +152,7 @@ const THEME_OPTIONS = [
     label: "सामान्य स्टोर",
     englishLabel: "Default Store",
     description: "Standard store layout",
-    icon: "🏬",
+    icon: <Building2 className="w-full h-full" />,
     color: "bg-slate-100 border-slate-300 hover:bg-slate-200",
   },
   {
@@ -134,7 +160,7 @@ const THEME_OPTIONS = [
     label: "अन्य",
     englishLabel: "Other",
     description: "Other store types",
-    icon: "🏪",
+    icon: <MoreHorizontal className="w-full h-full" />,
     color: "bg-neutral-100 border-neutral-300 hover:bg-neutral-200",
   },
 ];
@@ -189,7 +215,7 @@ export default function ThemeSelector({
             className={`border-2 rounded-lg p-4 ${currentThemeOption.color}`}
           >
             <div className="flex items-center gap-3">
-              <div className="text-4xl">{currentThemeOption.icon}</div>
+              <div className="w-10 h-10 text-gray-700">{currentThemeOption.icon}</div>
               <div>
                 <div className="font-semibold text-gray-900">
                   {currentThemeOption.label}
@@ -208,7 +234,7 @@ export default function ThemeSelector({
 
       {/* Theme Selection Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4">
               <div className="flex justify-between items-center">
@@ -258,7 +284,7 @@ export default function ThemeSelector({
                     } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="text-3xl">{option.icon}</div>
+                      <div className="w-8 h-8 text-gray-700 flex-shrink-0">{option.icon}</div>
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900">
                           {option.label}

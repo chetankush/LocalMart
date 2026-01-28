@@ -1,10 +1,9 @@
 /**
- * API Client for Backend
- * Handles all API calls to the separated NestJS backend
+ * API Client for External NestJS Backend
+ * All API calls go to the external backend at NEXT_PUBLIC_API_URL
  */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 class ApiClient {
   private baseUrl: string;
@@ -22,25 +21,22 @@ class ApiClient {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
-      
+
       // Use getUser() first - it automatically refreshes expired tokens
       // This is more reliable than getSession() which might return stale data
       const userResponse = await supabase.auth.getUser();
-      
+
       if (userResponse.data?.user && !userResponse.error) {
         // User is authenticated, get the session
         const sessionResponse = await supabase.auth.getSession();
         const session = sessionResponse.data?.session;
-        
+
         if (session?.access_token) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
       }
-      // If getUser fails or no user, headers will be sent without Authorization
-      // The backend will return 401, which we handle gracefully
     } catch (error) {
       // Silently fail - will be handled by 401 response
-      // Don't log here to avoid console spam
     }
 
     return headers;
@@ -48,10 +44,10 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit & { suppressAuthError?: boolean } = {}
+    options: RequestInit & { suppressAuthError?: boolean; suppressNetworkError?: boolean } = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const { suppressAuthError, ...fetchOptions } = options;
+    const { suppressAuthError, suppressNetworkError, ...fetchOptions } = options;
     const headers = await this.getAuthHeaders();
 
     // Debug logging for product creation
@@ -132,8 +128,17 @@ class ApiClient {
       return response.json();
     } catch (error: any) {
       // Network errors or other fetch failures
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        console.error(`Network error for ${endpoint}:`, error);
+      if (error.name === 'TypeError' || error.message?.includes('fetch') || error.message?.includes('network')) {
+        // For non-critical calls, return empty response silently
+        if (suppressNetworkError || suppressAuthError) {
+          return {
+            success: false,
+            data: null,
+            message: "Network unavailable"
+          } as T;
+        }
+        // Only log for critical calls
+        console.error(`Network error for ${endpoint}:`, error.message);
         throw new Error("Network error. Please check your connection.");
       }
       throw error;
@@ -287,6 +292,9 @@ class ApiClient {
     );
   }
 
+
+
+  
   async updateVendorStatus(
     id: string,
     data: { status: string; isActive?: boolean }
@@ -332,7 +340,7 @@ class ApiClient {
           rejectionReason?: string;
         } | null;
       };
-    }>("/vendor/check", { suppressAuthError: true });
+    }>("/vendor/check", { suppressAuthError: true, suppressNetworkError: true });
   }
 
   // Get all stores for the vendor
@@ -543,13 +551,22 @@ class ApiClient {
       : "";
     return this.request<{ success: boolean; data: any }>(
       `/notifications${query}`,
-      { suppressAuthError: true } // Suppress auth errors for non-critical calls
+      { suppressAuthError: true, suppressNetworkError: true }
     );
   }
 
   async markNotificationRead(id: string) {
     return this.request<{ success: boolean; message: string }>(
       `/notifications/${id}/mark-read`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async markAllNotificationsRead() {
+    return this.request<{ success: boolean; message: string }>(
+      `/notifications/mark-all-read`,
       {
         method: "POST",
       }
@@ -630,27 +647,64 @@ class ApiClient {
     }>(`/search?q=${encodeURIComponent(query)}`);
   }
 
-  // Favorites
+  // Advanced Search with abort signal support
+  async searchAdvanced(
+    query: string,
+    options?: { limit?: number; signal?: AbortSignal }
+  ) {
+    const params = new URLSearchParams();
+    params.set("q", query);
+    if (options?.limit) {
+      params.set("limit", options.limit.toString());
+    }
+
+    const url = `${this.baseUrl}/search/advanced?${params.toString()}`;
+    const headers = await this.getAuthHeaders();
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      credentials: "include",
+      signal: options?.signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Search failed");
+    }
+
+    return response.json() as Promise<{
+      success: boolean;
+      data: {
+        stores: any[];
+        products: any[];
+        suggestions: any[];
+        totalStores: number;
+        totalProducts: number;
+      };
+    }>;
+  }
+
+  // Favorites - Use NestJS backend
   async getFavorites() {
     return this.request<{ success: boolean; data: any[] }>("/favorites");
   }
 
   async toggleFavorite(vendorId: string) {
-    // Use Next.js API route directly
-    const response = await fetch("/api/favorites/toggle", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ vendorId }),
-    });
+    return this.request<{ success: boolean; data: { isFavorited: boolean; favoriteCount: number }; message: string }>(
+      "/favorites/toggle",
+      {
+        method: "POST",
+        body: JSON.stringify({ vendorId }),
+      }
+    );
+  }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
+  async checkFavoriteStatus(vendorId: string) {
+    return this.request<{ success: boolean; data: { isFavorited: boolean } }>(
+      `/favorites/status/${vendorId}`,
+      { suppressAuthError: true }
+    );
   }
 
   // Vendor Requests
@@ -778,6 +832,515 @@ class ApiClient {
         method: "DELETE",
       }
     );
+  }
+
+  // Business Categories (Admin managed categories for vendor onboarding)
+  async getBusinessCategories(activeOnly: boolean = true) {
+    const query = activeOnly ? "?activeOnly=true" : "";
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        value: string;
+        description?: string;
+        imageUrl?: string;
+        gradient?: string;
+        icon?: string;
+        isActive: boolean;
+        sortOrder: number;
+      }>;
+    }>(`/business-categories${query}`);
+  }
+
+  async getAdminBusinessCategories() {
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        value: string;
+        description?: string;
+        imageUrl?: string;
+        gradient?: string;
+        icon?: string;
+        isActive: boolean;
+        sortOrder: number;
+        createdAt: string;
+      }>;
+    }>("/admin/business-categories");
+  }
+
+  async createBusinessCategory(data: {
+    name: string;
+    value: string;
+    description?: string;
+    imageUrl?: string;
+    gradient?: string;
+    icon?: string;
+    isActive?: boolean;
+    sortOrder?: number;
+  }) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      "/admin/business-categories",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async updateBusinessCategory(
+    id: string,
+    data: {
+      name?: string;
+      value?: string;
+      description?: string;
+      imageUrl?: string;
+      gradient?: string;
+      icon?: string;
+      isActive?: boolean;
+      sortOrder?: number;
+    }
+  ) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      `/admin/business-categories/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async deleteBusinessCategory(id: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/business-categories/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
+  async seedBusinessCategories() {
+    return this.request<{ success: boolean; message: string; created: number; skipped: number }>(
+      "/admin/business-categories/seed",
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  // ============================================
+  // Product Categories (for organizing products)
+  // ============================================
+
+  async getProductCategories(activeOnly: boolean = true) {
+    const query = activeOnly ? "?activeOnly=true" : "";
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        description?: string;
+        icon?: string;
+        isActive: boolean;
+        sortOrder: number;
+      }>;
+    }>(`/categories${query}`);
+  }
+
+  async getAdminProductCategories() {
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        description?: string;
+        icon?: string;
+        isActive: boolean;
+        sortOrder: number;
+        productCount?: number;
+        templateCount?: number;
+        createdAt: string;
+      }>;
+    }>("/admin/categories");
+  }
+
+  async createProductCategory(data: {
+    name: string;
+    description?: string;
+    icon?: string;
+    isActive?: boolean;
+    sortOrder?: number;
+  }) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      "/admin/categories",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async updateProductCategory(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      icon?: string;
+      isActive?: boolean;
+      sortOrder?: number;
+    }
+  ) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      `/admin/categories/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async deleteProductCategory(id: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/categories/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
+  async seedProductCategories() {
+    return this.request<{ success: boolean; message: string; data: any }>(
+      "/admin/categories/seed",
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  // ============================================
+  // Product Templates
+  // ============================================
+
+  // Public/Vendor endpoint to browse templates
+  async getProductTemplates(params?: {
+    categoryId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.categoryId) query.append("categoryId", params.categoryId);
+    if (params?.search) query.append("search", params.search);
+    if (params?.page) query.append("page", params.page.toString());
+    if (params?.limit) query.append("limit", params.limit.toString());
+
+    const queryStr = query.toString();
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        description: string;
+        suggestedImage?: string;
+        suggestedPrice?: number;
+        suggestedWeight?: number;
+        isPopular: boolean;
+        usageCount: number;
+        tags?: string[];
+        category: { id: string; name: string };
+        createdAt: string;
+      }>;
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }>(`/product-templates${queryStr ? '?' + queryStr : ''}`);
+  }
+
+  // Admin endpoint to manage templates
+  async getAdminProductTemplates(params?: {
+    categoryId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.categoryId) query.append("categoryId", params.categoryId);
+    if (params?.search) query.append("search", params.search);
+    if (params?.page) query.append("page", params.page.toString());
+    if (params?.limit) query.append("limit", params.limit.toString());
+
+    const queryStr = query.toString();
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        description: string;
+        suggestedImage?: string;
+        suggestedPrice?: number;
+        suggestedWeight?: number;
+        isPopular: boolean;
+        usageCount: number;
+        tags?: string[];
+        category: { id: string; name: string };
+        createdAt: string;
+      }>;
+      pagination?: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      };
+    }>(`/admin/product-templates${queryStr ? '?' + queryStr : ''}`);
+  }
+
+  async createProductTemplate(data: {
+    categoryId: string;
+    name: string;
+    description: string;
+    suggestedImage?: string;
+    suggestedPrice?: number;
+    suggestedWeight?: number;
+    isPopular?: boolean;
+    tags?: string[];
+  }) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      "/admin/product-templates",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async updateProductTemplate(
+    id: string,
+    data: {
+      categoryId?: string;
+      name?: string;
+      description?: string;
+      suggestedImage?: string;
+      suggestedPrice?: number;
+      suggestedWeight?: number;
+      isPopular?: boolean;
+      tags?: string[];
+    }
+  ) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      `/admin/product-templates/${id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async deleteProductTemplate(id: string) {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/product-templates/${id}`,
+      {
+        method: "DELETE",
+      }
+    );
+  }
+
+  async seedProductTemplates(theme: 'kirana' | 'fashion' | 'all' = 'all') {
+    return this.request<{
+      success: boolean;
+      message: string;
+      created: number;
+      skipped: number;
+    }>(
+      `/admin/product-templates/seed`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async seedCategoryTemplates(categoryId: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+      created: number;
+      skipped: number;
+    }>(
+      `/admin/product-templates/seed/${categoryId}`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  async useProductTemplate(id: string) {
+    return this.request<{ success: boolean; data: any }>(
+      `/vendor/product-templates/${id}/use`,
+      {
+        method: "POST",
+      }
+    );
+  }
+
+  // ============================================
+  // Admin Upload
+  // ============================================
+
+  async adminUpload(file: File, type: 'categories' | 'banners' | 'misc') {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+
+    const headers = await this.getAuthHeaders();
+    // Remove Content-Type for FormData (browser sets it automatically with boundary)
+    delete (headers as any)['Content-Type'];
+
+    const response = await fetch(`${this.baseUrl}/admin/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json() as Promise<{ success: boolean; url: string; path: string }>;
+  }
+
+  // ============================================
+  // Vendor Upload
+  // ============================================
+
+  async vendorUpload(file: File, type: 'product' | 'store' = 'product') {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+
+    const headers = await this.getAuthHeaders();
+    // Remove Content-Type for FormData (browser sets it automatically with boundary)
+    delete (headers as any)['Content-Type'];
+
+    const response = await fetch(`${this.baseUrl}/vendor/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json() as Promise<{ success: boolean; url: string; path: string }>;
+  }
+
+  // Admin authentication check
+  async checkAdminAuth(): Promise<{ success: boolean; isAdmin: boolean; user?: any }> {
+    try {
+      // First try the dedicated admin check endpoint
+      const response = await this.request<{ success: boolean; isAdmin: boolean; user?: any }>(
+        "/admin/check-auth",
+        { method: "GET" }
+      );
+      return response;
+    } catch (error: any) {
+      // Fallback: Use the auth/me endpoint to get user role from database
+      console.warn("Admin check-auth endpoint not available, using auth/me fallback");
+
+      try {
+        const meResponse = await this.request<{
+          success: boolean;
+          data?: {
+            id: string;
+            email: string;
+            role: string;
+          }
+        }>("/auth/me", { method: "GET" });
+
+        if (meResponse.success && meResponse.data) {
+          // Check if role is ADMIN (case-insensitive)
+          const isAdmin = meResponse.data.role?.toUpperCase() === 'ADMIN';
+          return { success: true, isAdmin, user: meResponse.data };
+        }
+
+        return { success: false, isAdmin: false };
+      } catch (meError) {
+        console.warn("Auth/me endpoint failed, using checkVendor fallback");
+
+        // Final fallback: Use checkVendor which returns user info
+        try {
+          const vendorResponse = await this.checkVendor();
+          if (vendorResponse.success && vendorResponse.data) {
+            // The checkVendor response might have user role info
+            // For now, return false and let user implement proper endpoint
+            return { success: false, isAdmin: false };
+          }
+        } catch {
+          // All fallbacks failed
+        }
+
+        return { success: false, isAdmin: false };
+      }
+    }
+  }
+
+  // Get current user info
+  async getCurrentUser(): Promise<{ success: boolean; data?: { id: string; email: string; role: string } }> {
+    return this.request("/auth/me", { method: "GET" });
+  }
+
+  // ============================================
+  // Admin Analytics
+  // ============================================
+
+  async getVendorCategoryAnalytics() {
+    return this.request<{
+      success: boolean;
+      data: {
+        summary: {
+          totalCategories: number;
+          categoriesInUse: number;
+          unusedCategories: number;
+          totalProducts: number;
+          totalActiveVendors: number;
+        };
+        categoryAnalytics: Array<{
+          id: string;
+          name: string;
+          slug: string;
+          icon?: string;
+          totalProducts: number;
+          totalVendors: number;
+          vendors: Array<{
+            id: string;
+            businessName: string;
+            businessType: string;
+            city: string;
+            status: string;
+            isActive: boolean;
+            productCount: number;
+          }>;
+        }>;
+        vendorAnalytics: Array<{
+          id: string;
+          businessName: string;
+          businessType: string;
+          city: string;
+          totalProducts: number;
+          categoriesUsed: number;
+        }>;
+      };
+    }>("/admin/analytics/vendor-categories");
   }
 }
 

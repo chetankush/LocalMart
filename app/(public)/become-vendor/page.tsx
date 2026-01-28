@@ -3,6 +3,32 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { 
+  // Store, 
+  Clock, 
+  Plus, 
+  ShoppingCart, 
+  UtensilsCrossed, 
+  Pill, 
+  Smartphone, 
+  Shirt, 
+  Home,
+  Package,
+  CheckCircle,
+  XCircle,
+  Lightbulb,
+  Mail,
+  Bell,
+  PartyPopper,
+  AlertCircle,
+  Lock,
+  Ban,
+  Rocket,
+  DollarSign,
+  BarChart3,
+  Store,
+  type LucideIcon
+} from "lucide-react";
 
 type VendorStatus = "NOT_STARTED" | "PENDING" | "APPROVED" | "PENDING_APPROVAL" | "ACTIVE" | "REJECTED" | "ADD_STORE";
 
@@ -40,22 +66,61 @@ export default function BecomeVendorPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [businessCategories, setBusinessCategories] = useState<{
+    value: string;
+    name: string;
+    description?: string | null;
+    icon?: string | null;
+  }[]>([]);
 
-  const businessTypes = [
-    { value: "GROCERY", label: "🛒 Grocery & Daily Needs", desc: "Kirana, supermarket, daily essentials" },
-    { value: "RESTAURANT", label: "🍽️ Restaurant & Food", desc: "Restaurant, cafe, food delivery" },
-    { value: "PHARMACY", label: "💊 Pharmacy & Medical", desc: "Medicine, healthcare products" },
-    { value: "ELECTRONICS", label: "📱 Electronics", desc: "Mobile, computer, gadgets" },
-    { value: "FASHION", label: "👗 Fashion & Clothing", desc: "Clothes, shoes, accessories" },
-    { value: "HOME_SERVICES", label: "🏠 Home & Kitchen", desc: "Furniture, appliances, decor" },
-    { value: "OTHER", label: "📦 Other", desc: "Any other business type" },
+  // Default business types with icons (used for icon mapping)
+  const iconMap: { [key: string]: LucideIcon } = {
+    GROCERY: ShoppingCart,
+    RESTAURANT: UtensilsCrossed,
+    PHARMACY: Pill,
+    ELECTRONICS: Smartphone,
+    FASHION: Shirt,
+    HOME_SERVICES: Home,
+    OTHER: Package,
+  };
+
+  // Default business categories fallback
+  const defaultCategories = [
+    { value: "GROCERY", name: "Grocery & Daily Needs", description: "Kirana, supermarket, daily essentials" },
+    { value: "RESTAURANT", name: "Restaurant & Food", description: "Restaurant, cafe, food delivery" },
+    { value: "PHARMACY", name: "Pharmacy & Medical", description: "Medicine, healthcare products" },
+    { value: "ELECTRONICS", name: "Electronics", description: "Mobile, computer, gadgets" },
+    { value: "FASHION", name: "Fashion & Clothing", description: "Clothes, shoes, accessories" },
+    { value: "HOME_SERVICES", name: "Home & Kitchen", description: "Furniture, appliances, decor" },
+    { value: "OTHER", name: "Other", description: "Any other business type" },
   ];
 
+  // Fetch business categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { apiClient } = await import("@/lib/api/client");
+        const response = await apiClient.getBusinessCategories(true);
+        if (response.success && response.data && response.data.length > 0) {
+          setBusinessCategories(response.data);
+        } else {
+          // API returned empty or failed - use defaults
+          setBusinessCategories(defaultCategories);
+        }
+      } catch (error) {
+        console.error('Failed to fetch business categories:', error);
+        // Fallback to defaults on error
+        setBusinessCategories(defaultCategories);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const steps = [
-    { id: 1, title: "Check Eligibility", icon: "✓" },
-    { id: 2, title: "Submit Application", icon: "📝" },
-    { id: 3, title: "Review Process", icon: "⏳" },
-    { id: 4, title: "Start Selling", icon: "🚀" },
+    { id: 1, title: "Check Eligibility", icon: CheckCircle },
+    { id: 2, title: "Submit Application", icon: Package },
+    { id: 3, title: "Review Process", icon: Clock },
+    { id: 4, title: "Start Selling", icon: Store },
   ];
 
   // Check existing vendor status on mount
@@ -224,17 +289,23 @@ export default function BecomeVendorPage() {
   const StepProgress = () => (
     <div className="mb-8">
       <div className="flex items-center justify-between max-w-2xl mx-auto">
-        {steps.map((step, index) => (
+        {steps.map((step, index) => {
+          const StepIcon = step.icon;
+          return (
           <div key={step.id} className="flex items-center">
             <div className="flex flex-col items-center">
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold transition-all ${
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                   currentStep >= step.id
                     ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
                     : "bg-gray-200 text-gray-500"
                 }`}
               >
-                {currentStep > step.id ? "✓" : step.icon}
+                {currentStep > step.id ? (
+                  <CheckCircle className="w-6 h-6" />
+                ) : (
+                  <StepIcon className="w-6 h-6" />
+                )}
               </div>
               <span className={`mt-2 text-xs font-medium text-center ${
                 currentStep >= step.id ? "text-orange-600" : "text-gray-500"
@@ -248,7 +319,8 @@ export default function BecomeVendorPage() {
               }`} />
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -269,19 +341,24 @@ export default function BecomeVendorPage() {
       {/* Benefits Grid */}
       <div className="grid md:grid-cols-3 gap-6 mb-12">
         {[
-          { icon: "🏪", title: "Your Own Store", desc: "Get a beautiful online storefront with your branding" },
-          { icon: "📱", title: "Easy Management", desc: "Manage products, orders & customers from one dashboard" },
-          { icon: "🚀", title: "Grow Your Business", desc: "Reach more customers and increase your sales" },
-          { icon: "💰", title: "No Commission", desc: "Keep 100% of your earnings, no hidden fees" },
-          { icon: "📦", title: "Inventory Tools", desc: "Track stock, set alerts, manage variants easily" },
-          { icon: "📊", title: "Analytics", desc: "Understand your customers with detailed insights" },
-        ].map((benefit, i) => (
+          { icon: Store, title: "Your Own Store", desc: "Get a beautiful online storefront with your branding" },
+          { icon: Smartphone, title: "Easy Management", desc: "Manage products, orders & customers from one dashboard" },
+          { icon: Rocket, title: "Grow Your Business", desc: "Reach more customers and increase your sales" },
+          { icon: DollarSign, title: "No Commission", desc: "Keep 100% of your earnings, no hidden fees" },
+          { icon: Package, title: "Inventory Tools", desc: "Track stock, set alerts, manage variants easily" },
+          { icon: BarChart3, title: "Analytics", desc: "Understand your customers with detailed insights" },
+        ].map((benefit, i) => {
+          const BenefitIcon = benefit.icon;
+          return (
           <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="text-4xl mb-4">{benefit.icon}</div>
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+              <BenefitIcon className="w-6 h-6 text-orange-600" />
+            </div>
             <h3 className="font-bold text-gray-900 mb-2">{benefit.title}</h3>
             <p className="text-gray-600 text-sm">{benefit.desc}</p>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* CTA */}
@@ -313,7 +390,7 @@ export default function BecomeVendorPage() {
       {vendorData.status === "REJECTED" && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
           <div className="flex items-start gap-3">
-            <span className="text-2xl">❌</span>
+            <XCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
             <div>
               <h3 className="font-semibold text-red-800">Previous application was rejected</h3>
               <p className="text-red-700 text-sm mt-1">
@@ -401,11 +478,13 @@ export default function BecomeVendorPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Business Type *</label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {businessTypes.map((type) => (
+                {businessCategories.map((category) => {
+                  const IconComponent = iconMap[category.value] || Package;
+                  return (
                   <label
-                    key={type.value}
+                    key={category.value}
                     className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      formData.businessType === type.value
+                      formData.businessType === category.value
                         ? "border-orange-500 bg-orange-50"
                         : "border-gray-200 hover:border-orange-300"
                     }`}
@@ -413,19 +492,27 @@ export default function BecomeVendorPage() {
                     <input
                       type="radio"
                       name="businessType"
-                      value={type.value}
-                      checked={formData.businessType === type.value}
+                      value={category.value}
+                      checked={formData.businessType === category.value}
                       onChange={handleChange}
                       className="sr-only"
                       required
                     />
-                    <span className="text-lg mb-1">{type.label}</span>
-                    <span className="text-xs text-gray-500">{type.desc}</span>
-                    {formData.businessType === type.value && (
-                      <span className="absolute top-2 right-2 text-orange-500">✓</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      {category.icon ? (
+                        <span className="text-lg">{category.icon}</span>
+                      ) : (
+                        <IconComponent className="w-5 h-5 text-gray-600" />
+                      )}
+                      <span className="text-sm font-medium">{category.name}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">{category.description || ''}</span>
+                    {formData.businessType === category.value && (
+                      <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-orange-500" />
                     )}
                   </label>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -511,7 +598,7 @@ export default function BecomeVendorPage() {
         {vendorData.status === "PENDING" && (
           <>
             <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">⏳</span>
+              <Clock className="w-12 h-12 text-amber-600" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Under Review</h1>
             <p className="text-gray-600 mb-6">
@@ -529,7 +616,7 @@ export default function BecomeVendorPage() {
         {vendorData.status === "APPROVED" && (
           <>
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">✅</span>
+              <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Approved!</h1>
             <p className="text-gray-600 mb-6">
@@ -547,7 +634,7 @@ export default function BecomeVendorPage() {
         {vendorData.status === "PENDING_APPROVAL" && (
           <>
             <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <span className="text-5xl">🏪</span>
+              <Store className="w-12 h-12 text-blue-600" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Store Awaiting Activation</h1>
             <p className="text-gray-600 mb-6">
@@ -599,7 +686,7 @@ export default function BecomeVendorPage() {
     <div className="max-w-3xl mx-auto">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center mb-6">
         <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <span className="text-5xl">🎉</span>
+          <PartyPopper className="w-12 h-12 text-green-600" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-4">You're All Set!</h1>
         <p className="text-gray-600 mb-6">
@@ -611,7 +698,7 @@ export default function BecomeVendorPage() {
             href="/vendor/dashboard"
             className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
           >
-            🏪 Go to Dashboard
+           Go to Dashboard
           </Link>
           <Link
             href={`/stores/${vendorData.vendorId}`}
@@ -659,7 +746,7 @@ export default function BecomeVendorPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">🏪</span>
+                    <Store className="w-6 h-6 text-orange-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{store.businessName}</h3>
@@ -694,7 +781,7 @@ export default function BecomeVendorPage() {
       {vendorData.canAddStore && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border-2 border-dashed border-purple-200 p-6 text-center">
           <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">➕</span>
+            <Plus className="w-8 h-8 text-purple-600" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-2">Want to add another store?</h3>
           <p className="text-gray-600 text-sm mb-4">
@@ -773,11 +860,13 @@ export default function BecomeVendorPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Business Type *</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {businessTypes.map((type) => (
+              {businessCategories.map((category) => {
+                const IconComponent = iconMap[category.value] || Package;
+                return (
                 <label
-                  key={type.value}
+                  key={category.value}
                   className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    formData.businessType === type.value
+                    formData.businessType === category.value
                       ? "border-orange-500 bg-orange-50"
                       : "border-gray-200 hover:border-orange-300"
                   }`}
@@ -785,19 +874,27 @@ export default function BecomeVendorPage() {
                   <input
                     type="radio"
                     name="businessType"
-                    value={type.value}
-                    checked={formData.businessType === type.value}
+                    value={category.value}
+                    checked={formData.businessType === category.value}
                     onChange={handleChange}
                     className="sr-only"
                     required
                   />
-                  <span className="text-lg mb-1">{type.label}</span>
-                  <span className="text-xs text-gray-500">{type.desc}</span>
-                  {formData.businessType === type.value && (
-                    <span className="absolute top-2 right-2 text-orange-500">✓</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    {category.icon ? (
+                      <span className="text-lg">{category.icon}</span>
+                    ) : (
+                      <IconComponent className="w-5 h-5 text-gray-600" />
+                    )}
+                    <span className="text-sm font-medium">{category.name}</span>
+                  </div>
+                  <span className="text-xs text-gray-500">{category.description || ''}</span>
+                  {formData.businessType === category.value && (
+                    <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-orange-500" />
                   )}
                 </label>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -859,8 +956,45 @@ export default function BecomeVendorPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Vendor Request</h1>
+            <p className="text-sm text-gray-500">Start or manage your store application</p>
+          </div>
+          {/* {user && (
+            <Link
+              href="/become-vendor"
+              className={`px-5 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
+                vendorData.status === "PENDING" || vendorData.status === "PENDING_APPROVAL"
+                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300"
+                  : vendorData.status === "ACTIVE"
+                  ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
+                  : "bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-500/30"
+              }`}
+            >
+              {vendorData.status === "PENDING" || vendorData.status === "PENDING_APPROVAL" ? (
+                <>
+                  <span>⏳</span>
+                  Check Store Status
+                </>
+              ) : vendorData.status === "ACTIVE" ? (
+                <>
+                  <Store className="w-5 h-5" />
+                  Manage Stores
+                </>
+              ) : (
+                <>
+                  <span>+</span>
+                  Add Your Store
+                </>
+              )}
+            </Link>
+          )} */}
+        </div>
+
         {/* Show progress only for logged in users */}
         {user && !isAddingNewStore && <StepProgress />}
         

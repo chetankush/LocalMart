@@ -46,8 +46,8 @@ export default function CartIcon() {
         aria-label="Shopping cart"
       >
         <ShoppingCart className="w-6 h-6 text-white" />
-        {mounted && itemsCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+        {mounted && (
+          <span className="absolute top-0.5 right-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center leading-none">
             {itemsCount > 99 ? '99+' : itemsCount}
           </span>
         )}

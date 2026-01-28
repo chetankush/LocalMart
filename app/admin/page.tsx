@@ -3,6 +3,24 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  LayoutDashboard,
+  Users,
+  Store,
+  BarChart3,
+  FolderTree,
+  Package,
+  LogOut,
+  Home,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ChevronRight,
+  Eye,
+  X,
+  Loader2,
+} from "lucide-react";
 
 type VendorRequest = {
   id: string;
@@ -53,27 +71,38 @@ export default function AdminDashboard() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/admin/check-auth");
-        const data = await response.json();
-        
-        if (!data.isAdmin) {
+        let isAdmin = false;
+
+        try {
+          const response = await fetch("/api/admin/check-auth");
+          if (response.ok) {
+            const data = await response.json();
+            isAdmin = data.isAdmin;
+          }
+        } catch {
+          const { apiClient } = await import("@/lib/api/client");
+          const result = await apiClient.checkAdminAuth();
+          isAdmin = result.isAdmin;
+        }
+
+        if (!isAdmin) {
           router.push("/admin/login");
           return;
         }
-        
+
         setAuthChecked(true);
       } catch (error) {
         console.error("Auth check error:", error);
         router.push("/admin/login");
       }
     };
-    
+
     checkAuth();
   }, [router]);
 
   useEffect(() => {
     if (!authChecked) return;
-    
+
     if (activeTab === "requests") {
       fetchRequests();
     } else {
@@ -85,7 +114,9 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const query = filter === "ALL" ? "" : `?status=${filter}`;
-      const response = await fetch(`/api/admin/vendor-requests${query}`);
+      const response = await fetch(`/api/admin/vendor-requests${query}`, {
+        cache: 'no-store',
+      });
       const data = await response.json();
       setRequests(data.data || []);
     } catch (error) {
@@ -99,7 +130,9 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const query = vendorFilter === "ALL" ? "" : `?status=${vendorFilter}`;
-      const response = await fetch(`/api/admin/vendors${query}`);
+      const response = await fetch(`/api/admin/vendors${query}`, {
+        cache: 'no-store',
+      });
       const data = await response.json();
       setVendors(data.data || []);
     } catch (error) {
@@ -123,7 +156,7 @@ export default function AdminDashboard() {
 
       if (data.success) {
         alert(data.message || "Vendor approved successfully!");
-        fetchRequests();
+        await fetchRequests();
         setSelectedRequest(null);
       } else {
         alert(data.error || "Failed to approve vendor");
@@ -153,7 +186,7 @@ export default function AdminDashboard() {
 
       if (data.success) {
         alert(data.message || "Vendor rejected");
-        fetchRequests();
+        await fetchRequests();
         setSelectedRequest(null);
         setRejectionReason("");
       } else {
@@ -179,7 +212,7 @@ export default function AdminDashboard() {
 
       if (data.success) {
         alert(data.message || "Request deleted");
-        fetchRequests();
+        await fetchRequests();
         setSelectedRequest(null);
       } else {
         alert(data.error || "Failed to delete request");
@@ -201,7 +234,6 @@ export default function AdminDashboard() {
 
     setProcessing(true);
     try {
-      // Use direct fetch for admin operations (admin auth is via localStorage, not Supabase)
       const response = await fetch(`/api/admin/vendors/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -214,7 +246,7 @@ export default function AdminDashboard() {
 
       if (data.success) {
         alert(`Vendor ${status === "ACTIVE" ? "approved" : "suspended"} successfully!`);
-        fetchVendors();
+        await fetchVendors();
         setSelectedVendor(null);
       } else {
         alert(data.error || data.message || "Failed to update vendor status");
@@ -227,13 +259,47 @@ export default function AdminDashboard() {
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+      case "ACTIVE":
+        return <CheckCircle className="w-4 h-4" />;
+      case "REJECTED":
+      case "SUSPENDED":
+        return <XCircle className="w-4 h-4" />;
+      case "PENDING":
+      case "PENDING_APPROVAL":
+        return <Clock className="w-4 h-4" />;
+      default:
+        return <AlertCircle className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusStyles = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+      case "ACTIVE":
+        return "bg-green-100 text-green-700 border-green-200";
+      case "REJECTED":
+      case "SUSPENDED":
+        return "bg-red-100 text-red-700 border-red-200";
+      case "PENDING":
+      case "PENDING_APPROVAL":
+        return "bg-amber-100 text-amber-700 border-amber-200";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-200";
+    }
+  };
+
   // Show loading while checking auth
   if (!authChecked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+          </div>
+          <p className="text-gray-600 font-medium">Checking authentication...</p>
         </div>
       </div>
     );
@@ -242,16 +308,39 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <div className="flex gap-4 items-center">
-              <Link 
-                href="/admin/product-templates" 
-                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700"
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                <LayoutDashboard className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-xs text-gray-500">Manage vendors & stores</p>
+              </div>
+            </div>
+            <div className="flex gap-2 items-center">
+              <Link
+                href="/admin/analytics"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all"
               >
-                Product Templates
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Analytics</span>
+              </Link>
+              <Link
+                href="/admin/business-categories"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all"
+              >
+                <FolderTree className="w-4 h-4" />
+                <span className="hidden sm:inline">Categories</span>
+              </Link>
+              <Link
+                href="/admin/product-templates"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all"
+              >
+                <Package className="w-4 h-4" />
+                <span className="hidden sm:inline">Templates</span>
               </Link>
               <button
                 onClick={async () => {
@@ -260,248 +349,265 @@ export default function AdminDashboard() {
                   await supabase.auth.signOut();
                   router.push("/admin/login");
                 }}
-                className="text-red-600 hover:text-red-700 font-medium"
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-full text-sm font-medium transition-all"
               >
-                Logout
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Logout</span>
               </button>
-              <Link href="/" className="text-blue-600 hover:text-blue-700">
-                Back to Site
+              <Link
+                href="/"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+              >
+                <Home className="w-4 h-4" />
+                <span className="hidden sm:inline">Home</span>
               </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
-        <div className="mb-6 flex gap-4 border-b border-gray-200">
+        <div className="mb-6 flex gap-2">
           <button
             onClick={() => setActiveTab("requests")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
               activeTab === "requests"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                ? "bg-gray-900 text-white shadow-lg"
+                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
             }`}
           >
+            <Users className="w-4 h-4" />
             Vendor Requests
           </button>
           <button
             onClick={() => setActiveTab("vendors")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
               activeTab === "vendors"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900"
+                ? "bg-gray-900 text-white shadow-lg"
+                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
             }`}
           >
+            <Store className="w-4 h-4" />
             Vendor Stores
           </button>
         </div>
 
         {/* Filters */}
-        {activeTab === "requests" ? (
-          <div className="mb-6 flex gap-2">
-            {["PENDING", "APPROVED", "REJECTED", "ALL"].map((status) => (
+        <div className="mb-6 flex gap-2 flex-wrap">
+          {activeTab === "requests" ? (
+            ["PENDING", "APPROVED", "REJECTED", "ALL"].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                   filter === status
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-orange-500 text-white border-orange-500 shadow-md"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
                 }`}
               >
+                {filter === status && <CheckCircle className="w-3.5 h-3.5" />}
                 {status}
               </button>
-            ))}
-          </div>
-        ) : (
-          <div className="mb-6 flex gap-2">
-            {["PENDING_APPROVAL", "ACTIVE", "SUSPENDED", "ALL"].map((status) => (
+            ))
+          ) : (
+            ["PENDING_APPROVAL", "ACTIVE", "SUSPENDED", "ALL"].map((status) => (
               <button
                 key={status}
                 onClick={() => setVendorFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                   vendorFilter === status
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                    ? "bg-orange-500 text-white border-orange-500 shadow-md"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
                 }`}
               >
+                {vendorFilter === status && <CheckCircle className="w-3.5 h-3.5" />}
                 {status.replace("_", " ")}
               </button>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
 
         {/* Content */}
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
+              </div>
+              <p className="text-gray-500 font-medium">Loading data...</p>
+            </div>
           </div>
         ) : activeTab === "requests" ? (
           requests.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-600">No {filter.toLowerCase()} requests found</p>
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Users className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">No requests found</h3>
+              <p className="text-gray-500">No {filter.toLowerCase()} vendor requests at the moment</p>
             </div>
           ) : (
-            // Requests Table
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Business
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {requests.map((request) => (
-                  <tr key={request.id}>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {request.businessName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {request.businessType}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm text-gray-900">{request.fullName}</div>
-                        <div className="text-sm text-gray-500">{request.email}</div>
-                        <div className="text-sm text-gray-500">{request.phone}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {request.city}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          request.status === "APPROVED"
-                            ? "bg-green-100 text-green-800"
-                            : request.status === "REJECTED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(request.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <button
-                        onClick={() => setSelectedRequest(request)}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Business
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Contact
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {requests.map((request) => (
+                      <tr key={request.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                              {request.businessName.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-gray-900">
+                                {request.businessName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {request.businessType}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 font-medium">{request.fullName}</div>
+                          <div className="text-sm text-gray-500">{request.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-700">{request.city}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyles(request.status)}`}>
+                            {getStatusIcon(request.status)}
+                            {request.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(request.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => setSelectedRequest(request)}
+                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Details
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )
         ) : (
-          // Vendors Table
           vendors.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-600">No {vendorFilter.toLowerCase().replace("_", " ")} vendors found</p>
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Store className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">No vendors found</h3>
+              <p className="text-gray-500">No {vendorFilter.toLowerCase().replace("_", " ")} vendors at the moment</p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Business
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Owner
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Location
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {vendors.map((vendor) => (
-                    <tr key={vendor.id}>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {vendor.businessName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {vendor.businessType}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm text-gray-900">{vendor.user.fullName}</div>
-                          <div className="text-sm text-gray-500">{vendor.user.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {vendor.city}, {vendor.state}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            vendor.status === "ACTIVE"
-                              ? "bg-green-100 text-green-800"
-                              : vendor.status === "SUSPENDED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {vendor.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(vendor.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button
-                          onClick={() => setSelectedVendor(vendor)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          Manage
-                        </button>
-                      </td>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Business
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Owner
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {vendors.map((vendor) => (
+                      <tr key={vendor.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                              {vendor.businessName.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-gray-900">
+                                {vendor.businessName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {vendor.businessType}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 font-medium">{vendor.user.fullName}</div>
+                          <div className="text-sm text-gray-500">{vendor.user.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-700">{vendor.city}, {vendor.state}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyles(vendor.status)}`}>
+                            {getStatusIcon(vendor.status)}
+                            {vendor.status.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          {new Date(vendor.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => setSelectedVendor(vendor)}
+                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Manage
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )
         )}
@@ -509,119 +615,139 @@ export default function AdminDashboard() {
 
       {/* Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Request Details
-                </h2>
-                <button
-                  onClick={() => {
-                    setSelectedRequest(null);
-                    setRejectionReason("");
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Request Details</h2>
+                <p className="text-sm text-gray-500">Review vendor application</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedRequest(null);
+                  setRejectionReason("");
+                }}
+                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Business Info Card */}
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-5 border border-orange-100">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/30">
+                    {selectedRequest.businessName.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">{selectedRequest.businessName}</h3>
+                    <p className="text-orange-600 font-medium">{selectedRequest.businessType}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Information</h3>
-                  <p className="text-gray-900">{selectedRequest.businessName}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.businessType}</p>
+              {/* Info Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contact Person</label>
+                  <p className="text-gray-900 font-medium mt-1">{selectedRequest.fullName}</p>
+                  <p className="text-gray-600 text-sm">{selectedRequest.email}</p>
+                  <p className="text-gray-600 text-sm">{selectedRequest.phone}</p>
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Contact Person</h3>
-                  <p className="text-gray-900">{selectedRequest.fullName}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.email}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.phone}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</label>
+                  <p className="text-gray-900 font-medium mt-1">{selectedRequest.city}</p>
+                  <p className="text-gray-600 text-sm">{selectedRequest.address}</p>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Location</h3>
-                  <p className="text-gray-900">{selectedRequest.city}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.address}</p>
+              {selectedRequest.description && (
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
+                  <p className="text-gray-900 mt-1">{selectedRequest.description}</p>
                 </div>
+              )}
 
-                {selectedRequest.description && (
+              {/* Status Badge */}
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
+                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-full border ${getStatusStyles(selectedRequest.status)}`}>
+                  {getStatusIcon(selectedRequest.status)}
+                  {selectedRequest.status}
+                </span>
+              </div>
+
+              {selectedRequest.rejectionReason && (
+                <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                  <label className="text-xs font-semibold text-red-600 uppercase tracking-wide">Rejection Reason</label>
+                  <p className="text-red-800 mt-1">{selectedRequest.rejectionReason}</p>
+                </div>
+              )}
+
+              {/* Actions for Pending Requests */}
+              {selectedRequest.status === "PENDING" && (
+                <div className="pt-4 border-t border-gray-100 space-y-4">
                   <div>
-                    <h3 className="font-semibold text-gray-700">Description</h3>
-                    <p className="text-gray-900">{selectedRequest.description}</p>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Rejection Reason (required if rejecting)
+                    </label>
+                    <textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all resize-none"
+                      placeholder="Enter reason if rejecting..."
+                    />
                   </div>
-                )}
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Status</h3>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full ${
-                      selectedRequest.status === "APPROVED"
-                        ? "bg-green-100 text-green-800"
-                        : selectedRequest.status === "REJECTED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {selectedRequest.status}
-                  </span>
-                </div>
-
-                {selectedRequest.rejectionReason && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Rejection Reason</h3>
-                    <p className="text-gray-900">{selectedRequest.rejectionReason}</p>
-                  </div>
-                )}
-
-                {selectedRequest.status === "PENDING" && (
-                  <div className="pt-4 border-t space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Rejection Reason (optional)
-                      </label>
-                      <textarea
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter reason if rejecting..."
-                      />
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleApprove(selectedRequest.id)}
-                        disabled={processing}
-                        className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                      >
-                        {processing ? "Processing..." : "Approve"}
-                      </button>
-                      <button
-                        onClick={() => handleReject(selectedRequest.id)}
-                        disabled={processing}
-                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-400"
-                      >
-                        {processing ? "Processing..." : "Reject"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedRequest.status !== "PENDING" && (
-                  <div className="pt-4 border-t">
+                  <div className="flex gap-3">
                     <button
-                      onClick={() => handleDelete(selectedRequest.id)}
+                      onClick={() => handleApprove(selectedRequest.id)}
                       disabled={processing}
-                      className="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 disabled:bg-gray-400"
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
                     >
-                      {processing ? "Deleting..." : "Delete Request"}
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-5 h-5" />
+                      )}
+                      {processing ? "Processing..." : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => handleReject(selectedRequest.id)}
+                      disabled={processing}
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20"
+                    >
+                      {processing ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <XCircle className="w-5 h-5" />
+                      )}
+                      {processing ? "Processing..." : "Reject"}
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Delete button for non-pending */}
+              {selectedRequest.status !== "PENDING" && (
+                <div className="pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleDelete(selectedRequest.id)}
+                    disabled={processing}
+                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold transition-all disabled:cursor-not-allowed"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <X className="w-5 h-5" />
+                    )}
+                    {processing ? "Deleting..." : "Delete Request"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -629,106 +755,124 @@ export default function AdminDashboard() {
 
       {/* Vendor Details Modal */}
       {selectedVendor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Vendor Store Details
-                </h2>
-                <button
-                  onClick={() => setSelectedVendor(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Vendor Store Details</h2>
+                <p className="text-sm text-gray-500">Manage vendor status</p>
+              </div>
+              <button
+                onClick={() => setSelectedVendor(null)}
+                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Business Info Card */}
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-5 border border-emerald-100">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/30">
+                    {selectedVendor.businessName.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">{selectedVendor.businessName}</h3>
+                    <p className="text-emerald-600 font-medium">{selectedVendor.businessType}</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Name</h3>
-                  <p className="text-gray-900">{selectedVendor.businessName}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Type</h3>
-                  <p className="text-gray-900">{selectedVendor.businessType}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Owner</h3>
-                  <p className="text-gray-900">{selectedVendor.user.fullName}</p>
-                  <p className="text-sm text-gray-600">{selectedVendor.user.email}</p>
+              {/* Info Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Owner</label>
+                  <p className="text-gray-900 font-medium mt-1">{selectedVendor.user.fullName}</p>
+                  <p className="text-gray-600 text-sm">{selectedVendor.user.email}</p>
                   {selectedVendor.user.phone && (
-                    <p className="text-sm text-gray-600">{selectedVendor.user.phone}</p>
+                    <p className="text-gray-600 text-sm">{selectedVendor.user.phone}</p>
                   )}
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Location</h3>
-                  <p className="text-gray-900">{selectedVendor.city}, {selectedVendor.state}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</label>
+                  <p className="text-gray-900 font-medium mt-1">{selectedVendor.city}, {selectedVendor.state}</p>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Current Status</h3>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full ${
-                      selectedVendor.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800"
-                        : selectedVendor.status === "SUSPENDED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
+              {/* Status & Active */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
+                  <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-full border ${getStatusStyles(selectedVendor.status)}`}>
+                    {getStatusIcon(selectedVendor.status)}
                     {selectedVendor.status.replace("_", " ")}
                   </span>
                 </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Active</h3>
-                  <p className="text-gray-900">{selectedVendor.isActive ? "Yes" : "No"}</p>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Active</label>
+                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${selectedVendor.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {selectedVendor.isActive ? "Yes" : "No"}
+                  </span>
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700">Created</h3>
-                  <p className="text-gray-900">
-                    {new Date(selectedVendor.createdAt).toLocaleString()}
-                  </p>
-                </div>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</label>
+                <p className="text-gray-900 font-medium mt-1">
+                  {new Date(selectedVendor.createdAt).toLocaleString()}
+                </p>
+              </div>
 
-                <div className="pt-4 border-t space-y-3">
-                  <h3 className="font-semibold text-gray-700 mb-2">Update Status</h3>
+              {/* Status Update Actions */}
+              <div className="pt-4 border-t border-gray-100 space-y-3">
+                <label className="text-sm font-semibold text-gray-700">Update Status</label>
 
-                  {selectedVendor.status === "PENDING_APPROVAL" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
-                      disabled={processing}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "✓ Approve Store (Make Active)"}
-                    </button>
-                  )}
+                {selectedVendor.status === "PENDING_APPROVAL" && (
+                  <button
+                    onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
+                    disabled={processing}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-5 h-5" />
+                    )}
+                    {processing ? "Processing..." : "Approve Store (Make Active)"}
+                  </button>
+                )}
 
-                  {selectedVendor.status === "ACTIVE" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
-                      disabled={processing}
-                      className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "Suspend Store"}
-                    </button>
-                  )}
+                {selectedVendor.status === "ACTIVE" && (
+                  <button
+                    onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
+                    disabled={processing}
+                    className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <XCircle className="w-5 h-5" />
+                    )}
+                    {processing ? "Processing..." : "Suspend Store"}
+                  </button>
+                )}
 
-                  {selectedVendor.status === "SUSPENDED" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
-                      disabled={processing}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "Reactivate Store"}
-                    </button>
-                  )}
-                </div>
+                {selectedVendor.status === "SUSPENDED" && (
+                  <button
+                    onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
+                    disabled={processing}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                  >
+                    {processing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <CheckCircle className="w-5 h-5" />
+                    )}
+                    {processing ? "Processing..." : "Reactivate Store"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

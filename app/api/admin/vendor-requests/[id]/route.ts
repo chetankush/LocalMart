@@ -1,168 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-// PATCH - Approve or reject vendor request
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { action, rejectionReason } = body; // action: "APPROVE" or "REJECT"
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!action || !["APPROVE", "REJECT"].includes(action)) {
-      return NextResponse.json(
-        { error: "Invalid action. Must be APPROVE or REJECT" },
-        { status: 400 }
-      );
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Get the vendor request
-    const vendorRequest = await prisma.vendorRequest.findUnique({
-      where: { id },
+    const body = await request.json();
+
+    const response = await fetch(`${API_BASE_URL}/vendor-requests/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
     });
 
-    if (!vendorRequest) {
-      return NextResponse.json(
-        { error: "Vendor request not found" },
-        { status: 404 }
-      );
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Failed to update vendor request" }));
+      return NextResponse.json({ error: error.message, success: false }, { status: response.status });
     }
 
-    if (vendorRequest.status !== "PENDING") {
-      return NextResponse.json(
-        { error: "This request has already been processed" },
-        { status: 400 }
-      );
-    }
-
-    if (action === "APPROVE") {
-      // Check if user with this email exists
-      let user = await prisma.user.findUnique({
-        where: { email: vendorRequest.email },
-      });
-
-      console.log("Vendor Request Email:", vendorRequest.email);
-      console.log("User found:", user ? `Yes (ID: ${user.id}, Role: ${user.role})` : "No");
-
-      // If user doesn't exist, create one
-      if (!user) {
-        console.log("Creating new user with VENDOR role");
-        user = await prisma.user.create({
-          data: {
-            email: vendorRequest.email,
-            phone: vendorRequest.phone,
-            fullName: vendorRequest.fullName,
-            role: "VENDOR",
-          },
-        });
-      } else {
-        // Update existing user to VENDOR role
-        console.log("Updating existing user role to VENDOR");
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: { role: "VENDOR" },
-        });
-      }
-
-      console.log("User after update:", user.id, user.role);
-
-      // Check if vendor profile already exists
-      const existingVendor = await prisma.vendor.findUnique({
-        where: { userId: user.id },
-      });
-
-      if (existingVendor) {
-        return NextResponse.json(
-          { error: "A vendor profile already exists for this user" },
-          { status: 400 }
-        );
-      }
-
-      // Create vendor profile - set as ACTIVE so it shows in stores immediately
-      await prisma.vendor.create({
-        data: {
-          userId: user.id,
-          businessName: vendorRequest.businessName,
-          businessType: vendorRequest.businessType,
-          city: vendorRequest.city,
-          state: "Madhya Pradesh",
-          contactEmail: vendorRequest.email,
-          contactPhone: vendorRequest.phone,
-          businessAddress: {
-            street: vendorRequest.address,
-            city: vendorRequest.city,
-            state: "Madhya Pradesh",
-          },
-          storeDescription: vendorRequest.description,
-          deliveryAreas: { zones: [] },
-          deliveryCharges: { zones: [] },
-          status: "ACTIVE",
-          isActive: true,
-        },
-      });
-
-      // Update request status
-      await prisma.vendorRequest.update({
-        where: { id },
-        data: { status: "APPROVED" },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: "Vendor request approved and vendor account created",
-      });
-    } else {
-      // REJECT
-      if (!rejectionReason) {
-        return NextResponse.json(
-          { error: "Rejection reason is required" },
-          { status: 400 }
-        );
-      }
-
-      await prisma.vendorRequest.update({
-        where: { id },
-        data: {
-          status: "REJECTED",
-          rejectionReason,
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: "Vendor request rejected",
-      });
-    }
+    const data = await response.json();
+    return NextResponse.json({ ...data, success: true });
   } catch (error) {
-    console.error("Error processing vendor request:", error);
-    return NextResponse.json(
-      { error: "Failed to process vendor request" },
-      { status: 500 }
-    );
+    console.error("Vendor request update error:", error);
+    return NextResponse.json({ error: "Error updating vendor request", success: false }, { status: 500 });
   }
 }
 
-// DELETE - Delete a vendor request
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await params;
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    await prisma.vendorRequest.delete({
-      where: { id },
+    if (!session) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const response = await fetch(`${API_BASE_URL}/vendor-requests/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Vendor request deleted",
-    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Failed to delete vendor request" }));
+      return NextResponse.json({ error: error.message, success: false }, { status: response.status });
+    }
+
+    const data = await response.json();
+    return NextResponse.json({ ...data, success: true });
   } catch (error) {
-    console.error("Error deleting vendor request:", error);
-    return NextResponse.json(
-      { error: "Failed to delete vendor request" },
-      { status: 500 }
-    );
+    console.error("Vendor request delete error:", error);
+    return NextResponse.json({ error: "Error deleting vendor request", success: false }, { status: 500 });
   }
 }

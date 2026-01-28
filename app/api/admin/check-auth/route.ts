@@ -1,45 +1,34 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// GET - Check if current user is admin
-export async function GET() {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const {
-      data: { user: supabaseUser },
-    } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!supabaseUser) {
-      return NextResponse.json({
-        isAdmin: false,
-        message: "Not authenticated",
-      });
+    if (!session) {
+      return NextResponse.json({ isAdmin: false, message: "Not authenticated" });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: supabaseUser.email! },
+    // Call NestJS backend to check admin status
+    const response = await fetch(`${API_BASE_URL}/admin/check-auth`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
     });
 
-    if (!user) {
-      return NextResponse.json({
-        isAdmin: false,
-        message: "User not found",
-      });
+    if (!response.ok) {
+      return NextResponse.json({ isAdmin: false, message: "Failed to verify admin status" });
     }
 
-    const isAdmin = user.role === "ADMIN";
-
-    return NextResponse.json({
-      isAdmin,
-      email: user.email,
-      role: user.role,
-    });
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Admin check auth error:", error);
-    return NextResponse.json({
-      isAdmin: false,
-      message: "Error checking authentication",
-    });
+    console.error("Admin auth check error:", error);
+    return NextResponse.json({ isAdmin: false, message: "Error checking admin status" });
   }
 }

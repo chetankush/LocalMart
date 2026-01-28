@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,25 +13,46 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocation } from "@/context/LocationContext";
 import { useRouter } from "next/navigation";
+import { searchAddresses, getPlaceDetails, type AddressSuggestion } from "@/lib/location/geolocation";
 
 interface LocationSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type DetectionState = 'idle' | 'requesting' | 'detecting' | 'success' | 'error';
+
 export default function LocationSelectorModal({
   isOpen,
   onClose,
 }: LocationSelectorModalProps) {
-  const { updateLocation, detectAndSetLocation } = useLocation();
+  const { updateLocation, detectAndSetLocation, setLocationFromResult, validatePincode } = useLocation();
   const router = useRouter();
 
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
-  const [isDetecting, setIsDetecting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [detectionState, setDetectionState] = useState<DetectionState>('idle');
   const [error, setError] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  // Debounced address search
+  useEffect(() => {
+    if (searchQuery.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const results = await searchAddresses(searchQuery);
+      setSuggestions(results);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -46,29 +67,51 @@ export default function LocationSelectorModal({
       return;
     }
 
-    updateLocation(pincode, locality);
+    // Try to validate and enrich pincode data
+    const result = await validatePincode(pincode);
+    if (result) {
+      // Use enriched data but keep user's locality if they entered one
+      updateLocation(pincode, locality);
+    } else {
+      updateLocation(pincode, locality);
+    }
+    
     onClose();
-
-    // Update URL with pincode parameter
     router.push(`/stores?pincode=${pincode}`);
   };
 
   const handleDetectLocation = async () => {
-    setIsDetecting(true);
+    setDetectionState('requesting');
     setError("");
 
     try {
-      await detectAndSetLocation();
-      onClose();
+      // Show "requesting permission" state briefly
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setDetectionState('detecting');
 
-      // The location context will update, and we'll navigate with the new pincode
-      // We'll handle this in the parent component
-    } catch (error: any) {
-      setError(
-        error.message || "Failed to detect location. Please enter manually."
-      );
-    } finally {
-      setIsDetecting(false);
+      const result = await detectAndSetLocation();
+      setDetectionState('success');
+      
+      // Brief success state before closing
+      await new Promise(resolve => setTimeout(resolve, 800));
+      onClose();
+      router.push(`/stores?pincode=${result.pincode}`);
+    } catch (err: any) {
+      setDetectionState('error');
+      setError(err.message || "Failed to detect location. Please enter manually.");
+    }
+  };
+
+  const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
+    try {
+      const result = await getPlaceDetails(suggestion.placeId);
+      if (result) {
+        setLocationFromResult(result);
+        onClose();
+        router.push(`/stores?pincode=${result.pincode}`);
+      }
+    } catch (err) {
+      setError("Failed to get location details");
     }
   };
 
@@ -76,12 +119,64 @@ export default function LocationSelectorModal({
     setError("");
     setPincode("");
     setLocality("");
+    setSearchQuery("");
+    setSuggestions([]);
+    setDetectionState('idle');
+    setShowSearch(false);
     onClose();
+  };
+
+  const getDetectionButtonContent = () => {
+    switch (detectionState) {
+      case 'requesting':
+        return (
+          <>
+            <div className="w-5 h-5 mr-2 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+            Requesting permission...
+          </>
+        );
+      case 'detecting':
+        return (
+          <>
+            <div className="w-5 h-5 mr-2 rounded-full border-2 border-black/20 border-t-black animate-spin" />
+            Detecting your location...
+          </>
+        );
+      case 'success':
+        return (
+          <>
+            <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Location detected!
+          </>
+        );
+      case 'error':
+        return (
+          <>
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Try again
+          </>
+        );
+      default:
+        return (
+          <>
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Use my current location
+          </>
+        );
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-white">
+      <DialogContent className="sm:max-w-md bg-white max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl text-gray-900">Choose your location</DialogTitle>
           <DialogDescription className="text-gray-600">
@@ -94,63 +189,27 @@ export default function LocationSelectorModal({
           <div className="space-y-3">
             <Button
               onClick={handleDetectLocation}
-              disabled={isDetecting}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-6 text-base"
+              disabled={detectionState === 'requesting' || detectionState === 'detecting'}
+              className={`w-full py-6 text-base transition-all ${
+                detectionState === 'success' 
+                  ? 'bg-green-100 hover:bg-green-100 text-green-700 border-green-300'
+                  : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+              }`}
               type="button"
             >
-              {isDetecting ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Detecting location...
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                  Use my current location
-                </>
-              )}
+              {getDetectionButtonContent()}
             </Button>
             <p className="text-xs text-gray-500 text-center">
               We'll access your location to find stores near you
             </p>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Divider */}
           <div className="relative">
@@ -162,45 +221,96 @@ export default function LocationSelectorModal({
             </div>
           </div>
 
-          {/* Manual entry form */}
-          <form onSubmit={handleManualSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pincode">Pincode</Label>
-              <Input
-                id="pincode"
-                type="text"
-                placeholder="Enter 6-digit pincode"
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
-                maxLength={6}
-                className="text-base"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="locality">Locality / Area</Label>
-              <Input
-                id="locality"
-                type="text"
-                placeholder="e.g., Kotwali, Gandhi Nagar"
-                value={locality}
-                onChange={(e) => setLocality(e.target.value)}
-                className="text-base"
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-                {error}
+          {/* Search for area (like Blinkit/Zepto) */}
+          {showSearch ? (
+            <div className="space-y-3">
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search for area, street name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="text-base pl-10"
+                  autoFocus
+                />
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
-            )}
 
-            <Button
-              type="submit"
-              className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-base"
-            >
-              Save Location
-            </Button>
-          </form>
+              {/* Suggestions dropdown */}
+              {suggestions.length > 0 && (
+                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.placeId}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">{suggestion.mainText}</div>
+                      <div className="text-sm text-gray-500">{suggestion.secondaryText}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowSearch(false)}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Enter pincode manually instead
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Manual entry form */}
+              <form onSubmit={handleManualSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pincode">Pincode</Label>
+                  <Input
+                    id="pincode"
+                    type="text"
+                    placeholder="Enter 6-digit pincode"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                    maxLength={6}
+                    className="text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="locality">Locality / Area</Label>
+                  <Input
+                    id="locality"
+                    type="text"
+                    placeholder="e.g., Kotwali, Gandhi Nagar"
+                    value={locality}
+                    onChange={(e) => setLocality(e.target.value)}
+                    className="text-base"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-base"
+                >
+                  Save Location
+                </Button>
+              </form>
+
+              {/* Search option */}
+              <button
+                onClick={() => setShowSearch(true)}
+                className="w-full text-sm text-blue-600 hover:underline"
+              >
+                Search for area, street name...
+              </button>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

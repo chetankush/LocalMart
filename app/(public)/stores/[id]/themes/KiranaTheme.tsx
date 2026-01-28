@@ -19,7 +19,9 @@ import {
   ChevronRight,
   Phone,
   Mail,
+  Store,
 } from "lucide-react";
+import NotifyMeButton from "@/components/NotifyMeButton";
 
 interface Product {
   id: string;
@@ -109,6 +111,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(3600); // 1 hour in seconds
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
 
   useEffect(() => {
     // Set the store branding when component mounts
@@ -123,8 +126,6 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       setBranding(null);
     };
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
-
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
 
   // Timer for flash deals
   useEffect(() => {
@@ -459,7 +460,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     {(vendor.averageRating || 4.2).toFixed(1)} ★
                   </span>
                   <span className="text-xs text-gray-600 font-medium">
-                    ({vendor.reviewCount || Math.floor(Math.random() * 500) + 100})
+                    ({vendor.reviewCount || 0})
                   </span>
                 </div>
                 <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full shadow-sm border border-gray-200">
@@ -494,6 +495,8 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                     {products.length}+ Products
                   </span>
                 </div>
+                {/* Notify Me Button */}
+                <NotifyMeButton vendorId={vendor.id} size="sm" />
               </div>
 
               {/* Search Bar - Reusable Component */}
@@ -606,7 +609,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                 </div>
               ) : (
                 <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border-2 border-gray-200 bg-gradient-to-br from-green-100 to-orange-100 flex items-center justify-center">
-                  <div className="text-6xl">🏪</div>
+                  <Store className="w-16 h-16 text-orange-500" />
                 </div>
               )}
             </div>
