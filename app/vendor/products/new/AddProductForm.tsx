@@ -540,9 +540,9 @@ export default function AddProductForm({
                 <button
                   type="button"
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'grid' 
-                      ? 'bg-blue-50 text-blue-600' 
+                  className={`p-2 rounded-md transition-colors cursor-pointer ${
+                    viewMode === 'grid'
+                      ? 'bg-blue-50 text-blue-600'
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
                   title="Grid View"
@@ -552,9 +552,9 @@ export default function AddProductForm({
                 <button
                   type="button"
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-colors ${
-                    viewMode === 'list' 
-                      ? 'bg-blue-50 text-blue-600' 
+                  className={`p-2 rounded-md transition-colors cursor-pointer ${
+                    viewMode === 'list'
+                      ? 'bg-blue-50 text-blue-600'
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
                   title="List View"
@@ -565,7 +565,7 @@ export default function AddProductForm({
               <button
                 type="button"
                 onClick={() => setShowTemplates(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                 title="Hide Templates"
               >
                 <X className="w-5 h-5" />
@@ -658,7 +658,7 @@ export default function AddProductForm({
                         
                         <button
                           type="button"
-                          className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium whitespace-nowrap ml-2"
+                          className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium whitespace-nowrap ml-2 cursor-pointer"
                         >
                           Use Template
                         </button>
@@ -673,7 +673,7 @@ export default function AddProductForm({
                   <button
                     type="button"
                     onClick={() => setShowAllTemplates(!showAllTemplates)}
-                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors px-4 py-2 rounded-lg hover:bg-blue-50"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors px-4 py-2 rounded-lg hover:bg-blue-50 cursor-pointer"
                   >
                     {showAllTemplates ? (
                       <>
@@ -694,7 +694,7 @@ export default function AddProductForm({
               <button
                 type="button"
                 onClick={handleSkipTemplates}
-                className="text-blue-600 hover:underline font-medium"
+                className="text-blue-600 hover:underline font-medium cursor-pointer"
               >
                 add manually
               </button>
@@ -708,7 +708,7 @@ export default function AddProductForm({
         <button
           type="button"
           onClick={() => setShowTemplates(true)}
-          className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5"
+          className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5 cursor-pointer"
         >
           <span className="text-2xl">⚡</span> 
           <span className="text-lg">Add Kirana Products from List</span>
@@ -754,7 +754,7 @@ export default function AddProductForm({
                 weight: "",
               }));
             }}
-            className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+            className="text-sm text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
           >
             Choose Different Template
           </button>
@@ -781,7 +781,7 @@ export default function AddProductForm({
               <button
                 type="button"
                 onClick={() => handleRemoveImage(index)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 cursor-pointer"
               >
                 <svg
                   className="w-4 h-4"
@@ -925,7 +925,7 @@ export default function AddProductForm({
                 <button
                   type="button"
                   onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
                   <ChevronDown className={`w-5 h-5 transition-transform ${showCategoryDropdown ? "rotate-180" : ""}`} />
                 </button>
@@ -942,7 +942,7 @@ export default function AddProductForm({
                           setFormData(prev => ({ ...prev, categoryId: newId }));
                           setShowCategoryDropdown(false);
                         }}
-                        className="w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 text-green-700 font-medium border-b border-green-200 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 text-green-700 font-medium border-b border-green-200 flex items-center gap-2 cursor-pointer"
                       >
                         <span className="text-lg">+</span> Add &quot;{categorySearchQuery}&quot; as new category
                       </button>
@@ -963,7 +963,7 @@ export default function AddProductForm({
                             setTemplateCategoryName("");
                             setShowCategoryDropdown(false);
                           }}
-                          className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                          className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors flex items-center justify-between cursor-pointer ${
                             formData.categoryId === category.id ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-700"
                           }`}
                         >
@@ -987,7 +987,7 @@ export default function AddProductForm({
               <button
                 type="button"
                 onClick={() => setShowAddCategory(!showAddCategory)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap cursor-pointer"
               >
                 + Add New
               </button>
@@ -1036,7 +1036,7 @@ export default function AddProductForm({
                       }
                     }}
                     disabled={!newCategoryName.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium cursor-pointer"
                   >
                     Add
                   </button>
@@ -1046,7 +1046,7 @@ export default function AddProductForm({
                       setShowAddCategory(false);
                       setNewCategoryName("");
                     }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium"
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1180,14 +1180,14 @@ export default function AddProductForm({
         <button
           type="submit"
           disabled={loading || uploadingImages}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           {loading ? "Adding Product..." : "Add Product"}
         </button>
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Cancel
         </button>

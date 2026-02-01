@@ -1,5 +1,5 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { getCurrentUser } from "@/src/shared/utils/auth";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ProductReviewsTable from "./ProductReviewsTable";
@@ -12,6 +12,31 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getProductReviews(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/product-reviews?limit=100`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch product reviews:", response.status);
+      return { reviews: [], total: 0 };
+    }
+
+    const result = await response.json();
+    return result.data || { reviews: [], total: 0 };
+  } catch (error) {
+    console.error("Error fetching product reviews:", error);
+    return { reviews: [], total: 0 };
+  }
+}
+
 export default async function AdminProductReviewsPage() {
   const user = await getCurrentUser();
 
@@ -20,38 +45,18 @@ export default async function AdminProductReviewsPage() {
     redirect("/");
   }
 
-  // Fetch all product reviews with related data
-  const reviews = await prisma.productReview.findMany({
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-        },
-      },
-      product: {
-        select: {
-          id: true,
-          name: true,
-          averageRating: true,
-          reviewCount: true,
-          vendor: {
-            select: {
-              id: true,
-              businessName: true,
-            },
-          },
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    redirect("/sign-in");
+  }
+
+  const data = await getProductReviews(session.access_token);
+  const reviews = data.reviews || [];
 
   // Format reviews for client component
-  const formattedReviews = reviews.map((review) => ({
+  const formattedReviews = reviews.map((review: any) => ({
     id: review.id,
     rating: review.rating,
     comment: review.comment,
@@ -59,28 +64,28 @@ export default async function AdminProductReviewsPage() {
     isApproved: review.isApproved,
     isHidden: review.isHidden,
     isVerifiedPurchase: review.isVerifiedPurchase,
-    createdAt: review.createdAt.toISOString(),
-    updatedAt: review.updatedAt.toISOString(),
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
     user: review.user,
     product: {
       ...review.product,
-      averageRating: review.product.averageRating
+      averageRating: review.product?.averageRating
         ? Number(review.product.averageRating)
         : null,
     },
     vendorResponse: review.vendorResponse,
-    vendorRespondedAt: review.vendorRespondedAt?.toISOString() || null,
+    vendorRespondedAt: review.vendorRespondedAt || null,
   }));
 
   // Calculate statistics
   const stats = {
-    total: reviews.length,
-    visible: reviews.filter((r) => !r.isHidden).length,
-    hidden: reviews.filter((r) => r.isHidden).length,
-    verified: reviews.filter((r) => r.isVerifiedPurchase).length,
+    total: formattedReviews.length,
+    visible: formattedReviews.filter((r: any) => !r.isHidden).length,
+    hidden: formattedReviews.filter((r: any) => r.isHidden).length,
+    verified: formattedReviews.filter((r: any) => r.isVerifiedPurchase).length,
     averageRating:
-      reviews.length > 0
-        ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+      formattedReviews.length > 0
+        ? (formattedReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / formattedReviews.length).toFixed(1)
         : "0.0",
   };
 
@@ -101,7 +106,7 @@ export default async function AdminProductReviewsPage() {
             </div>
             <Link
               href="/admin"
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard

@@ -76,7 +76,7 @@ export default function StoreFilter({
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center hover:bg-gray-50 transition-all border border-gray-200"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white shadow-md rounded-full flex items-center justify-center hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4 text-gray-600" />
           </button>
@@ -86,7 +86,7 @@ export default function StoreFilter({
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full flex items-center justify-center hover:bg-gray-50 transition-all border border-gray-200"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white rounded-full flex items-center justify-center hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
           >
             <ChevronRight className="w-4 h-4 text-gray-600" />
           </button>

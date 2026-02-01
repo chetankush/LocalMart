@@ -1,49 +1,147 @@
 "use client";
 
-import { Clock, Star, Zap, MapPin, ChevronDown } from "lucide-react";
+import { Clock, Star, Zap, MapPin, X, SlidersHorizontal } from "lucide-react";
 
 interface QuickStoreFiltersProps {
   activeFilter: string | null;
   onFilterChange: (filter: string | null) => void;
+  filterCounts?: {
+    open?: number;
+    rating?: number;
+    fast?: number;
+    nearby?: number;
+  };
+  onMapViewClick?: () => void;
 }
 
-export default function QuickStoreFilters({ activeFilter, onFilterChange }: QuickStoreFiltersProps) {
+export default function QuickStoreFilters({
+  activeFilter,
+  onFilterChange,
+  filterCounts,
+  onMapViewClick
+}: QuickStoreFiltersProps) {
   const filters = [
-    { id: "open", label: "Open Now", icon: <Clock className="w-3.5 h-3.5" /> },
-    { id: "rating", label: "Top Rated", icon: <Star className="w-3.5 h-3.5" /> },
-    { id: "fast", label: "Fast Delivery", icon: <Zap className="w-3.5 h-3.5" /> },
-    { id: "nearby", label: "Nearest", icon: <MapPin className="w-3.5 h-3.5" /> },
+    {
+      id: "open",
+      label: "Open Now",
+      icon: <Clock className="w-4 h-4" />,
+      activeColor: "bg-green-600 border-green-600",
+      activeBg: "bg-green-50",
+      description: "Currently open stores"
+    },
+    {
+      id: "rating",
+      label: "Top Rated",
+      icon: <Star className="w-4 h-4" />,
+      activeColor: "bg-yellow-500 border-yellow-500",
+      activeBg: "bg-yellow-50",
+      description: "4+ star ratings"
+    },
+    {
+      id: "fast",
+      label: "Fast Delivery",
+      icon: <Zap className="w-4 h-4" />,
+      activeColor: "bg-orange-500 border-orange-500",
+      activeBg: "bg-orange-50",
+      description: "Quick delivery"
+    },
+    {
+      id: "nearby",
+      label: "Nearest First",
+      icon: <MapPin className="w-4 h-4" />,
+      activeColor: "bg-blue-600 border-blue-600",
+      activeBg: "bg-blue-50",
+      description: "Sort by distance"
+    },
   ];
 
+  const activeFilterData = filters.find(f => f.id === activeFilter);
+
   return (
-    <div className="w-full bg-white z-30 sm:static sm:z-0">
-      <div className="max-w-[1920px] mx-4 py-3">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {filters.map((filter) => (
+    <div className="w-full">
+      {/* Filter Header with Clear */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 text-gray-600">
+          <SlidersHorizontal className="w-4 h-4" />
+          <span className="text-sm font-medium">Quick Filters</span>
+        </div>
+        {activeFilter && (
+          <button
+            onClick={() => onFilterChange(null)}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition-colors"
+          >
+            <X className="w-3 h-3" />
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {/* Filter Pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {filters.map((filter) => {
+          const isActive = activeFilter === filter.id;
+          const count = filterCounts?.[filter.id as keyof typeof filterCounts];
+
+          return (
             <button
               key={filter.id}
-              onClick={() => onFilterChange(activeFilter === filter.id ? null : filter.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 ${
-                activeFilter === filter.id
-                  ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-gray-800 hover:shadow-sm"
-              }`}
+              onClick={() => onFilterChange(isActive ? null : filter.id)}
+              className={`
+                group flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+                transition-all duration-200 whitespace-nowrap
+                ${isActive
+                  ? `${filter.activeColor} text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5`
+                  : `bg-white text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm`
+                }
+              `}
+              title={filter.description}
             >
-              {activeFilter === filter.id ? (
-                 <div className="w-3.5 h-3.5">✓</div>
-              ) : (
-                 filter.icon
+              <span className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                {filter.icon}
+              </span>
+              <span>{filter.label}</span>
+              {count !== undefined && count > 0 && (
+                <span className={`
+                  ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold
+                  ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}
+                `}>
+                  {count}
+                </span>
               )}
-              {filter.label}
             </button>
-          ))}
-          <div className="h-6 w-[1px] bg-gray-200 mx-2 shrink-0" />
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors whitespace-nowrap ml-auto sm:ml-0">
-             <span>Map View</span>
-             <MapPin className="w-3.5 h-3.5" />
-          </button>
-        </div>
+          );
+        })}
+
+        {/* Separator */}
+        <div className="hidden sm:block h-8 w-px bg-gray-200 mx-1" />
+
+        {/* Map View Button */}
+        <button
+          onClick={onMapViewClick}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
+            bg-gradient-to-r from-gray-800 to-gray-900 text-white
+            hover:from-gray-700 hover:to-gray-800
+            shadow-sm hover:shadow-md transition-all duration-200
+            hover:-translate-y-0.5"
+        >
+          <MapPin className="w-4 h-4" />
+          <span>Map View</span>
+        </button>
       </div>
+
+      {/* Active Filter Indicator */}
+      {activeFilter && activeFilterData && (
+        <div className={`mt-3 px-3 py-2 rounded-lg ${activeFilterData.activeBg} border border-current/10`}>
+          <p className="text-sm text-gray-700">
+            <span className="font-medium">Showing:</span> {activeFilterData.description}
+            {filterCounts?.[activeFilter as keyof typeof filterCounts] !== undefined && (
+              <span className="ml-1 text-gray-500">
+                ({filterCounts[activeFilter as keyof typeof filterCounts]} stores)
+              </span>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -181,14 +181,14 @@ export default function AnalyticsPage() {
               <button
                 onClick={fetchAnalytics}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all disabled:opacity-50 cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
               <Link
                 href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Admin
@@ -254,7 +254,7 @@ export default function AnalyticsPage() {
         <div className="mb-6 flex gap-2">
           <button
             onClick={() => setActiveTab("categories")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
               activeTab === "categories"
                 ? "bg-gray-900 text-white shadow-lg"
                 : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
@@ -265,7 +265,7 @@ export default function AnalyticsPage() {
           </button>
           <button
             onClick={() => setActiveTab("vendors")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
               activeTab === "vendors"
                 ? "bg-gray-900 text-white shadow-lg"
                 : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"

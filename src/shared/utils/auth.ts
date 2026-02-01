@@ -4,68 +4,47 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { redirect } from "next/navigation";
 
 export type UserRole = "CUSTOMER" | "VENDOR" | "ADMIN";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
 /**
- * Get current authenticated user from database
- * Syncs with Supabase if user doesn't exist
+ * Get current authenticated user from API
+ * The backend will sync with Supabase if user doesn't exist
  */
 export async function getCurrentUser() {
   const supabase = await createClient();
 
   const {
-    data: { user: supabaseUser },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!supabaseUser) {
+  if (!session?.access_token) {
     return null;
   }
 
-  // Check if user exists in our DB
-  let user = await prisma.user.findUnique({
-    where: { email: supabaseUser.email! },
-    include: {
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-          businessType: true,
-          storeLogo: true,
-          status: true,
-          isActive: true,
-        },
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        "Authorization": `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
       },
-    },
-  });
-
-  // If not, create from Supabase user
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: supabaseUser.email!,
-        phone: supabaseUser.phone,
-        fullName: supabaseUser.user_metadata?.full_name || "User",
-        role: "CUSTOMER", // Default role
-      },
-      include: {
-        vendor: {
-          select: {
-            id: true,
-            businessName: true,
-            businessType: true,
-            storeLogo: true,
-            status: true,
-            isActive: true,
-          },
-        },
-      },
+      cache: "no-store",
     });
-  }
 
-  return user;
+    if (!response.ok) {
+      console.error("Failed to get current user:", response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching current user:", error);
+    return null;
+  }
 }
 
 /**

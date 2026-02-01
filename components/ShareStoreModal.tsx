@@ -218,7 +218,7 @@ export default function ShareStoreModal({
           <h2 className="text-xl font-bold text-gray-900">Share Your Store</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -228,7 +228,7 @@ export default function ShareStoreModal({
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab("share")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 text-sm font-medium transition-colors cursor-pointer ${
               activeTab === "share"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700"
@@ -239,7 +239,7 @@ export default function ShareStoreModal({
           </button>
           <button
             onClick={() => setActiveTab("qr")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 py-3 text-sm font-medium transition-colors cursor-pointer ${
               activeTab === "qr"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700"
@@ -268,7 +268,7 @@ export default function ShareStoreModal({
                   />
                   <button
                     onClick={handleCopyLink}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer ${
                       copied
                         ? "bg-green-100 text-green-700"
                         : "bg-blue-600 text-white hover:bg-blue-700"
@@ -300,7 +300,7 @@ export default function ShareStoreModal({
                     href={`https://wa.me/?text=${whatsappText}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer"
                   >
                     <MessageCircle className="w-5 h-5" />
                     WhatsApp
@@ -311,7 +311,7 @@ export default function ShareStoreModal({
                     href={facebookUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                   >
                     <Facebook className="w-5 h-5" />
                     Facebook
@@ -322,7 +322,7 @@ export default function ShareStoreModal({
                     href={twitterUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors cursor-pointer"
                   >
                     <Twitter className="w-5 h-5" />
                     Twitter
@@ -332,7 +332,7 @@ export default function ShareStoreModal({
                   {typeof navigator !== "undefined" && navigator.share && (
                     <button
                       onClick={handleNativeShare}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors cursor-pointer"
                     >
                       <Share2 className="w-5 h-5" />
                       More
@@ -367,14 +367,14 @@ export default function ShareStoreModal({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleDownloadQR}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
                 >
                   <Download className="w-5 h-5" />
                   Download
                 </button>
                 <button
                   onClick={handlePrintQR}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors cursor-pointer"
                 >
                   <QrCode className="w-5 h-5" />
                   Print

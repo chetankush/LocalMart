@@ -1,32 +1,37 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { notFound } from "next/navigation";
 import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
 import ProductReviews from "./ProductReviews";
 import ProductPageClient from "./ProductPageClient";
-import { serializeProduct, serializeVendor } from "@/lib/utils/serialize";
 import { TrackProductView } from "@/components/TrackView";
 
-// ⚡ ISR: Revalidate product pages every 3 minutes
+// ISR: Revalidate product pages every 3 minutes
 export const revalidate = 180;
 
-// 🚀 Generate static pages for popular products at build time
-export async function generateStaticParams() {
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true
-    },
-    select: { id: true },
-    take: 100, // Pre-generate top 100 products
-    orderBy: [
-      { reviewCount: 'desc' },
-      { averageRating: 'desc' }
-    ]
-  });
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-  return products.map((product) => ({
-    id: product.id,
-  }));
+// Generate static pages for popular products at build time
+export async function generateStaticParams() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    const products = result.data || [];
+
+    // Pre-generate top 100 products
+    return products.slice(0, 100).map((product: any) => ({
+      id: product.id,
+    }));
+  } catch (error) {
+    console.error("Error generating static params:", error);
+    return [];
+  }
 }
 
 interface ProductPageProps {
@@ -35,107 +40,38 @@ interface ProductPageProps {
   }>;
 }
 
+async function getProductDetails(id: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products/${id}/details`, {
+      next: { revalidate: 180 },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      console.error("Failed to fetch product details:", response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching product details:", error);
+    return null;
+  }
+}
+
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      price: true,
-      compareAtPrice: true,
-      images: true,
-      stockQuantity: true,
-      sku: true,
-      weight: true,
-      dimensions: true,
-      averageRating: true,
-      reviewCount: true,
-      isActive: true,
-      createdAt: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-          storeLogo: true,
-          city: true,
-          state: true,
-          averageRating: true,
-          reviewCount: true,
-        },
-      },
-    },
-  });
+  const product = await getProductDetails(id);
 
-  if (!product || !product.isActive) {
+  if (!product) {
     notFound();
   }
 
-  // Get reviews with rating distribution
-  const reviews = await prisma.productReview.findMany({
-    where: {
-      productId: id,
-      isApproved: true,
-      isHidden: false,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-        },
-      },
-    },
-    orderBy: [
-      { isVerifiedPurchase: "desc" },
-      { createdAt: "desc" },
-    ],
-    take: 10,
-  });
-
-  // Calculate rating distribution
-  const ratingDistribution = await prisma.productReview.groupBy({
-    by: ["rating"],
-    where: {
-      productId: id,
-      isApproved: true,
-      isHidden: false,
-    },
-    _count: {
-      rating: true,
-    },
-  });
-
-  const distribution = {
-    5: 0,
-    4: 0,
-    3: 0,
-    2: 0,
-    1: 0,
-  };
-
-  ratingDistribution.forEach((item) => {
-    distribution[item.rating as keyof typeof distribution] = item._count.rating;
-  });
-
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
-
-  // Convert Decimal types to numbers for client component using serializer
-  const productData = serializeProduct({
-    ...product,
-    images: images,
-  });
-
-  const vendorData = serializeVendor(product.vendor);
 
   return (
     <ProductPageClient vendor={{
@@ -149,7 +85,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           product={{
             id: product.id,
             name: product.name,
-            price: Number(product.price),
+            price: product.price,
             image: images[0] || "/placeholder-product.png",
           }}
         />
@@ -192,8 +128,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
               {/* Product Info */}
               <ProductInfo
-                product={productData}
-                vendor={vendorData}
+                product={product}
+                vendor={product.vendor}
               />
             </div>
           </div>
@@ -226,7 +162,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     <div>
                       <dt className="text-xs sm:text-sm font-medium text-gray-500">Weight</dt>
                       <dd className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-gray-900">
-                        {Number(product.weight).toFixed(2)} kg
+                        {product.weight.toFixed(2)} kg
                       </dd>
                     </div>
                   )}
@@ -249,10 +185,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductReviews
             productId={product.id}
             productName={product.name}
-            averageRating={productData.averageRating}
+            averageRating={product.averageRating}
             reviewCount={product.reviewCount}
-            reviews={reviews}
-            ratingDistribution={distribution}
+            reviews={product.reviews || []}
+            ratingDistribution={product.ratingDistribution || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }}
           />
         </div>
       </div>

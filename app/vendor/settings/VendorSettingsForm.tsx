@@ -314,7 +314,7 @@ export default function VendorSettingsForm({
                   <button
                     type="button"
                     onClick={() => handleRemoveStoreImage(index)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
                     aria-label="Remove image"
                   >
                     <svg
@@ -680,14 +680,14 @@ export default function VendorSettingsForm({
         <button
           type="submit"
           disabled={loading || uploadingLogo || uploadingBanner || uploadingStoreImage}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           {loading ? "Saving..." : "Save Changes"}
         </button>
         <button
           type="button"
           onClick={() => router.push("/vendor/dashboard")}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Cancel
         </button>

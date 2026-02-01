@@ -1,10 +1,14 @@
 /**
  * Vendor Helper Utilities
  * Helper functions for vendor lookup and management
+ *
+ * DEPRECATED: This file used Prisma directly which has been removed from frontend.
+ * All database operations should now go through the NestJS backend API.
+ * The vendor lookup logic is now handled by the /api/auth/me endpoint in the backend.
  */
 
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
-import { Prisma } from "@/src/generated/prisma";
+// import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+// import { Prisma } from "@/src/generated/prisma";
 
 interface User {
   id: string;
@@ -13,16 +17,27 @@ interface User {
 }
 
 /**
- * Get vendor by user - tries userId first, then email
- * Also auto-links vendor to user if found by email
+ * DEPRECATED: Get vendor by user - tries userId first, then email
+ * This functionality is now handled by the backend /api/auth/me endpoint
+ * which returns the user's vendor information if they are a vendor.
+ *
+ * Use getCurrentUser() from @/src/shared/utils/auth instead, which calls
+ * the /api/auth/me endpoint and includes vendor information.
  */
-export async function getVendorByUser<T extends Prisma.VendorInclude>(
+export async function getVendorByUser<T>(
   user: User,
   include?: T
 ) {
+  console.warn("DEPRECATED: getVendorByUser is no longer functional. Use getCurrentUser() from auth.ts instead, which includes vendor info from /api/auth/me");
+
+  // This function no longer works as Prisma has been removed from frontend
+  // The backend /api/auth/me endpoint handles vendor lookup and auto-linking
+  return null;
+
+  /* Original Prisma code (commented out for reference):
   console.log("=== getVendorByUser DEBUG ===");
   console.log("Looking up vendor for user:", { id: user.id, email: user.email, role: user.role });
-  
+
   // Try to find by userId first
   console.log("Step 1: Searching by userId:", user.id);
   let vendor = await prisma.vendor.findUnique({
@@ -59,4 +74,5 @@ export async function getVendorByUser<T extends Prisma.VendorInclude>(
 
   console.log("=== getVendorByUser RESULT ===", vendor ? "FOUND" : "NOT FOUND");
   return vendor;
+  */
 }

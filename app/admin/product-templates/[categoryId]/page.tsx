@@ -226,7 +226,7 @@ export default function CategoryTemplatesPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Category not found</p>
-          <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700">
+          <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700 cursor-pointer">
             ← Back to Categories
           </Link>
         </div>
@@ -253,17 +253,17 @@ export default function CategoryTemplatesPage() {
               <button
                 onClick={handleSeedExamples}
                 disabled={seeding}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
               >
                 {seeding ? "Seeding..." : "Seed Examples"}
               </button>
               <button
                 onClick={openAddModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 cursor-pointer"
               >
                 + Add Template
               </button>
-              <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700 flex items-center">
+              <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700 flex items-center cursor-pointer">
                 ← Back to Categories
               </Link>
             </div>
@@ -297,13 +297,13 @@ export default function CategoryTemplatesPage() {
               <button
                 onClick={handleSeedExamples}
                 disabled={seeding}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 cursor-pointer"
               >
                 {seeding ? "Seeding..." : "Seed Example Products"}
               </button>
               <button
                 onClick={openAddModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
               >
                 Add Template Manually
               </button>
@@ -375,13 +375,13 @@ export default function CategoryTemplatesPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => openEditModal(template)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
+                          className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(template.id)}
-                          className="text-red-600 hover:text-red-800 font-medium"
+                          className="text-red-600 hover:text-red-800 font-medium cursor-pointer"
                         >
                           Delete
                         </button>
@@ -406,7 +406,7 @@ export default function CategoryTemplatesPage() {
                 </h2>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 text-2xl cursor-pointer"
                 >
                   ×
                 </button>
@@ -504,13 +504,13 @@ export default function CategoryTemplatesPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={processing}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                   >
                     {processing ? "Saving..." : editingTemplate ? "Update Template" : "Create Template"}
                   </button>
                   <button
                     onClick={() => setShowModal(false)}
-                    className="px-6 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50"
+                    className="px-6 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 cursor-pointer"
                   >
                     Cancel
                   </button>

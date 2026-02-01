@@ -1,21 +1,37 @@
 import Link from "next/link";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { getCurrentUser } from "@/src/shared/utils/auth";
+import { createClient } from "@/lib/supabase/server";
 import { XCircle, Home, RefreshCw, MessageSquare } from "lucide-react";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getVendorRequestStatus(email: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor-requests/status?email=${encodeURIComponent(email)}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor request status:", error);
+    return null;
+  }
+}
 
 export default async function VendorRejectedPage() {
   const user = await getCurrentUser();
 
   let rejectionReason = null;
-  if (user) {
-    const vendorRequest = await prisma.vendorRequest.findFirst({
-      where: {
-        email: user.email || '',
-        status: 'REJECTED'
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    rejectionReason = vendorRequest?.rejectionReason;
+  if (user?.email) {
+    const requestStatus = await getVendorRequestStatus(user.email);
+    if (requestStatus?.status === 'REJECTED') {
+      rejectionReason = requestStatus.rejectionReason;
+    }
   }
 
   return (
@@ -75,14 +91,14 @@ export default async function VendorRejectedPage() {
           <div className="space-y-3">
             <Link
               href="/become-vendor"
-              className="flex items-center justify-center gap-2 w-full bg-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+              className="flex items-center justify-center gap-2 w-full bg-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <RefreshCw className="w-5 h-5" />
               Apply Again
             </Link>
             <Link
               href="/"
-              className="flex items-center justify-center gap-2 w-full border border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+              className="flex items-center justify-center gap-2 w-full border border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:bg-gray-50 transition-all cursor-pointer"
             >
               <Home className="w-5 h-5" />
               Back to Homepage

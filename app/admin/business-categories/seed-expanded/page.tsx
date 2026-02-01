@@ -252,7 +252,7 @@ export default function SeedExpandedCategoriesPage() {
             </div>
             <Link
               href="/admin/business-categories"
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
             >
               ← Back to Categories
             </Link>
@@ -281,7 +281,7 @@ export default function SeedExpandedCategoriesPage() {
           {status === "idle" && (
             <button
               onClick={handleSeed}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Seed All Categories
             </button>
@@ -340,7 +340,7 @@ export default function SeedExpandedCategoriesPage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => router.push("/admin/business-categories")}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
                 >
                   View All Categories
                 </button>
@@ -349,7 +349,7 @@ export default function SeedExpandedCategoriesPage() {
                     setStatus("idle");
                     setResults({ created: [], skipped: [], errors: [] });
                   }}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors cursor-pointer"
                 >
                   Reset
                 </button>

@@ -121,14 +121,14 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             <div className="flex gap-2">
               <Link
                 href="/become-vendor"
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Store</span>
               </Link>
               <Link
                 href="/vendor/stores"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
               >
                 <Store className="w-4 h-4" />
                 <span className="hidden sm:inline">All Stores</span>
@@ -164,7 +164,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               </div>
               <Link
                 href="/vendor/stores"
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
               >
                 View All →
               </Link>
@@ -190,7 +190,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               {/* Add Store Card */}
               <Link
                 href="/become-vendor"
-                className="rounded-2xl border-2 border-dashed border-gray-300 hover:border-orange-400 hover:bg-orange-50/50 transition-all flex flex-col items-center justify-center gap-3 min-h-[320px] p-6 group"
+                className="rounded-2xl border-2 border-dashed border-gray-300 hover:border-orange-400 hover:bg-orange-50/50 transition-all flex flex-col items-center justify-center gap-3 min-h-[320px] p-6 group cursor-pointer"
               >
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Plus className="w-8 h-8 text-orange-600" />
@@ -207,7 +207,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               <div className="mt-6 text-center">
                 <button
                   onClick={() => setShowAllStores(!showAllStores)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full transition-all border border-orange-200"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full transition-all border border-orange-200 cursor-pointer"
                 >
                   {showAllStores ? (
                     <>
@@ -248,7 +248,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 Share
@@ -256,14 +256,14 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               <Link
                 href={`/stores/${currentStoreId}`}
                 target="_blank"
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
               >
                 <ExternalLink className="w-4 h-4" />
                 View
               </Link>
               <Link
                 href={`/vendor/settings?storeId=${currentStoreId}`}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
               >
                 <Settings className="w-4 h-4" />
                 Settings
@@ -276,7 +276,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <button
             onClick={() => setShowShareModal(true)}
-            className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-700 transition-all text-center shadow-lg shadow-emerald-500/20 group"
+            className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-700 transition-all text-center shadow-lg shadow-emerald-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Share2 className="w-5 h-5" />
@@ -286,7 +286,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </button>
           <Link
             href={`/vendor/products/bulk-add?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 transition-all text-center shadow-lg shadow-indigo-500/20 group"
+            className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 transition-all text-center shadow-lg shadow-indigo-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Zap className="w-5 h-5" />
@@ -296,7 +296,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </Link>
           <Link
             href={`/vendor/products/new?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all text-center shadow-lg shadow-blue-500/20 group"
+            className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all text-center shadow-lg shadow-blue-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Package className="w-5 h-5" />
@@ -305,7 +305,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </Link>
           <Link
             href={`/vendor/orders?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all text-center shadow-lg shadow-amber-500/20 group"
+            className="p-4 bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all text-center shadow-lg shadow-amber-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <ShoppingCart className="w-5 h-5" />
@@ -314,7 +314,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </Link>
           <Link
             href={`/vendor/broadcast?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all text-center shadow-lg shadow-purple-500/20 group"
+            className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all text-center shadow-lg shadow-purple-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Megaphone className="w-5 h-5" />
@@ -323,7 +323,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </Link>
           <Link
             href={`/vendor/products?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-2xl hover:from-orange-600 hover:to-red-600 transition-all text-center shadow-lg shadow-orange-500/20 group"
+            className="p-4 bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-2xl hover:from-orange-600 hover:to-red-600 transition-all text-center shadow-lg shadow-orange-500/20 group cursor-pointer"
           >
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Package className="w-5 h-5" />
@@ -409,7 +409,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                 <h2 className="text-lg font-bold text-gray-900">Recent Products</h2>
                 <Link
                   href={`/vendor/products?storeId=${currentStoreId}`}
-                  className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                  className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
                 >
                   View all →
                 </Link>
@@ -447,7 +447,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                   <p className="text-gray-600 mb-4 font-medium">No products yet</p>
                   <Link
                     href={`/vendor/products/new?storeId=${currentStoreId}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-full font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-full font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     Add Your First Product
@@ -464,7 +464,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                 <h2 className="text-lg font-bold text-gray-900">Recent Orders</h2>
                 <Link
                   href={`/vendor/orders?storeId=${currentStoreId}`}
-                  className="text-sm text-orange-600 hover:text-orange-700 font-medium"
+                  className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
                 >
                   View all →
                 </Link>

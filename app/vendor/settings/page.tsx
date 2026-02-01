@@ -1,38 +1,48 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import VendorSettingsForm from "@/app/vendor/settings/VendorSettingsForm";
 import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getVendorSettings(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/settings`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      console.error("Failed to fetch vendor settings:", response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor settings:", error);
+    return null;
+  }
+}
+
 export default async function VendorSettingsPage() {
   const user = await requireRole(["VENDOR"]);
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-    select: {
-      id: true,
-      businessName: true,
-      businessType: true,
-      storeDescription: true,
-      storeLogo: true,
-      storeImages: true,
-      contactEmail: true,
-      contactPhone: true,
-      businessAddress: true,
-      city: true,
-      state: true,
-      locality: true,
-      pincode: true,
-      whatsappNumber: true,
-      telegramLink: true,
-      instagramHandle: true,
-      facebookPage: true,
-      websiteUrl: true,
-      storeTheme: true,
-      themeCustomization: true,
-    },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    redirect("/sign-in");
+  }
+
+  const vendor = await getVendorSettings(session.access_token);
 
   if (!vendor) {
     redirect("/vendor/onboarding");

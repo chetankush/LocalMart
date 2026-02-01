@@ -1,34 +1,38 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import ProductCardWithCart from "./ProductCardWithCart";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
 import FashionTheme from "./themes/FashionTheme";
 import DefaultTheme from "./themes/DefaultTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
-import { serializeVendor, serializeProducts } from "@/lib/utils/serialize";
 import { TrackStoreView } from "@/components/TrackView";
 
-// ⚡ ISR: Revalidate store pages every 2 minutes
+// ISR: Revalidate store pages every 2 minutes
 export const revalidate = 120;
 
-// 🚀 Generate static pages for popular stores at build time
-export async function generateStaticParams() {
-  const stores = await prisma.vendor.findMany({
-    where: {
-      status: "ACTIVE",
-      isActive: true
-    },
-    select: { id: true },
-    take: 50, // Pre-generate top 50 stores
-    orderBy: { favoriteCount: 'desc' }
-  });
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-  return stores.map((store) => ({
-    id: store.id,
-  }));
+// Generate static pages for popular stores at build time
+export async function generateStaticParams() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendors?status=ACTIVE`, {
+      next: { revalidate: 3600 },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    const stores = result.data || [];
+
+    // Pre-generate top 50 stores
+    return stores.slice(0, 50).map((store: any) => ({
+      id: store.id,
+    }));
+  } catch (error) {
+    console.error("Error generating static params:", error);
+    return [];
+  }
 }
 
 interface StorePageProps {
@@ -37,120 +41,56 @@ interface StorePageProps {
   }>;
 }
 
-interface BusinessAddress {
-  address?: string;
-  street?: string;
-  landmark?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
+async function getVendorDetails(id: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendors/${id}/details`, {
+      next: { revalidate: 120 },
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      console.error("Failed to fetch vendor details:", response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor details:", error);
+    return null;
+  }
 }
 
 export default async function StorePage({ params }: StorePageProps) {
   const { id } = await params;
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      businessName: true,
-      businessType: true,
-      storeDescription: true,
-      storeLogo: true,
-      storeImages: true,
-      contactEmail: true,
-      contactPhone: true,
-      businessAddress: true,
-      city: true,
-      state: true,
-      locality: true,
-      pincode: true,
-      businessHours: true,
-      averageRating: true,
-      reviewCount: true,
-      whatsappNumber: true,
-      telegramLink: true,
-      instagramHandle: true,
-      facebookPage: true,
-      websiteUrl: true,
-      storeTheme: true,
-      products: {
-        where: { isActive: true },
-        take: 12,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          price: true,
-          images: true,
-          stockQuantity: true,
-          vendorId: true,
-          averageRating: true,
-          reviewCount: true,
-          createdAt: true,
-        },
-      },
-      storeReviews: {
-        where: {
-          isApproved: true,
-          isHidden: false,
-        },
-        select: {
-          id: true,
-          rating: true,
-          comment: true,
-          images: true,
-          createdAt: true,
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const vendor = await getVendorDetails(id);
 
   if (!vendor) {
     notFound();
   }
 
-  // Convert Decimal types to numbers for client components using serializers
-  // Important: Remove products from vendor object before serializing to avoid passing Decimals
-  const { products, storeReviews, ...vendorWithoutProducts } = vendor;
-  const vendorData = serializeVendor(vendorWithoutProducts);
-  const productsData = serializeProducts(products);
-
-  // Calculate rating distribution
-  const ratingDistribution: { [key: number]: number } = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
-  storeReviews.forEach((review) => {
-    ratingDistribution[review.rating as keyof typeof ratingDistribution]++;
-  });
+  // Extract data
+  const { products, storeReviews, ratingDistribution, ...vendorData } = vendor;
 
   // Serialize reviews
-  const reviewsData = storeReviews.map((review) => ({
+  const reviewsData = storeReviews?.map((review: any) => ({
     ...review,
     images: review.images && Array.isArray(review.images) ? review.images : null,
-    createdAt: review.createdAt,
-  }));
+  })) || [];
 
   // Render theme-specific layout based on vendor's storeTheme
   const renderTheme = () => {
     switch (vendorData.storeTheme) {
       case "KIRANA":
-        return <KiranaTheme vendor={vendorData} products={productsData} />;
+        return <KiranaTheme vendor={vendorData} products={products || []} />;
       case "GROCERY":
-        return <GroceryTheme vendor={vendorData} products={productsData} />;
+        return <GroceryTheme vendor={vendorData} products={products || []} />;
       case "CLOTHING":
       case "SHOES":
-        return <FashionTheme vendor={vendorData} products={productsData} />;
+        return <FashionTheme vendor={vendorData} products={products || []} />;
       case "DAIRY":
       case "ELECTRONICS":
       case "MOBILES":
@@ -164,7 +104,7 @@ export default async function StorePage({ params }: StorePageProps) {
       case "DEFAULT":
       case "OTHER":
       default:
-        return <DefaultTheme vendor={vendorData} products={productsData} />;
+        return <DefaultTheme vendor={vendorData} products={products || []} />;
     }
   };
 
@@ -183,10 +123,10 @@ export default async function StorePage({ params }: StorePageProps) {
       {/* Reviews Section - Shared across all themes */}
       <StoreReviewsSection
         vendorId={vendorData.id}
-        averageRating={vendorData.averageRating ? Number(vendorData.averageRating) : null}
+        averageRating={vendorData.averageRating}
         reviewCount={vendorData.reviewCount}
         reviews={reviewsData.slice(0, 10)}
-        ratingDistribution={ratingDistribution}
+        ratingDistribution={ratingDistribution || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }}
         theme={vendorData.storeTheme || "DEFAULT"}
       />
     </>

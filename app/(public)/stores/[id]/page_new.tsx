@@ -1,11 +1,19 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+/**
+ * DEPRECATED: This is an old version of the store page that used Prisma directly.
+ * The current store page is in page.tsx which uses API calls.
+ * This file is kept for reference only.
+ */
+
+// import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import ProductCardWithCart from "./ProductCardWithCart";
+// import ProductCardWithCart from "./ProductCardWithCart";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
 import DefaultTheme from "./themes/DefaultTheme";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 interface StorePageProps {
   params: Promise<{
@@ -26,73 +34,28 @@ interface BusinessAddress {
   };
 }
 
+async function getVendorDetails(id: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendors/${id}/details`, {
+      next: { revalidate: 120 },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor details:", error);
+    return null;
+  }
+}
+
 export default async function StorePage({ params }: StorePageProps) {
   const { id } = await params;
 
-  const vendor = await prisma.vendor.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      businessName: true,
-      businessType: true,
-      storeDescription: true,
-      storeLogo: true,
-      storeImages: true,
-      contactEmail: true,
-      contactPhone: true,
-      businessAddress: true,
-      city: true,
-      state: true,
-      locality: true,
-      pincode: true,
-      businessHours: true,
-      averageRating: true,
-      reviewCount: true,
-      whatsappNumber: true,
-      telegramLink: true,
-      instagramHandle: true,
-      facebookPage: true,
-      websiteUrl: true,
-      storeTheme: true,
-      products: {
-        where: { isActive: true },
-        take: 12,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          price: true,
-          images: true,
-          stockQuantity: true,
-          vendorId: true,
-          averageRating: true,
-          reviewCount: true,
-          createdAt: true,
-        },
-      },
-      storeReviews: {
-        where: {
-          isApproved: true,
-          isHidden: false,
-        },
-        select: {
-          id: true,
-          rating: true,
-          comment: true,
-          images: true,
-          createdAt: true,
-          user: {
-            select: {
-              fullName: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      },
-    },
-  });
+  const vendor = await getVendorDetails(id);
 
   if (!vendor) {
     notFound();

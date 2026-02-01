@@ -198,6 +198,23 @@ class ApiClient {
     );
   }
 
+  // Homepage Data
+  async getHomepageData() {
+    return this.request<{
+      success: boolean;
+      data: {
+        vendors: any[];
+        featuredProducts: any[];
+        categories: any[];
+      };
+    }>("/public/homepage", { suppressAuthError: true, suppressNetworkError: true });
+  }
+
+  async getProductsByTags(tags: string[]) {
+    const query = tags.length > 0 ? `?tags=${tags.join(',')}` : '';
+    return this.request<{ success: boolean; data: any[] }>(`/public/products/by-tags${query}`);
+  }
+
   // Products
   async getProducts(params?: { vendorId?: string }) {
     const query = params
@@ -1239,6 +1256,33 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || 'Upload failed');
+    }
+
+    return response.json() as Promise<{ success: boolean; url: string; path: string }>;
+  }
+
+  // ============================================
+  // Review Upload (for authenticated users)
+  // ============================================
+
+  async uploadReviewImage(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers = await this.getAuthHeaders();
+    // Remove Content-Type for FormData (browser sets it automatically with boundary)
+    delete (headers as any)['Content-Type'];
+
+    const response = await fetch(`${this.baseUrl}/upload/review`, {
+      method: 'POST',
+      headers,
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || error.message || 'Upload failed');
     }
 
     return response.json() as Promise<{ success: boolean; url: string; path: string }>;

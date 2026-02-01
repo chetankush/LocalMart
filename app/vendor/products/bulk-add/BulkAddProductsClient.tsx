@@ -254,7 +254,7 @@ export default function BulkAddProductsClient({
             <div className="flex items-center gap-4">
               <Link
                 href="/vendor/products"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
@@ -273,7 +273,7 @@ export default function BulkAddProductsClient({
               <button
                 onClick={handleBulkAdd}
                 disabled={loading || selectedProducts.size === 0}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -328,7 +328,7 @@ export default function BulkAddProductsClient({
             {/* Select All */}
             <button
               onClick={handleSelectAll}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium cursor-pointer"
             >
               {selectedProducts.size === filteredTemplates.length && filteredTemplates.length > 0
                 ? "Deselect All"
@@ -377,7 +377,7 @@ export default function BulkAddProductsClient({
                 <p className="text-gray-500">Try a different search term or clear the search</p>
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
                   Clear Search
                 </button>
@@ -390,7 +390,7 @@ export default function BulkAddProductsClient({
                 </p>
                 <button
                   onClick={() => onCategoryChange("all")}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
                   Show All Templates
                 </button>
@@ -409,7 +409,7 @@ export default function BulkAddProductsClient({
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => handleSelectCategory(categoryName)}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
                         allSelected
                           ? "bg-blue-600 border-blue-600 text-white"
                           : someSelected
@@ -434,7 +434,7 @@ export default function BulkAddProductsClient({
                   </div>
                   <button
                     onClick={() => handleSelectCategory(categoryName)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
                   >
                     {allSelected ? "Deselect All" : "Select All"}
                   </button>
@@ -531,7 +531,7 @@ export default function BulkAddProductsClient({
                               {/* Edit Button */}
                               <button
                                 onClick={() => openEditModal(selectedProduct)}
-                                className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                                className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors cursor-pointer"
                               >
                                 <Edit2 className="w-3 h-3" />
                                 Edit Details
@@ -572,7 +572,7 @@ export default function BulkAddProductsClient({
               </span>
               <button
                 onClick={() => setSelectedProducts(new Map())}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
               >
                 Clear selection
               </button>
@@ -580,7 +580,7 @@ export default function BulkAddProductsClient({
             <button
               onClick={handleBulkAdd}
               disabled={loading}
-              className="px-8 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+              className="px-8 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -610,7 +610,7 @@ export default function BulkAddProductsClient({
               </div>
               <button
                 onClick={closeEditModal}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -723,13 +723,13 @@ export default function BulkAddProductsClient({
             <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
               <button
                 onClick={closeEditModal}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={saveEditedProduct}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
               >
                 Save Changes
               </button>

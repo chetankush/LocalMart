@@ -1,7 +1,8 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import AllReviewsList from "./AllReviewsList";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 interface ProductReviewsPageProps {
   params: Promise<{
@@ -9,77 +10,34 @@ interface ProductReviewsPageProps {
   }>;
 }
 
+async function getProductReviewsPageData(productId: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/public/products/${productId}/reviews-page`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching product reviews page data:", error);
+    return null;
+  }
+}
+
 export default async function ProductReviewsPage({ params }: ProductReviewsPageProps) {
   const { id } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      images: true,
-      price: true,
-      averageRating: true,
-      reviewCount: true,
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-        },
-      },
-    },
-  });
+  const data = await getProductReviewsPageData(id);
 
-  if (!product) {
+  if (!data) {
     notFound();
   }
 
-  // Get all reviews
-  const reviews = await prisma.productReview.findMany({
-    where: {
-      productId: id,
-      isApproved: true,
-      isHidden: false,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-        },
-      },
-    },
-    orderBy: [
-      { isVerifiedPurchase: "desc" },
-      { createdAt: "desc" },
-    ],
-  });
-
-  // Calculate rating distribution
-  const ratingDistribution = await prisma.productReview.groupBy({
-    by: ["rating"],
-    where: {
-      productId: id,
-      isApproved: true,
-      isHidden: false,
-    },
-    _count: {
-      rating: true,
-    },
-  });
-
-  const distribution = {
-    5: 0,
-    4: 0,
-    3: 0,
-    2: 0,
-    1: 0,
-  };
-
-  ratingDistribution.forEach((item) => {
-    distribution[item.rating as keyof typeof distribution] = item._count.rating;
-  });
-
+  const { product, reviews, ratingDistribution } = data;
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
 
   return (
@@ -212,7 +170,7 @@ export default async function ProductReviewsPage({ params }: ProductReviewsPageP
         {/* Reviews List */}
         <AllReviewsList
           reviews={reviews}
-          ratingDistribution={distribution}
+          ratingDistribution={ratingDistribution}
           totalReviews={product.reviewCount}
           averageRating={product.averageRating}
         />

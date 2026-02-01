@@ -1,31 +1,81 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import ProductActions from "@/app/vendor/products/ProductActions";
 import ProductsPageClient from "@/app/vendor/products/ProductsPageClient";
 import EmptyProductsState from "@/app/vendor/products/EmptyProductsState";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getVendorProducts(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/products`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { notFound: true, products: [], vendorId: null };
+      }
+      console.error("Failed to fetch products:", response.status);
+      return { error: true, products: [], vendorId: null };
+    }
+
+    const result = await response.json();
+    return { products: result.data || [], vendorId: result.data?.[0]?.vendorId || null };
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    return { error: true, products: [], vendorId: null };
+  }
+}
+
+async function getVendorInfo(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/check`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data?.stores?.[0] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
 export default async function VendorProductsPage() {
   const user = await requireRole(["VENDOR"]);
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!vendor) {
+  if (!session?.access_token) {
+    redirect("/sign-in");
+  }
+
+  const [productsResult, vendorInfo] = await Promise.all([
+    getVendorProducts(session.access_token),
+    getVendorInfo(session.access_token),
+  ]);
+
+  if (productsResult.notFound || !vendorInfo) {
     redirect("/vendor/onboarding");
   }
 
-  // Get all products for this vendor
-  const products = await prisma.product.findMany({
-    where: { vendorId: vendor.id },
-    include: {
-      category: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const products = productsResult.products;
+  const vendorId = vendorInfo.id;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,7 +89,7 @@ export default async function VendorProductsPage() {
                 Manage your product inventory
               </p>
             </div>
-            <ProductsPageClient vendorId={vendor.id} />
+            <ProductsPageClient vendorId={vendorId} />
           </div>
         </div>
       </div>
@@ -56,7 +106,7 @@ export default async function VendorProductsPage() {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Active</div>
             <div className="text-2xl font-bold text-green-600">
-              {products.filter((p) => p.isActive).length}
+              {products.filter((p: any) => p.isActive).length}
             </div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
@@ -64,7 +114,7 @@ export default async function VendorProductsPage() {
             <div className="text-2xl font-bold text-yellow-600">
               {
                 products.filter(
-                  (p) => p.stockQuantity <= (p.lowStockThreshold || 10)
+                  (p: any) => p.stockQuantity <= (p.lowStockThreshold || 10)
                 ).length
               }
             </div>
@@ -72,14 +122,14 @@ export default async function VendorProductsPage() {
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-600">Out of Stock</div>
             <div className="text-2xl font-bold text-red-600">
-              {products.filter((p) => p.stockQuantity === 0).length}
+              {products.filter((p: any) => p.stockQuantity === 0).length}
             </div>
           </div>
         </div>
 
         {/* Products List */}
         {products.length === 0 ? (
-          <EmptyProductsState vendorId={vendor.id} />
+          <EmptyProductsState vendorId={vendorId} />
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
@@ -107,7 +157,7 @@ export default async function VendorProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => {
+                  {products.map((product: any) => {
                     const images = Array.isArray(product.images)
                       ? product.images
                       : [];
@@ -134,16 +184,16 @@ export default async function VendorProductsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {product.category.name}
+                            {product.category?.name || "Uncategorized"}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-gray-900">
-                            ₹{product.price.toString()}
+                            ₹{Number(product.price).toFixed(2)}
                           </div>
                           {product.compareAtPrice && (
                             <div className="text-xs text-gray-500 line-through">
-                              ₹{product.compareAtPrice.toString()}
+                              ₹{Number(product.compareAtPrice).toFixed(2)}
                             </div>
                           )}
                         </td>

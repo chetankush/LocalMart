@@ -144,7 +144,7 @@ export default function EmptyStoresState({
             <Link
               key={city}
               href={`/stores?city=${city}`}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 transition-colors"
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 transition-colors cursor-pointer"
             >
               {city}
             </Link>

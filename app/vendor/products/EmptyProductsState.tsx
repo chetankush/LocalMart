@@ -26,7 +26,7 @@ export default function EmptyProductsState({
         {/* Primary CTA - Bulk Add */}
         <Link
           href="/vendor/products/bulk-add"
-          className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all font-bold flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 transition-all font-bold flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer"
         >
           <Zap className="w-5 h-5" />
           <span>
@@ -38,7 +38,7 @@ export default function EmptyProductsState({
         {/* Secondary CTA - Manual Add */}
         <Link
           href="/vendor/products/new"
-          className="px-6 py-4 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all font-semibold flex items-center justify-center gap-2"
+          className="px-6 py-4 bg-white text-gray-700 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all font-semibold flex items-center justify-center gap-2 cursor-pointer"
         >
           <Plus className="w-5 h-5" />
           Add Manually

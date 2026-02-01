@@ -69,7 +69,7 @@ export default function ProductActions({
     <div className="relative">
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className="text-gray-600 hover:text-gray-900"
+        className="text-gray-600 hover:text-gray-900 cursor-pointer"
         disabled={loading}
       >
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -87,21 +87,21 @@ export default function ProductActions({
             <div className="py-1">
               <Link
                 href={`/vendor/products/${productId}/edit`}
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
               >
                 Edit
               </Link>
               <button
                 onClick={handleToggleStatus}
                 disabled={loading}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
               >
                 {isActive ? "Deactivate" : "Activate"}
               </button>
               <button
                 onClick={handleDelete}
                 disabled={loading}
-                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 disabled:opacity-50"
+                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
               >
                 Delete
               </button>

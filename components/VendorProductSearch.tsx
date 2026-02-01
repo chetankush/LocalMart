@@ -172,7 +172,7 @@ export default function VendorProductSearch({
             setShowSuggestions(false);
             onSearchChange("");
           }}
-          className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+          className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10 cursor-pointer"
         >
           ✕
         </button>
@@ -191,7 +191,7 @@ export default function VendorProductSearch({
               <button
                 key={product.id}
                 onClick={() => handleSuggestionClick(product)}
-                className={`w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 text-left ${
+                className={`w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 text-left cursor-pointer ${
                   index === selectedSuggestionIndex ? "bg-green-50" : ""
                 }`}
               >

@@ -63,7 +63,7 @@ export default function AddToCartButton({ product, vendorName }: AddToCartButton
   return (
     <button
       onClick={handleAddToCart}
-      className={`w-full py-2 rounded font-bold transition-all text-xs border-2 ${
+      className={`w-full py-2 rounded font-bold transition-all text-xs border-2 cursor-pointer ${
         isAdding
           ? 'bg-[#0c831f] border-[#0c831f] text-white'
           : 'bg-white border-[#0c831f] text-[#0c831f] hover:bg-[#0c831f] hover:text-white active:scale-95'

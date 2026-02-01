@@ -199,7 +199,7 @@ export function SearchBar({
       key={`store-${store.id}`}
       onClick={() => handleItemSelect({ type: "store", data: store })}
       className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left",
+        "w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left cursor-pointer",
         globalIndex === activeIndex && "bg-gray-50"
       )}
     >
@@ -236,7 +236,7 @@ export function SearchBar({
       key={`product-${product.id}`}
       onClick={() => handleItemSelect({ type: "product", data: product })}
       className={cn(
-        "w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left",
+        "w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left cursor-pointer",
         globalIndex === activeIndex && "bg-gray-50"
       )}
     >
@@ -322,7 +322,7 @@ export function SearchBar({
         {query && (
           <button
             onClick={clearSearch}
-            className="absolute right-4 p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="absolute right-4 p-1 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
@@ -354,7 +354,7 @@ export function SearchBar({
                 </span>
                 <button
                   onClick={clearRecentSearches}
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
                 >
                   Clear all
                 </button>
@@ -456,7 +456,7 @@ export function SearchBar({
                     router.push(`/stores?q=${encodeURIComponent(query)}`);
                     setIsOpen(false);
                   }}
-                  className="text-xs text-yellow-600 hover:text-yellow-700 font-medium"
+                  className="text-xs text-yellow-600 hover:text-yellow-700 font-medium cursor-pointer"
                 >
                   View all
                 </button>
@@ -480,7 +480,7 @@ export function SearchBar({
                     router.push(`/search?q=${encodeURIComponent(query)}`);
                     setIsOpen(false);
                   }}
-                  className="text-xs text-yellow-600 hover:text-yellow-700 font-medium"
+                  className="text-xs text-yellow-600 hover:text-yellow-700 font-medium cursor-pointer"
                 >
                   View all
                 </button>
@@ -516,7 +516,7 @@ export function SearchBar({
                 router.push(`/search?q=${encodeURIComponent(query.trim())}`);
                 setIsOpen(false);
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-medium transition-colors cursor-pointer"
             >
               <Search className="w-4 h-4" />
               Search for "{query}"

@@ -281,7 +281,7 @@ export default function BusinessCategoriesPage() {
             <div className="flex gap-2 items-center">
               <Link
                 href="/admin/business-categories/seed-expanded"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">Seed All (19)</span>
@@ -289,28 +289,28 @@ export default function BusinessCategoriesPage() {
               <button
                 onClick={handleSeed}
                 disabled={processing}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">Seed Defaults</span>
               </button>
               <button
                 onClick={openAddModal}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Category</span>
               </button>
               <Link
                 href="/admin/product-templates"
-                className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-sm font-medium hover:bg-amber-100 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 rounded-full text-sm font-medium hover:bg-amber-100 transition-all cursor-pointer"
               >
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">Templates</span>
               </Link>
               <Link
                 href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">Back</span>
@@ -335,7 +335,7 @@ export default function BusinessCategoriesPage() {
               <div className="mt-3">
                 <Link
                   href="/admin/product-templates"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-full hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-full hover:bg-amber-600 transition-all shadow-md shadow-amber-500/20 cursor-pointer"
                 >
                   <Package className="w-4 h-4" />
                   Manage Templates
@@ -394,7 +394,7 @@ export default function BusinessCategoriesPage() {
             <p className="text-gray-500 mb-6">Get started by seeding default categories</p>
             <button
               onClick={handleSeed}
-              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <Sparkles className="w-5 h-5" />
               Seed Default Categories
@@ -473,7 +473,7 @@ export default function BusinessCategoriesPage() {
                         <button
                           onClick={() => toggleActive(category)}
                           disabled={processing}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-all cursor-pointer ${
                             category.isActive
                               ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
                               : "bg-red-100 text-red-700 border-red-200 hover:bg-red-200"
@@ -496,14 +496,14 @@ export default function BusinessCategoriesPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/admin/product-templates/${category.id}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-sm font-medium hover:bg-purple-100 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-sm font-medium hover:bg-purple-100 transition-all cursor-pointer"
                           >
                             <Package className="w-3.5 h-3.5" />
                             Templates
                           </Link>
                           <button
                             onClick={() => openEditModal(category)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-all cursor-pointer"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                             Edit
@@ -511,7 +511,7 @@ export default function BusinessCategoriesPage() {
                           <button
                             onClick={() => handleDelete(category.id)}
                             disabled={processing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-all cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             Delete
@@ -543,7 +543,7 @@ export default function BusinessCategoriesPage() {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -675,14 +675,14 @@ export default function BusinessCategoriesPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={processing}
-                  className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20"
+                  className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 cursor-pointer"
                 >
                   {processing ? (
                     <>

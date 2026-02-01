@@ -323,21 +323,21 @@ export default function AdminDashboard() {
             <div className="flex gap-2 items-center">
               <Link
                 href="/admin/analytics"
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all cursor-pointer"
               >
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Analytics</span>
               </Link>
               <Link
                 href="/admin/business-categories"
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all cursor-pointer"
               >
                 <FolderTree className="w-4 h-4" />
                 <span className="hidden sm:inline">Categories</span>
               </Link>
               <Link
                 href="/admin/product-templates"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all cursor-pointer"
               >
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">Templates</span>
@@ -349,14 +349,14 @@ export default function AdminDashboard() {
                   await supabase.auth.signOut();
                   router.push("/admin/login");
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-full text-sm font-medium transition-all"
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-full text-sm font-medium transition-all cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
               </button>
               <Link
                 href="/"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
               >
                 <Home className="w-4 h-4" />
                 <span className="hidden sm:inline">Home</span>
@@ -371,7 +371,7 @@ export default function AdminDashboard() {
         <div className="mb-6 flex gap-2">
           <button
             onClick={() => setActiveTab("requests")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
               activeTab === "requests"
                 ? "bg-gray-900 text-white shadow-lg"
                 : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
@@ -382,7 +382,7 @@ export default function AdminDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("vendors")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all ${
+            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
               activeTab === "vendors"
                 ? "bg-gray-900 text-white shadow-lg"
                 : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
                   filter === status
                     ? "bg-orange-500 text-white border-orange-500 shadow-md"
                     : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
@@ -415,7 +415,7 @@ export default function AdminDashboard() {
               <button
                 key={status}
                 onClick={() => setVendorFilter(status)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
                   vendorFilter === status
                     ? "bg-orange-500 text-white border-orange-500 shadow-md"
                     : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
@@ -510,7 +510,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4">
                           <button
                             onClick={() => setSelectedRequest(request)}
-                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                             View Details
@@ -596,7 +596,7 @@ export default function AdminDashboard() {
                         <td className="px-6 py-4">
                           <button
                             onClick={() => setSelectedVendor(vendor)}
-                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                             Manage
@@ -627,7 +627,7 @@ export default function AdminDashboard() {
                   setSelectedRequest(null);
                   setRejectionReason("");
                 }}
-                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -706,7 +706,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => handleApprove(selectedRequest.id)}
                       disabled={processing}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
                     >
                       {processing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -718,7 +718,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => handleReject(selectedRequest.id)}
                       disabled={processing}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20"
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20 cursor-pointer"
                     >
                       {processing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -737,7 +737,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleDelete(selectedRequest.id)}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold transition-all disabled:cursor-not-allowed"
+                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold transition-all disabled:cursor-not-allowed cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -764,7 +764,7 @@ export default function AdminDashboard() {
               </div>
               <button
                 onClick={() => setSelectedVendor(null)}
-                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
+                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </button>
@@ -833,7 +833,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -848,7 +848,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20"
+                    className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20 cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -863,7 +863,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

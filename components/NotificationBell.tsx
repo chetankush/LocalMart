@@ -265,7 +265,7 @@ export default function NotificationBell() {
       {/* Bell Icon */}
       <button
         onClick={() => user ? setIsOpen(!isOpen) : null}
-        className="relative p-2 text-white hover:bg-gray-800 rounded-full transition-colors"
+        className="relative p-2 text-white hover:bg-gray-800 rounded-full transition-colors cursor-pointer"
       >
         <svg
           className="w-6 h-6"
@@ -300,7 +300,7 @@ export default function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
               >
                 Mark all read
               </button>
@@ -387,7 +387,7 @@ export default function NotificationBell() {
             <div className="p-3 border-t border-gray-200 text-center">
               <Link
                 href="/notifications"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
                 onClick={() => setIsOpen(false)}
               >
                 View all notifications

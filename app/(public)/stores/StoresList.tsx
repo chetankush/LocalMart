@@ -250,7 +250,7 @@ export default function StoresList({
                 <button
                   onClick={handleNotifyMe}
                   disabled={isSubscribing}
-                  className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-3 rounded-full text-xs sm:text-sm font-bold transition-all disabled:opacity-50 ${
+                  className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-3 rounded-full text-xs sm:text-sm font-bold transition-all disabled:opacity-50 cursor-pointer ${
                     isSubscribedToArea
                       ? "bg-green-100 text-green-700 border-2 border-green-300 hover:bg-green-200"
                       : "bg-blue-500 text-white hover:bg-blue-600"
@@ -272,7 +272,7 @@ export default function StoresList({
                 </button>
                 <button
                   onClick={() => setShowLocationModal(true)}
-                  className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-white text-orange-600 border-2 border-orange-300 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-orange-50 hover:border-orange-400 transition-all"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-white text-orange-600 border-2 border-orange-300 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-orange-50 hover:border-orange-400 transition-all cursor-pointer"
                 >
                   Change
                 </button>
@@ -326,7 +326,7 @@ export default function StoresList({
               </div>
               <button
                 onClick={() => setShowLocationModal(true)}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:from-orange-600 hover:to-orange-700 transition-all hover:scale-105"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:from-orange-600 hover:to-orange-700 transition-all hover:scale-105 cursor-pointer"
               >
                 Select Location
               </button>
@@ -456,7 +456,7 @@ export default function StoresList({
                     {/* Visit Button */}
                     <Link
                       href={`/stores/${vendor.id}`}
-                      className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-semibold hover:bg-gray-800 transition active:scale-95"
+                      className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-semibold hover:bg-gray-800 transition active:scale-95 cursor-pointer"
                     >
                       Visit Store
                     </Link>
@@ -495,14 +495,14 @@ export default function StoresList({
                 {selectedPincode && (
                   <button
                     onClick={() => setShowLocationModal(true)}
-                    className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-gray-900 border-2 border-gray-300 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+                    className="px-6 sm:px-8 py-3 sm:py-4 bg-white text-gray-900 border-2 border-gray-300 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm cursor-pointer"
                   >
                     Change Location
                   </button>
                 )}
                 <Link
                   href="/become-vendor"
-                  className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/30 hover:shadow-xl hover:scale-105"
+                  className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/30 hover:shadow-xl hover:scale-105 cursor-pointer"
                 >
                   Open Your Store
                 </Link>

@@ -106,7 +106,7 @@ export default function ProductReviewsTable({
       <div className="mb-6 flex gap-2 flex-wrap">
         <button
           onClick={() => setFilter("all")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
             filter === "all"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -116,7 +116,7 @@ export default function ProductReviewsTable({
         </button>
         <button
           onClick={() => setFilter("visible")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
             filter === "visible"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -126,7 +126,7 @@ export default function ProductReviewsTable({
         </button>
         <button
           onClick={() => setFilter("hidden")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
             filter === "hidden"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -136,7 +136,7 @@ export default function ProductReviewsTable({
         </button>
         <button
           onClick={() => setFilter("verified")}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
             filter === "verified"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -237,7 +237,7 @@ export default function ProductReviewsTable({
                                   expandedReview === review.id ? null : review.id
                                 )
                               }
-                              className="text-xs text-blue-600 hover:text-blue-700 mt-1"
+                              className="text-xs text-blue-600 hover:text-blue-700 mt-1 cursor-pointer"
                             >
                               {expandedReview === review.id
                                 ? "Show less"
@@ -298,14 +298,14 @@ export default function ProductReviewsTable({
                             handleToggleHidden(review.id, review.isHidden)
                           }
                           disabled={loading}
-                          className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50"
+                          className="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
                         >
                           {review.isHidden ? "Show" : "Hide"}
                         </button>
                         <button
                           onClick={() => handleDelete(review.id)}
                           disabled={loading}
-                          className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50"
+                          className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50 cursor-pointer"
                         >
                           Delete
                         </button>

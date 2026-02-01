@@ -137,13 +137,13 @@ export default function StoreReviewsSection({
       }
 
       try {
-        const response = await fetch("/api/user/current-id");
-        if (response.ok) {
-          const data = await response.json();
-          setCurrentUserId(data.userId);
+        const { apiClient } = await import("@/lib/api/client");
+        const response = await apiClient.getUserProfile();
+        if (response.success && response.data) {
+          setCurrentUserId(response.data.id);
         }
       } catch (error) {
-        console.error("Failed to fetch current user ID:", error);
+        // Silently fail - user might not be fully authenticated
       }
     };
 
@@ -189,22 +189,8 @@ export default function StoreReviewsSection({
 
     setDeletingId(reviewId);
     try {
-      const USE_BACKEND_API =
-        process.env.NEXT_PUBLIC_USE_BACKEND_API === "true";
-
-      if (USE_BACKEND_API) {
-        const { apiClient } = await import("@/lib/api/client");
-        await apiClient.deleteStoreReview(reviewId);
-      } else {
-        const response = await fetch(`/api/public/store-reviews/${reviewId}`, {
-          method: "DELETE",
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Failed to delete review");
-        }
-      }
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.deleteStoreReview(reviewId);
 
       // Remove from local state
       setLocalReviews(localReviews.filter((r) => r.id !== reviewId));

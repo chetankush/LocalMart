@@ -48,7 +48,7 @@ export default function RoleSelectionClient({ userId }: { userId: string }) {
           <button
             onClick={() => selectRole("CUSTOMER")}
             disabled={loading}
-            className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-left"
+            className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-left cursor-pointer"
           >
             <div className="text-5xl mb-4">🛍️</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">
@@ -70,7 +70,7 @@ export default function RoleSelectionClient({ userId }: { userId: string }) {
           <button
             onClick={() => selectRole("VENDOR")}
             disabled={loading}
-            className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-left text-white"
+            className="bg-gradient-to-br from-green-500 to-emerald-600 p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 text-left text-white cursor-pointer"
           >
             <div className="mb-4"><Store className="w-12 h-12 text-white" /></div>
             <h2 className="text-2xl font-bold mb-3">I want to Sell</h2>

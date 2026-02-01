@@ -124,7 +124,7 @@ export default function ProductTemplatesPage() {
               <button
                 onClick={handleSeedTemplates}
                 disabled={seeding}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-all disabled:opacity-50 shadow-lg shadow-emerald-500/20 cursor-pointer"
               >
                 {seeding ? (
                   <>
@@ -140,7 +140,7 @@ export default function ProductTemplatesPage() {
               </button>
               <Link
                 href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Dashboard
@@ -211,7 +211,7 @@ export default function ProductTemplatesPage() {
             <p className="text-gray-500 mb-6">Add business categories first</p>
             <Link
               href="/admin/business-categories"
-              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <FolderTree className="w-5 h-5" />
               Add Business Categories
@@ -225,7 +225,7 @@ export default function ProductTemplatesPage() {
                 <Link
                   key={category.id}
                   href={`/admin/product-templates/${category.id}`}
-                  className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-orange-300 hover:shadow-lg transition-all group"
+                  className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-orange-300 hover:shadow-lg transition-all group cursor-pointer"
                 >
                   <div className="flex items-center gap-4 mb-4">
                     {category.imageUrl ? (

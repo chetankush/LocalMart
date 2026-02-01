@@ -1,7 +1,8 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import ProductReviewForm from "./ProductReviewForm";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 interface WriteReviewPageProps {
   params: Promise<{
@@ -9,71 +10,60 @@ interface WriteReviewPageProps {
   }>;
 }
 
+async function getProductWriteReviewData(productId: string, authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reviews/product/${productId}/write-data`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching product write review data:", error);
+    return null;
+  }
+}
+
 export default async function WriteReviewPage({ params }: WriteReviewPageProps) {
   const { id } = await params;
 
   // Check authentication
   const supabase = await createClient();
-  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!supabaseUser?.email) {
+  if (!session?.access_token) {
     redirect(`/signin?redirect=/products/${id}/write-review`);
   }
 
-  // Get user
-  const user = await prisma.user.findUnique({
-    where: { email: supabaseUser.email },
-  });
+  // Get product and review data
+  const data = await getProductWriteReviewData(id, session.access_token);
 
-  if (!user) {
-    redirect(`/signin?redirect=/products/${id}/write-review`);
-  }
-
-  // Get product
-  const product = await prisma.product.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      images: true,
-      price: true,
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-        },
-      },
-    },
-  });
-
-  if (!product) {
+  if (!data) {
     notFound();
   }
 
-  // Check if user already reviewed this product
-  const existingReview = await prisma.productReview.findUnique({
-    where: {
-      userId_productId: {
-        userId: user.id,
-        productId: id,
-      },
-    },
-  });
+  const { product, existingReview, isVerifiedPurchase, isOwnProduct } = data;
 
+  // Redirect if user already reviewed this product
   if (existingReview) {
     redirect(`/products/${id}?alreadyReviewed=true`);
   }
 
-  // Check if user has purchased this product
-  const hasPurchased = await prisma.orderItem.findFirst({
-    where: {
-      productId: id,
-      order: {
-        customerId: user.id,
-        status: "DELIVERED",
-      },
-    },
-  });
+  // Redirect if user is trying to review their own product
+  if (isOwnProduct) {
+    redirect(`/products/${id}?ownProduct=true`);
+  }
 
   const images = Array.isArray(product.images) ? (product.images as string[]) : [];
 
@@ -122,7 +112,7 @@ export default async function WriteReviewPage({ params }: WriteReviewPageProps) 
             <ProductReviewForm
               productId={product.id}
               productName={product.name}
-              isVerifiedPurchase={!!hasPurchased}
+              isVerifiedPurchase={isVerifiedPurchase}
             />
           </div>
         </div>

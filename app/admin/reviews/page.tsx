@@ -1,5 +1,5 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { getCurrentUser } from "@/src/shared/utils/auth";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import ReviewsTable from "./ReviewsTable";
@@ -11,6 +11,31 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getStoreReviews(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/reviews?limit=100`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch store reviews:", response.status);
+      return { reviews: [], total: 0 };
+    }
+
+    const result = await response.json();
+    return result.data || { reviews: [], total: 0 };
+  } catch (error) {
+    console.error("Error fetching store reviews:", error);
+    return { reviews: [], total: 0 };
+  }
+}
+
 export default async function AdminReviewsPage() {
   const user = await getCurrentUser();
 
@@ -19,59 +44,45 @@ export default async function AdminReviewsPage() {
     redirect("/");
   }
 
-  // Fetch all reviews with related data
-  const reviews = await prisma.storeReview.findMany({
-    include: {
-      user: {
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-        },
-      },
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-          averageRating: true,
-          reviewCount: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    redirect("/sign-in");
+  }
+
+  const data = await getStoreReviews(session.access_token);
+  const reviews = data.reviews || [];
 
   // Format reviews for client component
-  const formattedReviews = reviews.map((review) => ({
+  const formattedReviews = reviews.map((review: any) => ({
     id: review.id,
     rating: review.rating,
     comment: review.comment,
     images: review.images,
     isApproved: review.isApproved,
     isHidden: review.isHidden,
-    createdAt: review.createdAt.toISOString(),
-    updatedAt: review.updatedAt.toISOString(),
+    createdAt: review.createdAt,
+    updatedAt: review.updatedAt,
     user: review.user,
     vendor: {
       ...review.vendor,
-      averageRating: review.vendor.averageRating
+      averageRating: review.vendor?.averageRating
         ? Number(review.vendor.averageRating)
         : null,
     },
     vendorResponse: review.vendorResponse,
-    vendorRespondedAt: review.vendorRespondedAt?.toISOString() || null,
+    vendorRespondedAt: review.vendorRespondedAt || null,
   }));
 
   // Calculate statistics
   const stats = {
-    total: reviews.length,
-    visible: reviews.filter((r) => !r.isHidden).length,
-    hidden: reviews.filter((r) => r.isHidden).length,
+    total: formattedReviews.length,
+    visible: formattedReviews.filter((r: any) => !r.isHidden).length,
+    hidden: formattedReviews.filter((r: any) => r.isHidden).length,
     averageRating:
-      reviews.length > 0
-        ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+      formattedReviews.length > 0
+        ? (formattedReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / formattedReviews.length).toFixed(1)
         : "0.0",
   };
 
@@ -92,7 +103,7 @@ export default async function AdminReviewsPage() {
             </div>
             <Link
               href="/admin"
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Dashboard

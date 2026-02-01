@@ -140,7 +140,7 @@ export default function ModernStoreCard({
           {/* Visit Button */}
           <button
             onClick={handleCardClick}
-            className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-900 transition active:scale-95"
+            className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-900 transition active:scale-95 cursor-pointer"
           >
             Visit Store
           </button>

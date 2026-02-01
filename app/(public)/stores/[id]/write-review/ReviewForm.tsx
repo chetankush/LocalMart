@@ -64,20 +64,8 @@ export default function ReviewForm({
       setUploading(true);
 
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "reviews");
-
-        const response = await fetch("/api/public/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to upload image");
-        }
-
-        const data = await response.json();
+        const { apiClient } = await import("@/lib/api/client");
+        const data = await apiClient.uploadReviewImage(file);
 
         // Remove from uploading and add to uploaded
         setUploadingImages((prev) => {
@@ -91,7 +79,7 @@ export default function ReviewForm({
         });
 
         setUploadedImages((prev) => [...prev, data.url]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error uploading image:", error);
         // Remove from uploading state on error
         setUploadingImages((prev) => {
@@ -103,7 +91,7 @@ export default function ReviewForm({
           }
           return newMap;
         });
-        setError("Failed to upload image. Please try again.");
+        setError(error.message || "Failed to upload image. Please try again.");
       }
     });
 
@@ -128,78 +116,41 @@ export default function ReviewForm({
 
     const submitReview = async (): Promise<void> => {
       try {
-        // Switch between Next.js API and Backend API
-        const USE_BACKEND_API =
-          process.env.NEXT_PUBLIC_USE_BACKEND_API === "true";
+        const { apiClient } = await import("@/lib/api/client");
+        const data = await apiClient.createStoreReview({
+          vendorId,
+          rating,
+          comment: description.trim() || null,
+          images: uploadedImages.length > 0 ? uploadedImages : null,
+        });
 
-        let response;
-        let data;
-
-        if (USE_BACKEND_API) {
-          // Use Backend NestJS API
-          const { apiClient } = await import("@/lib/api/client");
-          data = await apiClient.createStoreReview({
-            vendorId,
-            rating,
-            comment: description.trim() || null,
-            images: uploadedImages.length > 0 ? uploadedImages : null,
-          });
-
-          // Convert to response-like object for consistent handling
-          if (!data.success) {
-            throw new Error(data.message || "Failed to submit review");
-          }
-        } else {
-          // Use Next.js API route (default)
-          response = await fetch("/api/public/store-reviews", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              vendorId,
-              rating,
-              comment: description.trim() || null,
-              images: uploadedImages.length > 0 ? uploadedImages : null,
-            }),
-          });
-
-          data = await response.json();
-
-          if (!response.ok) {
-            // Handle specific error cases
-            if (response.status === 401) {
-              setError("Please sign in to submit a review.");
-              setTimeout(() => {
-                const returnUrl = `/stores/${vendorId}/write-review`;
-                router.push(
-                  `/sign-in?redirect=${encodeURIComponent(returnUrl)}`
-                );
-              }, 1500);
-              return;
-            } else if (response.status === 403) {
-              setError(data.error || "You cannot review your own store.");
-              return;
-            } else {
-              throw new Error(data.error || "Failed to submit review");
-            }
-          }
-        }
-
-        // Success - redirect back to store page (works for both APIs)
-        if (data.success) {
-          router.push(`/stores/${vendorId}?reviewSubmitted=true`);
-          router.refresh();
-        } else {
+        if (!data.success) {
           throw new Error(data.message || "Failed to submit review");
         }
+
+        // Success - redirect back to store page
+        router.push(`/stores/${vendorId}?reviewSubmitted=true`);
+        router.refresh();
       } catch (error: any) {
         console.error("Error submitting review:", error);
-        if (error.message) {
-          setError(error.message);
-        } else {
-          setError("Failed to submit review. Please try again.");
+
+        // Handle authentication error
+        if (error.status === 401 || error.isAuthError) {
+          setError("Please sign in to submit a review.");
+          setTimeout(() => {
+            const returnUrl = `/stores/${vendorId}/write-review`;
+            router.push(`/sign-in?redirect=${encodeURIComponent(returnUrl)}`);
+          }, 1500);
+          return;
         }
+
+        // Handle forbidden error (e.g., reviewing own store)
+        if (error.status === 403) {
+          setError(error.message || "You cannot review your own store.");
+          return;
+        }
+
+        setError(error.message || "Failed to submit review. Please try again.");
         throw error; // Re-throw to stop execution
       }
     };
@@ -215,10 +166,10 @@ export default function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Rate this product */}
+      {/* Rate this store */}
       <div>
         <h3 className="text-base font-bold text-gray-900 mb-4">
-          Rate this product:
+          Rate this store:
         </h3>
         <div className="flex items-center gap-1 relative">
           {[1, 2, 3, 4, 5].map((star) => {
@@ -262,10 +213,10 @@ export default function ReviewForm({
         </div>
       </div>
 
-      {/* Review this product */}
+      {/* Review this store */}
       <div>
         <h3 className="text-base font-bold text-gray-900 mb-4">
-          Review this product:
+          Review this store:
         </h3>
 
         {/* Description */}
@@ -274,14 +225,14 @@ export default function ReviewForm({
             htmlFor="description"
             className="block text-sm font-medium text-gray-700 mb-2"
           >
-            Description
+            Your Experience
           </label>
           <textarea
             id="description"
             rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description..."
+            placeholder="Share your experience with this store..."
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none text-sm"
             maxLength={1000}
           />
@@ -399,9 +350,35 @@ export default function ReviewForm({
         <button
           type="submit"
           disabled={submitting || rating === 0}
-          className="px-8 py-3 bg-orange-500 text-white font-semibold rounded hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed uppercase"
+          className="px-8 py-3 bg-orange-500 text-white font-semibold rounded hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed uppercase flex items-center gap-2 min-w-[140px] justify-center"
         >
-          {submitting ? "Submitting..." : "Submit"}
+          {submitting ? (
+            <>
+              <svg
+                className="animate-spin h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>Submitting...</span>
+            </>
+          ) : (
+            "Submit"
+          )}
         </button>
       </div>
     </form>

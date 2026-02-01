@@ -1,50 +1,83 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import EditProductForm from "./EditProductForm";
-import { serializeProduct } from "@/lib/utils/serialize";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getProduct(productId: string, authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/products/${productId}`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    const product = result.data;
+
+    if (!product) return null;
+
+    // Convert Decimal types to numbers
+    return {
+      ...product,
+      price: Number(product.price),
+      compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null,
+      weight: product.weight ? Number(product.weight) : null,
+    };
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    return null;
+  }
+}
+
+async function getCategories() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/categories`, {
+      next: { revalidate: 300 },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+}
 
 export default async function EditProductPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const user = await requireRole(["VENDOR"]);
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!vendor) {
-    redirect("/vendor/onboarding");
+  if (!session?.access_token) {
+    redirect("/sign-in");
   }
 
-  // Get product
-  const product = await prisma.product.findUnique({
-    where: { id: params.id },
-    include: {
-      category: true,
-    },
-  });
+  const [product, categories] = await Promise.all([
+    getProduct(id, session.access_token),
+    getCategories(),
+  ]);
 
   if (!product) {
     redirect("/vendor/products");
   }
-
-  // Verify ownership
-  if (product.vendorId !== vendor.id) {
-    redirect("/vendor/products");
-  }
-
-  // Get all categories
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
-
-  // Convert Decimal types to numbers for client component using serializer
-  const productData = serializeProduct(product);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,7 +90,7 @@ export default async function EditProductPage({
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <EditProductForm product={productData} categories={categories} />
+        <EditProductForm product={product} categories={categories} />
       </div>
     </div>
   );

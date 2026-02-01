@@ -367,7 +367,7 @@ export default function BecomeVendorPage() {
         <p className="mb-6 opacity-90">Sign in or create an account to begin your vendor journey</p>
         <Link
           href="/sign-in?redirect=/become-vendor"
-          className="inline-block bg-white text-orange-600 px-8 py-3 rounded-xl font-bold hover:bg-orange-50 transition-colors shadow-lg"
+          className="inline-block bg-white text-orange-600 px-8 py-3 rounded-xl font-bold hover:bg-orange-50 transition-colors shadow-lg cursor-pointer"
         >
           Sign In to Continue →
         </Link>
@@ -575,7 +575,7 @@ export default function BecomeVendorPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
@@ -673,7 +673,7 @@ export default function BecomeVendorPage() {
 
         <Link
           href="/"
-          className="inline-block mt-6 text-orange-600 font-medium hover:text-orange-700"
+          className="inline-block mt-6 text-orange-600 font-medium hover:text-orange-700 cursor-pointer"
         >
           ← Back to Homepage
         </Link>
@@ -696,13 +696,13 @@ export default function BecomeVendorPage() {
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           <Link
             href="/vendor/dashboard"
-            className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+            className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
           >
            Go to Dashboard
           </Link>
           <Link
             href={`/stores/${vendorData.vendorId}`}
-            className="bg-white border-2 border-orange-500 text-orange-600 py-4 px-6 rounded-xl font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
+            className="bg-white border-2 border-orange-500 text-orange-600 py-4 px-6 rounded-xl font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             👁️ View Your Store
           </Link>
@@ -766,7 +766,7 @@ export default function BecomeVendorPage() {
                 {store.status === "ACTIVE" && (
                   <Link
                     href={`/stores/${store.id}`}
-                    className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+                    className="text-orange-600 hover:text-orange-700 font-medium text-sm cursor-pointer"
                   >
                     View →
                   </Link>
@@ -801,7 +801,7 @@ export default function BecomeVendorPage() {
                 description: "",
               }));
             }}
-            className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-all"
+            className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-all cursor-pointer"
           >
             + Add Another Store
           </button>
@@ -932,14 +932,14 @@ export default function BecomeVendorPage() {
               setVendorData(prev => ({ ...prev, status: "ACTIVE" }));
               setCurrentStep(4);
             }}
-            className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-200 transition-all"
+            className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-200 transition-all cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2"
+            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>

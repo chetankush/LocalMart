@@ -382,7 +382,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
             <button
               type="button"
               onClick={handleBack}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
             >
               Back
             </button>
@@ -392,7 +392,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
             <button
               type="button"
               onClick={handleNext}
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Continue
             </button>
@@ -401,7 +401,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               {loading ? 'Setting up...' : 'Complete Setup & Add Products'}
             </button>

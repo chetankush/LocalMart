@@ -338,6 +338,9 @@ model Product {
   isActive          Boolean  @default(true)
   isFeatured        Boolean  @default(false)
 
+  // Tags for filtering (valentine, for-her, for-him, gifts, seasonal, etc.)
+  tags              String[] @default([])
+
   // Product Reviews & Ratings
   averageRating     Decimal? @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
   reviewCount       Int      @default(0)

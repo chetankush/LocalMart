@@ -226,7 +226,7 @@ export default function EditProductForm({
               <button
                 type="button"
                 onClick={() => handleRemoveImage(index)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 cursor-pointer"
               >
                 <svg
                   className="w-4 h-4"
@@ -347,7 +347,7 @@ export default function EditProductForm({
               <button
                 type="button"
                 onClick={() => setShowAddCategory(!showAddCategory)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium cursor-pointer"
               >
                 + Add New
               </button>
@@ -367,7 +367,7 @@ export default function EditProductForm({
                     type="button"
                     onClick={handleAddCategory}
                     disabled={addingCategory}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium cursor-pointer"
                   >
                     {addingCategory ? "Adding..." : "Add"}
                   </button>
@@ -377,7 +377,7 @@ export default function EditProductForm({
                       setShowAddCategory(false);
                       setNewCategoryName("");
                     }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium"
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -518,14 +518,14 @@ export default function EditProductForm({
         <button
           type="submit"
           disabled={loading || uploadingImages}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
         >
           {loading ? "Saving Changes..." : "Save Changes"}
         </button>
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Cancel
         </button>

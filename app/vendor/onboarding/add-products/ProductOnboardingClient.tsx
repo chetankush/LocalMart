@@ -204,7 +204,7 @@ export default function ProductOnboardingClient({
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
-              className={`p-4 rounded-lg border-2 transition-all hover:scale-105 ${
+              className={`p-4 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer ${
                 selectedCategory === category.id
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-blue-300'
@@ -236,7 +236,7 @@ export default function ProductOnboardingClient({
           </h2>
           <button
             onClick={handleAddManually}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
           >
             + Add Custom Product
           </button>
@@ -314,7 +314,7 @@ export default function ProductOnboardingClient({
                           stock: '50',
                         });
                       }}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer"
                     >
                       Quick Add
                     </button>
@@ -328,7 +328,7 @@ export default function ProductOnboardingClient({
             <p className="mb-4">No products found in this category.</p>
             <button
               onClick={handleAddManually}
-              className="text-blue-600 hover:underline font-medium"
+              className="text-blue-600 hover:underline font-medium cursor-pointer"
             >
               Add custom product manually
             </button>
@@ -392,7 +392,7 @@ export default function ProductOnboardingClient({
                   setShowQuickAdd(null);
                   setQuickAddData({ price: '', stock: '' });
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium cursor-pointer"
                 disabled={addingProduct}
               >
                 Cancel
@@ -402,7 +402,7 @@ export default function ProductOnboardingClient({
                   handleQuickAdd(templates.find((t) => t.id === showQuickAdd)!)
                 }
                 disabled={addingProduct}
-                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 cursor-pointer"
               >
                 {addingProduct ? 'Adding...' : 'Add Product'}
               </button>
@@ -426,13 +426,13 @@ export default function ProductOnboardingClient({
           <div className="flex gap-3">
             <button
               onClick={handleAddManually}
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium cursor-pointer"
             >
               Add Custom Product
             </button>
             <button
               onClick={handleFinishOnboarding}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold cursor-pointer"
             >
               {addedProducts.length > 0 ? 'Go to Dashboard →' : 'Skip for Now →'}
             </button>

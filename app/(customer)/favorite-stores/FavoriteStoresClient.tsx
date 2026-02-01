@@ -187,7 +187,7 @@ export default function FavoriteStoresClient({
             </p>
             <Link
               href="/stores"
-              className="inline-block px-4 sm:px-6 py-2.5 sm:py-3 bg-orange-500 text-white rounded-lg font-semibold text-sm sm:text-base hover:bg-orange-600 transition-colors"
+              className="inline-block px-4 sm:px-6 py-2.5 sm:py-3 bg-orange-500 text-white rounded-lg font-semibold text-sm sm:text-base hover:bg-orange-600 transition-colors cursor-pointer"
             >
               Browse Stores
             </Link>

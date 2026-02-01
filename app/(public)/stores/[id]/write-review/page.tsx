@@ -1,44 +1,72 @@
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
 import { getCurrentUser } from "@/src/shared/utils/auth";
+import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import ReviewForm from "./ReviewForm";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
 interface WriteReviewPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
+}
+
+async function getVendorWriteReviewData(vendorId: string, authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reviews/store/${vendorId}/write-data`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor write review data:", error);
+    return null;
+  }
 }
 
 export default async function WriteReviewPage({
   params,
 }: WriteReviewPageProps) {
+  const { id } = await params;
   const user = await getCurrentUser();
 
   // Require authentication
   if (!user) {
-    redirect(`/login?redirect=/stores/${params.id}/write-review`);
+    redirect(`/login?redirect=/stores/${id}/write-review`);
   }
 
-  // Get vendor information
-  const vendor = await prisma.vendor.findUnique({
-    where: { id: params.id },
-    select: {
-      id: true,
-      businessName: true,
-      userId: true,
-      storeLogo: true,
-      storeImages: true,
-    },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!vendor) {
+  if (!session?.access_token) {
+    redirect(`/login?redirect=/stores/${id}/write-review`);
+  }
+
+  // Get vendor and review data
+  const data = await getVendorWriteReviewData(id, session.access_token);
+
+  if (!data) {
     notFound();
   }
 
+  const { vendor, existingReview, isOwnStore } = data;
+
   // Check if user is trying to review their own store
-  if (vendor.userId === user.id) {
+  if (isOwnStore) {
     return (
       <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-2xl mx-auto px-4">
@@ -51,7 +79,7 @@ export default async function WriteReviewPage({
               You cannot submit a review for your own store.
             </p>
             <Link
-              href={`/stores/${params.id}`}
+              href={`/stores/${id}`}
               className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
             >
               Back to Store
@@ -61,16 +89,6 @@ export default async function WriteReviewPage({
       </div>
     );
   }
-
-  // Check if user has already reviewed this store
-  const existingReview = await prisma.storeReview.findUnique({
-    where: {
-      userId_vendorId: {
-        userId: user.id,
-        vendorId: params.id,
-      },
-    },
-  });
 
   // Get store image for header
   const storeImages = Array.isArray(vendor.storeImages) ? vendor.storeImages : [];
@@ -92,32 +110,32 @@ export default async function WriteReviewPage({
               <h2 className="text-lg font-bold text-gray-900 mb-6">
                 What makes a good review
               </h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    Have you used this product?
+                    Have you visited this store?
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Your review should be about your experience with the product.
+                    Your review should be about your shopping experience with this store.
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    Why review a product?
+                    Why review a store?
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Your valuable feedback will help fellow shoppers decide!
+                    Your valuable feedback will help fellow shoppers discover great local stores!
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    How to review a product?
+                    How to review a store?
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Your review should include facts. An honest opinion is always appreciated. If you have an issue with the product or service please contact us from the{" "}
+                    Share your experience about the store's service, product quality, and overall shopping experience. An honest opinion is always appreciated. If you have an issue, please contact us from the{" "}
                     <Link href="/help" className="text-blue-600 hover:underline">
                       help centre
                     </Link>
@@ -151,8 +169,8 @@ export default async function WriteReviewPage({
                 </div>
               </div>
 
-              <ReviewForm 
-                vendorId={params.id} 
+              <ReviewForm
+                vendorId={id}
                 vendorName={vendor.businessName}
                 existingReview={existingReview}
               />

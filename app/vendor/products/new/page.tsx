@@ -1,53 +1,67 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import AddProductForm from "@/app/vendor/products/new/AddProductForm";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getVendorInfo(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/check`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data?.stores?.[0] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function getCategories() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/categories`, {
+      next: { revalidate: 300 },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+}
 
 export default async function AddProductPage() {
   const user = await requireRole(["VENDOR"]);
 
-  // Get vendor profile - try by userId first, then by email
-  let vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // If not found by userId, try to find by contact email
-  if (!vendor && user.email) {
-    vendor = await prisma.vendor.findFirst({
-      where: { contactEmail: user.email },
-    });
-
-    // If found by email, link vendor to this user and update user role
-    if (vendor) {
-      await prisma.$transaction([
-        prisma.vendor.update({
-          where: { id: vendor.id },
-          data: { userId: user.id },
-        }),
-        prisma.user.update({
-          where: { id: user.id },
-          data: { role: "VENDOR" },
-        }),
-      ]);
-    }
+  if (!session?.access_token) {
+    redirect("/sign-in");
   }
 
-  if (!vendor) {
+  const [vendorInfo, categories] = await Promise.all([
+    getVendorInfo(session.access_token),
+    getCategories(),
+  ]);
+
+  if (!vendorInfo) {
     redirect("/vendor/onboarding");
   }
-
-  // Get all active categories (not filtered by theme to show all options)
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
-
-  // Debug: Log categories to console
-  console.log("Categories fetched:", categories.length);
-  console.log(
-    "Categories:",
-    categories.map((c) => c.name)
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -62,7 +76,7 @@ export default async function AddProductPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <AddProductForm vendorId={vendor.id} categories={categories} />
+        <AddProductForm vendorId={vendorInfo.id} categories={categories} />
       </div>
     </div>
   );

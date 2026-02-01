@@ -1,8 +1,33 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Store, Package, ShoppingCart } from "lucide-react";
 import VendorStoreCard from "@/components/VendorStoreCard";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function getVendorStores(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/stores`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch stores:", response.status);
+      return [];
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error("Error fetching stores:", error);
+    return [];
+  }
+}
 
 export default async function VendorStoresPage() {
   const user = await getCurrentUser();
@@ -16,7 +41,7 @@ export default async function VendorStoresPage() {
           <p className="text-gray-600 mb-6">Please sign in to view your stores.</p>
           <Link
             href="/sign-in"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
           >
             Sign In
           </Link>
@@ -34,7 +59,7 @@ export default async function VendorStoresPage() {
           <p className="text-gray-600 mb-6">This page is only for vendors.</p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
           >
             Go to Home
           </Link>
@@ -43,37 +68,28 @@ export default async function VendorStoresPage() {
     );
   }
 
-  // Get all stores for this user
-  const stores = await prisma.vendor.findMany({
-    where: {
-      OR: [
-        { userId: user.id },
-        { contactEmail: user.email || undefined },
-      ],
-    },
-    include: {
-      _count: {
-        select: {
-          products: true,
-          orders: true,
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // Get stats for each store
-  const storesWithStats = await Promise.all(
-    stores.map(async (store) => {
-      const pendingOrders = await prisma.order.count({
-        where: { vendorId: store.id, status: "PENDING" },
-      });
-      return {
-        ...store,
-        pendingOrders,
-      };
-    })
-  );
+  if (!session?.access_token) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h1>
+          <p className="text-gray-600 mb-6">Please sign in again.</p>
+          <Link
+            href="/sign-in"
+            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const stores = await getVendorStores(session.access_token);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -90,13 +106,13 @@ export default async function VendorStoresPage() {
             <div className="flex gap-3">
               <Link
                 href="/vendor/dashboard"
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 ← Dashboard
               </Link>
               <Link
                 href="/become-vendor"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Add New Store
@@ -118,7 +134,7 @@ export default async function VendorStoresPage() {
             </p>
             <Link
               href="/become-vendor"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               <Plus className="w-5 h-5" />
               Create Your First Store
@@ -146,7 +162,7 @@ export default async function VendorStoresPage() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-gray-900">
-                      {stores.filter(s => s.status === "ACTIVE").length}
+                      {stores.filter((s: any) => s.status === "ACTIVE").length}
                     </div>
                     <div className="text-sm text-gray-500">Active Stores</div>
                   </div>
@@ -158,9 +174,7 @@ export default async function VendorStoresPage() {
                     <Package className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stores.reduce((acc, s) => acc + s._count.products, 0)}
-                    </div>
+                    <div className="text-2xl font-bold text-gray-900">-</div>
                     <div className="text-sm text-gray-500">Total Products</div>
                   </div>
                 </div>
@@ -171,9 +185,7 @@ export default async function VendorStoresPage() {
                     <ShoppingCart className="w-6 h-6 text-orange-600" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stores.reduce((acc, s) => acc + s._count.orders, 0)}
-                    </div>
+                    <div className="text-2xl font-bold text-gray-900">-</div>
                     <div className="text-sm text-gray-500">Total Orders</div>
                   </div>
                 </div>
@@ -182,7 +194,7 @@ export default async function VendorStoresPage() {
 
             {/* Stores Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {storesWithStats.map((store) => (
+              {stores.map((store: any) => (
                 <VendorStoreCard
                   key={store.id}
                   store={{
@@ -191,13 +203,13 @@ export default async function VendorStoresPage() {
                     businessType: store.businessType,
                     storeDescription: store.storeDescription,
                     storeLogo: store.storeLogo,
-                    storeImages: store.storeImages as string[] | null,
+                    storeImages: store.storeImages,
                     city: store.city,
                     status: store.status,
                     isActive: store.isActive,
-                    productCount: store._count.products,
-                    orderCount: store._count.orders,
-                    pendingOrders: store.pendingOrders,
+                    productCount: store.productCount || 0,
+                    orderCount: store.orderCount || 0,
+                    pendingOrders: store.pendingOrders || 0,
                   }}
                   showStats={true}
                   showManageButton={true}
@@ -207,7 +219,7 @@ export default async function VendorStoresPage() {
               {/* Add New Store Card */}
               <Link
                 href="/become-vendor"
-                className="rounded-3xl bg-white shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center p-12 min-h-[400px]"
+                className="rounded-3xl bg-white shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center p-12 min-h-[400px] cursor-pointer"
               >
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                   <Plus className="w-10 h-10 text-blue-600" />

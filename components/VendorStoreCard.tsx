@@ -110,7 +110,7 @@ export default function VendorStoreCard({
           <Link
             href={`/vendor/settings?storeId=${store.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition"
+            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition cursor-pointer"
           >
             <Settings className="w-4 h-4 text-gray-600" />
           </Link>
@@ -118,7 +118,7 @@ export default function VendorStoreCard({
             href={`/stores/${store.id}`}
             target="_blank"
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition"
+            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition cursor-pointer"
           >
             <ExternalLink className="w-4 h-4 text-gray-600" />
           </Link>
@@ -166,7 +166,7 @@ export default function VendorStoreCard({
             <Link
               href={`/vendor/dashboard?storeId=${store.id}`}
               onClick={(e) => e.stopPropagation()}
-              className="bg-black text-white px-5 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-gray-800 transition active:scale-95"
+              className="bg-black text-white px-5 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-gray-800 transition active:scale-95 cursor-pointer"
             >
               Manage Store
             </Link>

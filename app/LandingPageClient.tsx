@@ -40,6 +40,25 @@ const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
   );
 };
 
+interface BusinessHours {
+  [day: string]: {
+    open: string;
+    close: string;
+    isOpen: boolean;
+  };
+}
+
+interface BusinessAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
 interface Vendor {
   id: string;
   businessName: string;
@@ -53,6 +72,11 @@ interface Vendor {
   createdAt: Date;
   averageRating: any;
   reviewCount: number;
+  // Filter-related fields
+  businessHours?: BusinessHours | null;
+  businessAddress?: BusinessAddress | null;
+  canDeliver?: boolean;
+  deliveryTimeWindows?: any;
 }
 
 interface Product {
@@ -66,6 +90,7 @@ interface Product {
   stockQuantity: number;
   averageRating: any;
   reviewCount: number;
+  tags?: string[];
   vendor: {
     id: string;
     businessName: string;
@@ -83,6 +108,7 @@ interface LandingPageClientProps {
   user: any;
   vendors: Vendor[];
   featuredProducts: Product[];
+  valentineProducts: Product[];
   categories: Category[];
 }
 
@@ -96,6 +122,42 @@ const businessTypeIcons: { [key: string]: React.ReactNode } = {
   FASHION: <Shirt className="w-4 h-4" />,
   HOME_SERVICES: <Wrench className="w-4 h-4" />,
   OTHER: <Store className="w-4 h-4" />,
+};
+
+// Helper function to check if a store is currently open
+const isStoreOpen = (businessHours: BusinessHours | null | undefined): boolean => {
+  if (!businessHours) return true; // Assume open if no hours set
+
+  const now = new Date();
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const currentDay = days[now.getDay()];
+  const todayHours = businessHours[currentDay] || businessHours[currentDay.charAt(0).toUpperCase() + currentDay.slice(1)];
+
+  if (!todayHours || !todayHours.isOpen) return false;
+
+  const currentTime = now.getHours() * 100 + now.getMinutes();
+  const openTime = parseInt(todayHours.open?.replace(':', '') || '0000');
+  const closeTime = parseInt(todayHours.close?.replace(':', '') || '2359');
+
+  return currentTime >= openTime && currentTime <= closeTime;
+};
+
+// Helper function to calculate distance between two coordinates (Haversine formula)
+const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 };
 
 // Carousel Configuration - Easy to update
@@ -124,22 +186,53 @@ const BANNERS = [
 ];
 
 // Auto-rotate carousel every 4 seconds - Easy to change interval
-// Festive/Occasion Configuration - Update this section for different events
-const SEASONAL_CONFIG = {
-  title: "All you need for Valentine's Day",
-  groups: [
-    {
-      name: "Everything Valentine's",
-      link: "/products?tag=valentine",
-      tag: "valentine"
-    },
-    {
-      name: "Gifts for Her",
-      link: "/products?tag=for-her",
-      tag: "for-her"
-    }
-  ]
+// Dynamic Seasonal Configuration based on current date
+const getSeasonalConfig = () => {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const day = now.getDate();
+
+  // Valentine's Day (Feb 1-14)
+  if (month === 2 && day <= 14) {
+    return {
+      title: "All you need for Valentine's Day",
+      theme: "valentine",
+      emoji: "💝"
+    };
+  }
+  // Holi (March - approximate)
+  if (month === 3 && day <= 15) {
+    return {
+      title: "Celebrate Holi with Colors",
+      theme: "holi",
+      emoji: "🎨"
+    };
+  }
+  // Diwali (Oct-Nov - approximate)
+  if ((month === 10 && day >= 15) || (month === 11 && day <= 15)) {
+    return {
+      title: "Light Up Your Diwali",
+      theme: "diwali",
+      emoji: "🪔"
+    };
+  }
+  // Christmas/New Year (Dec 15 - Jan 5)
+  if ((month === 12 && day >= 15) || (month === 1 && day <= 5)) {
+    return {
+      title: "Holiday Season Specials",
+      theme: "christmas",
+      emoji: "🎄"
+    };
+  }
+  // Default - General shopping
+  return {
+    title: "Shop the Best Deals",
+    theme: "default",
+    emoji: "🛍️"
+  };
 };
+
+const SEASONAL_CONFIG = getSeasonalConfig();
 
 const CAROUSEL_INTERVAL = 4000;
 
@@ -147,6 +240,7 @@ export default function LandingPageClient({
   user,
   vendors,
   featuredProducts,
+  valentineProducts,
   categories,
 }: LandingPageClientProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -215,6 +309,24 @@ export default function LandingPageClient({
     setShowRightScroll(scrollLeft < maxScroll - 10);
   };
 
+  // User's coordinates from location context
+  const userLat = location?.latitude;
+  const userLng = location?.longitude;
+  const hasUserCoordinates = userLat !== undefined && userLng !== undefined;
+
+  // Calculate filter counts for display
+  const filterCounts = {
+    open: vendors.filter((v) => isStoreOpen(v.businessHours as BusinessHours)).length,
+    rating: vendors.filter((v) => Number(v.averageRating) >= 4.0).length,
+    fast: vendors.filter((v) => v.canDeliver === true).length,
+    nearby: hasUserCoordinates ? vendors.filter((v) => {
+      const coords = (v.businessAddress as BusinessAddress)?.coordinates;
+      if (!coords) return false;
+      const distance = calculateDistance(userLat, userLng, coords.lat, coords.lng);
+      return distance <= 10; // Within 10km
+    }).length : vendors.length,
+  };
+
   // Filter vendors based on selected category AND quick filters
   const filteredVendors = vendors
     .filter((vendor) => {
@@ -222,28 +334,48 @@ export default function LandingPageClient({
       if (selectedCategory && vendor.businessType !== selectedCategory) {
         return false;
       }
-      
+
       // 2. Quick Filters
       if (activeFilter === "open") {
-        // Mock logic for "Open Now" - in real app check operating hours
-        return true; 
+        return isStoreOpen(vendor.businessHours as BusinessHours);
       }
       if (activeFilter === "rating") {
         return Number(vendor.averageRating) >= 4.0;
       }
       if (activeFilter === "fast") {
-        // Mock logic - assume all local are fast for now
-        return true;
+        return vendor.canDeliver === true;
       }
-      
+      if (activeFilter === "nearby" && hasUserCoordinates) {
+        const coords = (vendor.businessAddress as BusinessAddress)?.coordinates;
+        if (!coords) return true; // Show stores without coordinates
+        const distance = calculateDistance(userLat, userLng, coords.lat, coords.lng);
+        return distance <= 10; // Within 10km
+      }
+
       return true;
     })
     .sort((a, b) => {
-        if (activeFilter === "nearby") {
-           // Mock sort - in real app use geospatial distance
-           return 0;
-        }
-        return 0;
+      // Sort by distance for "nearby" filter
+      if (activeFilter === "nearby" && hasUserCoordinates) {
+        const coordsA = (a.businessAddress as BusinessAddress)?.coordinates;
+        const coordsB = (b.businessAddress as BusinessAddress)?.coordinates;
+
+        if (!coordsA && !coordsB) return 0;
+        if (!coordsA) return 1;
+        if (!coordsB) return -1;
+
+        const distanceA = calculateDistance(userLat, userLng, coordsA.lat, coordsA.lng);
+        const distanceB = calculateDistance(userLat, userLng, coordsB.lat, coordsB.lng);
+
+        return distanceA - distanceB;
+      }
+
+      // Sort by rating for "rating" filter
+      if (activeFilter === "rating") {
+        return Number(b.averageRating || 0) - Number(a.averageRating || 0);
+      }
+
+      return 0;
     });
 
   // Sort vendors for different sections to ensure consistent top rated view
@@ -410,11 +542,16 @@ export default function LandingPageClient({
       <div className="py-6 sm:py-8 lg:py-12 bg-white scroll-mt-20" id="stores-section">
         <div className="max-w-[1920px] mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
 
-          {/* Quick Filters Bar - Sticky specific to this section context if needed, but placed here for flow */}
+          {/* Quick Filters Bar */}
           <div className="mb-6">
              <QuickStoreFilters
                activeFilter={activeFilter}
                onFilterChange={setActiveFilter}
+               filterCounts={filterCounts}
+               onMapViewClick={() => {
+                 // TODO: Implement map view - for now show alert
+                 alert("Map view coming soon! This will show stores on an interactive map.");
+               }}
              />
           </div>
 
@@ -462,7 +599,7 @@ export default function LandingPageClient({
           <div className="flex gap-2 mb-4 sm:mb-6 overflow-x-auto scrollbar-hide pb-2">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 cursor-pointer ${
                 selectedCategory === null
                   ? "bg-gray-900 text-white border-gray-900 shadow-sm"
                   : "bg-white text-gray-700 border-gray-200 hover:border-gray-800 hover:shadow-sm"
@@ -477,7 +614,7 @@ export default function LandingPageClient({
                 onClick={() =>
                   setSelectedCategory(category.value === selectedCategory ? null : category.value)
                 }
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap border-2 active:scale-95 cursor-pointer ${
                   selectedCategory === category.value
                     ? "bg-gray-900 text-white border-gray-900 shadow-sm"
                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-800 hover:shadow-sm"
@@ -493,11 +630,19 @@ export default function LandingPageClient({
             ))}
           </div>
 
-          {/* Store Grid - Shows different content based on location and availability */}
+          {/* Store Grid - Shows different content based on location, filters, and availability */}
           {(() => {
-            // Determine which stores to show based on location
+            // Determine which stores to show based on location and active filters
             const hasLocation = !!(location?.city || location?.locality || location?.pincode);
-            const storesToShow = hasLocation ? nearbyVendors : topRatedVendors;
+
+            // If a quick filter is active, use filteredVendors
+            // Otherwise, use location-based selection
+            let storesToShow: typeof vendors;
+            if (activeFilter) {
+              storesToShow = filteredVendors;
+            } else {
+              storesToShow = hasLocation ? nearbyVendors : topRatedVendors;
+            }
 
             // Apply category filter
             const displayStores = selectedCategory
@@ -538,7 +683,7 @@ export default function LandingPageClient({
                   {topRatedVendors.length > 0 && (
                     <div className="pt-6 border-t border-gray-200">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        🌟 Meanwhile, check out our top-rated stores
+                        Meanwhile, check out our top-rated stores
                       </h3>
                       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                         {topRatedVendors.slice(0, 4).map((vendor) => (
@@ -557,7 +702,34 @@ export default function LandingPageClient({
               );
             }
 
-            // Case 3: Category filter applied but no stores match
+            // Case 3: Quick filter applied but no stores match
+            if (activeFilter && displayStores.length === 0) {
+              const filterLabels: { [key: string]: string } = {
+                open: "open right now",
+                rating: "with 4+ star ratings",
+                fast: "with fast delivery",
+                nearby: "near your location"
+              };
+              return (
+                <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 rounded-2xl border border-gray-200">
+                  <div className="text-4xl mb-4">🔍</div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">
+                    No stores {filterLabels[activeFilter] || "matching this filter"}
+                  </h3>
+                  <p className="text-gray-500 text-center max-w-md mb-4">
+                    Try removing the filter to see all available stores
+                  </p>
+                  <button
+                    onClick={() => setActiveFilter(null)}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Clear Filter
+                  </button>
+                </div>
+              );
+            }
+
+            // Case 4: Category filter applied but no stores match
             if (selectedCategory && displayStores.length === 0) {
               return (
                 <EmptyStoresState
@@ -567,7 +739,7 @@ export default function LandingPageClient({
               );
             }
 
-            // Case 4: Normal display - stores available
+            // Case 5: Normal display - stores available
             return (
               <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
                 {displayStores.slice(0, 8).map((vendor) => (
@@ -595,7 +767,7 @@ export default function LandingPageClient({
       {/* <DealsCorner /> */}
       
       {/* Category Grid Rail - "All you need for..." - Configurable Seasonal Section */}
-      <CategoryGridRail 
+      <CategoryGridRail
         title={SEASONAL_CONFIG.title}
         location={location?.locality || location?.city || "your area"}
         groups={[
@@ -609,34 +781,46 @@ export default function LandingPageClient({
                 link: "/products?sort=popularity",
                 products: mostPopProducts.slice(0, 4)
             },
-            ...SEASONAL_CONFIG.groups.map((group: any) => ({
-                ...group,
-                products: group.filter === 'price_high' 
-                  ? featuredProducts.filter(p => Number(p.price) > 500).slice(0, 4)
-                  : group.tag 
-                    ? featuredProducts.slice(0, 4) // In real app: filter by tag
-                    : featuredProducts.slice(0, 4).reverse() // Fallback/random
-            }))
+            // Valentine-specific groups with actual tagged products
+            {
+                name: "Valentine's Gifts",
+                link: "/products?tag=valentine",
+                products: valentineProducts.length > 0
+                  ? valentineProducts.slice(0, 4)
+                  : featuredProducts.slice(0, 4) // Fallback to featured if no valentine products
+            },
+            {
+                name: "Gifts for Her",
+                link: "/products?tag=for-her",
+                products: valentineProducts.filter(p => p.tags?.includes("for-her")).length > 0
+                  ? valentineProducts.filter(p => p.tags?.includes("for-her")).slice(0, 4)
+                  : featuredProducts.filter(p => Number(p.price) > 300).slice(0, 4) // Premium gifts as fallback
+            }
         ]}
       />
 
-      {/* Product Rail 1 - Seasonal/Event */}
-      <ProductRail 
-        title="Valentine's Day gifts for all" 
-        subtitle="Surprises for everyone"
-        products={featuredProducts.slice(0, 8)}
-        viewAllLink="/products?tag=valentine"
-      />
+      {/* Product Rail 1 - Valentine's Day Section (only show if there are valentine products or featured as fallback) */}
+      {(valentineProducts.length > 0 || featuredProducts.length > 0) && (
+        <ProductRail
+          title="Valentine's Day gifts for all"
+          subtitle="Surprises for everyone"
+          products={valentineProducts.length > 0 ? valentineProducts.slice(0, 8) : featuredProducts.slice(0, 8)}
+          viewAllLink="/products?tag=valentine"
+        />
+      )}
 
-      {/* Product Rail 2 - Best Sellers */}
-      <div className="bg-gray-100">
-         <ProductRail 
-            title="Top 100+ gifts" 
-            products={featuredProducts.slice(2, 10)}
-            viewAllLink="/products"
-            bgColor="bg-gray-100"
-         />
-      </div>
+      {/* Product Rail 2 - Best Sellers / Top Gifts */}
+      {featuredProducts.length > 0 && (
+        <div className="bg-gray-100">
+           <ProductRail
+              title="Top Selling Products"
+              subtitle="Customer favorites"
+              products={mostPopProducts.slice(0, 10)}
+              viewAllLink="/products"
+              bgColor="bg-gray-100"
+           />
+        </div>
+      )}
 
       {/* Additional Nearby Stores Section - Only show if we have more than 8 nearby stores */}
       {location && nearbyVendors.length > 8 && (
@@ -765,7 +949,7 @@ export default function LandingPageClient({
 
               <button
                 onClick={(e) => handleNavigation("/stores", e)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full font-semibold transition-all shadow-md hover:shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-full font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer"
               >
                 {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
                 Explore All Stores
@@ -902,7 +1086,7 @@ export default function LandingPageClient({
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={(e) => handleNavigation("/stores", e)}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer"
                 >
                   {loadingLink === "/stores" && <LoadingSpinner size="sm" />}
                   Browse Stores Instead

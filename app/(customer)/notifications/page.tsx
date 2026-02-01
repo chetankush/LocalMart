@@ -218,7 +218,7 @@ export default function NotificationsPage() {
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
               >
                 Mark all as read
               </button>
@@ -229,7 +229,7 @@ export default function NotificationsPage() {
           <div className="flex gap-4 border-b border-gray-200">
             <button
               onClick={() => setFilter("all")}
-              className={`pb-3 px-1 font-medium text-sm transition-colors border-b-2 ${
+              className={`pb-3 px-1 font-medium text-sm transition-colors border-b-2 cursor-pointer ${
                 filter === "all"
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-600 hover:text-gray-900"
@@ -239,7 +239,7 @@ export default function NotificationsPage() {
             </button>
             <button
               onClick={() => setFilter("unread")}
-              className={`pb-3 px-1 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${
+              className={`pb-3 px-1 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 cursor-pointer ${
                 filter === "unread"
                   ? "border-blue-600 text-blue-600"
                   : "border-transparent text-gray-600 hover:text-gray-900"
@@ -303,7 +303,7 @@ export default function NotificationsPage() {
             </p>
             <Link
               href="/stores"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Browse Stores
             </Link>
@@ -362,14 +362,14 @@ export default function NotificationsPage() {
                           {!notification.isRead && (
                             <button
                               onClick={() => markAsRead(notification.id)}
-                              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                              className="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
                             >
                               Mark as read
                             </button>
                           )}
                           <button
                             onClick={() => deleteNotification(notification.id)}
-                            className="text-xs text-red-600 hover:text-red-700 font-medium"
+                            className="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer"
                           >
                             Delete
                           </button>

@@ -250,7 +250,7 @@ export default function LocationSelectorModal({
                     <button
                       key={suggestion.placeId}
                       onClick={() => handleSuggestionSelect(suggestion)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <div className="font-medium text-gray-900">{suggestion.mainText}</div>
                       <div className="text-sm text-gray-500">{suggestion.secondaryText}</div>
@@ -261,7 +261,7 @@ export default function LocationSelectorModal({
 
               <button
                 onClick={() => setShowSearch(false)}
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-600 hover:underline cursor-pointer"
               >
                 Enter pincode manually instead
               </button>
@@ -305,7 +305,7 @@ export default function LocationSelectorModal({
               {/* Search option */}
               <button
                 onClick={() => setShowSearch(true)}
-                className="w-full text-sm text-blue-600 hover:underline"
+                className="w-full text-sm text-blue-600 hover:underline cursor-pointer"
               >
                 Search for area, street name...
               </button>

@@ -63,7 +63,7 @@ export default function CartIcon() {
             </h3>
             <button
               onClick={() => setShowMiniCart(false)}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4 text-gray-500" />
             </button>
@@ -136,7 +136,7 @@ export default function CartIcon() {
             </div>
             <Link
               href="/cart"
-              className="block w-full py-2.5 bg-blue-600 text-white text-center rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="block w-full py-2.5 bg-blue-600 text-white text-center rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
               onClick={() => setShowMiniCart(false)}
             >
               View Cart
