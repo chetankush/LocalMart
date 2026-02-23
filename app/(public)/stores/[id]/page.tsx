@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
 import FashionTheme from "./themes/FashionTheme";
+import ClothingTheme from "./themes/ClothingTheme";
+import ShoesTheme from "./themes/ShoesTheme";
 import DefaultTheme from "./themes/DefaultTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
 import { TrackStoreView } from "@/components/TrackView";
@@ -89,8 +91,9 @@ export default async function StorePage({ params }: StorePageProps) {
       case "GROCERY":
         return <GroceryTheme vendor={vendorData} products={products || []} />;
       case "CLOTHING":
+        return <ClothingTheme vendor={vendorData} products={products || []} />;
       case "SHOES":
-        return <FashionTheme vendor={vendorData} products={products || []} />;
+        return <ShoesTheme vendor={vendorData} products={products || []} />;
       case "DAIRY":
       case "ELECTRONICS":
       case "MOBILES":
