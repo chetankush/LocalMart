@@ -50,15 +50,6 @@ class ApiClient {
     const { suppressAuthError, suppressNetworkError, ...fetchOptions } = options;
     const headers = await this.getAuthHeaders();
 
-    // Debug logging for product creation
-    if (endpoint === "/vendor/products" && fetchOptions.method === "POST") {
-      console.log("=== HTTP REQUEST DEBUG ===");
-      console.log("URL:", url);
-      console.log("Method:", fetchOptions.method);
-      console.log("Headers:", JSON.stringify(headers, null, 2));
-      console.log("Body:", fetchOptions.body);
-    }
-
     try {
       const response = await fetch(url, {
         ...fetchOptions,
@@ -69,23 +60,11 @@ class ApiClient {
         credentials: "include",
       });
 
-      // Debug logging for product creation response
-      if (endpoint === "/vendor/products" && fetchOptions.method === "POST") {
-        console.log("=== HTTP RESPONSE DEBUG ===");
-        console.log("Status:", response.status);
-        console.log("StatusText:", response.statusText);
-        console.log("OK:", response.ok);
-      }
-
       if (!response.ok) {
         let errorData: any = { message: "Unknown error" };
         
         try {
           errorData = await response.json();
-          // Debug logging for error response
-          if (endpoint === "/vendor/products") {
-            console.log("Error Response Body:", JSON.stringify(errorData, null, 2));
-          }
         } catch {
           // If response is not JSON, use status text
           errorData = { message: response.statusText || "Unknown error" };
@@ -1237,7 +1216,7 @@ class ApiClient {
   // Vendor Upload
   // ============================================
 
-  async vendorUpload(file: File, type: 'product' | 'store' = 'product') {
+  async vendorUpload(file: File, type: 'products' | 'stores' = 'products') {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
@@ -1385,6 +1364,37 @@ class ApiClient {
         }>;
       };
     }>("/admin/analytics/vendor-categories");
+  }
+
+  // ============================================
+  // Area Notifications
+  // ============================================
+
+  async checkAreaSubscription(pincode: string) {
+    return this.request<{
+      success: boolean;
+      data: { isSubscribed: boolean };
+    }>(`/public/area-notify?pincode=${pincode}`, { suppressAuthError: true });
+  }
+
+  async subscribeToArea(data: { pincode: string; city?: string; locality?: string }) {
+    return this.request<{
+      success: boolean;
+      message: string;
+      data?: any;
+    }>("/public/area-notify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async unsubscribeFromArea(pincode: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>(`/public/area-notify?pincode=${pincode}`, {
+      method: "DELETE",
+    });
   }
 }
 

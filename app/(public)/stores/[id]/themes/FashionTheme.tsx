@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import AddToCartButton from "../AddToCartButton";
 
@@ -11,6 +11,7 @@ interface Product {
   name: string;
   description: string;
   price: any;
+  compareAtPrice?: any;
   images: any;
   stockQuantity: number;
   vendorId: string;
@@ -24,22 +25,59 @@ interface FashionThemeProps {
   products: Product[];
 }
 
-// Fashion Categories - Amazon Fashion Style
+// Modern Festive Categories
 const FASHION_CATEGORIES = [
-  { name: "Men's Fashion", icon: "👔", image: "bg-gradient-to-br from-blue-500 to-blue-700" },
-  { name: "Women's Fashion", icon: "👗", image: "bg-gradient-to-br from-pink-500 to-rose-600" },
-  { name: "Kids' Wear", icon: "🧒", image: "bg-gradient-to-br from-yellow-400 to-orange-500" },
-  { name: "Footwear", icon: "👟", image: "bg-gradient-to-br from-gray-700 to-gray-900" },
-  { name: "Accessories", icon: "👜", image: "bg-gradient-to-br from-purple-500 to-indigo-600" },
-  { name: "Ethnic Wear", icon: "🥻", image: "bg-gradient-to-br from-red-500 to-red-700" },
-  { name: "Western Wear", icon: "👕", image: "bg-gradient-to-br from-teal-500 to-cyan-600" },
-  { name: "Sports Wear", icon: "⚽", image: "bg-gradient-to-br from-green-500 to-emerald-600" },
+  { 
+    name: "Ethnic Wear", 
+    image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=500&q=80",
+    color: "bg-rose-50"
+  },
+  { 
+    name: "Western Wear", 
+    image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&q=80",
+    color: "bg-blue-50" 
+  },
+  { 
+    name: "Footwear", 
+    image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&q=80",
+    color: "bg-orange-50"
+  },
+  { 
+    name: "Accessories", 
+    image: "https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=500&q=80",
+    color: "bg-purple-50"
+  },
+  { 
+    name: "Sports & Active", 
+    image: "https://images.unsplash.com/photo-1518459031867-a89b944bffe4?w=500&q=80",
+    color: "bg-green-50"
+  },
+  { 
+    name: "Kids", 
+    image: "https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=500&q=80",
+    color: "bg-yellow-50"
+  },
 ];
+
+const FILTERS = {
+  gender: ["Men", "Women", "Kids", "Uni-sex"],
+  price: ["Under ₹500", "₹500 - ₹1000", "₹1000 - ₹2000", "Above ₹2000"],
+  discount: ["10% and above", "30% and above", "50% and above", "70% and above"],
+};
 
 export default function FashionTheme({ vendor, products }: FashionThemeProps) {
   const { setBranding } = useStoreBranding();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({
+    gender: [],
+    price: [],
+    discount: []
+  });
+
+  const getDiscountPercent = (price: number, compareAtPrice?: number) => {
+    if (!compareAtPrice || compareAtPrice <= price) return 0;
+    return Math.round(((compareAtPrice - price) / compareAtPrice) * 100);
+  };
 
   useEffect(() => {
     setBranding({
@@ -47,378 +85,374 @@ export default function FashionTheme({ vendor, products }: FashionThemeProps) {
       storeLogo: vendor.storeLogo,
       storeId: vendor.id,
     });
+    return () => setBranding(null);
+  }, [vendor, setBranding]);
 
-    return () => {
-      setBranding(null);
-    };
-  }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
+  // Filter Logic
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      // Category Filter (Basic matching logic)
+      if (activeCategory !== "All" && !product.name.toLowerCase().includes(activeCategory.toLowerCase().split(' ')[0])) {
+         // This is a rough match for demo purposes
+         // return false; 
+      }
+      return true;
+    });
+  }, [products, activeCategory, selectedFilters]);
 
-  // Filter products
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery === "" ||
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // New Arrivals (Just taking the last 5 products for demo)
+  const newArrivals = products.slice(0, 6);
 
-    const matchesCategory = selectedCategory === null ||
-      product.name.toLowerCase().includes(selectedCategory.toLowerCase());
-
-    return matchesSearch && matchesCategory;
-  });
-
-  // Calculate discount (mock data)
-  const getDiscountPercent = (price: number) => {
-    const discounts = [10, 20, 30, 40, 50, 60, 70];
-    return discounts[Math.floor(price) % discounts.length];
+  const toggleFilter = (type: string, value: string) => {
+    setSelectedFilters(prev => {
+      const current = prev[type] || [];
+      const updated = current.includes(value) 
+        ? current.filter(item => item !== value)
+        : [...current, value];
+      return { ...prev, [type]: updated };
+    });
   };
 
-  const getOriginalPrice = (price: number, discount: number) => {
-    return Math.round(price / (1 - discount / 100));
-  };
+  // Carousel State
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Mock Vendor Banners (In a real scenario, these would come from vendor.banners)
+  const banners = [
+    {
+      id: 1,
+      image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=80",
+      title: "Fashion Carnival",
+      subtitle: "50-80% OFF on Top Brands",
+      cta: "Shop Now",
+      color: "text-white",
+      overlay: "bg-gradient-to-r from-purple-900/80 to-transparent"
+    },
+    {
+      id: 2,
+      image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&q=80",
+      title: "New Season Styles",
+      subtitle: "Fresh Trends Just Landed",
+      cta: "Explore New",
+      color: "text-white",
+      overlay: "bg-gradient-to-t from-black/70 via-transparent to-transparent"
+    },
+    {
+      id: 3,
+      image: "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1200&q=80",
+      title: "Winter Collection",
+      subtitle: "Cozy & Chic Outfits",
+      cta: "View Collection",
+      color: "text-white",
+      overlay: "bg-gradient-to-l from-blue-900/60 to-transparent"
+    }
+  ];
+
+  // Auto-play carousel
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Top Header Bar - Amazon Style */}
-      <div className="bg-[#131921] text-white">
-        <div className="max-w-[1500px] mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {vendor.storeLogo && (
-                <div className="w-12 h-12 bg-white rounded p-1">
-                  <Image src={vendor.storeLogo} alt={vendor.businessName} width={48} height={48} className="w-full h-full object-contain" />
-                </div>
-              )}
-              <div>
-                <h1 className="text-lg font-bold">{vendor.businessName}</h1>
-                {vendor.averageRating && vendor.reviewCount > 0 && (
-                  <div className="flex items-center gap-1 text-xs">
-                    <span className="text-[#ffa41c]">★</span>
-                    <span>{Number(vendor.averageRating).toFixed(1)}</span>
-                    <span className="text-gray-400">({vendor.reviewCount})</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Contact Buttons */}
-            <div className="flex gap-2">
-              {vendor.whatsappNumber && (
-                <a
-                  href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-[#25D366] hover:bg-[#20bd5a] px-3 py-1.5 rounded text-xs font-medium transition-colors"
-                >
-                  WhatsApp
-                </a>
-              )}
-              {vendor.contactPhone && (
-                <a
-                  href={`tel:${vendor.contactPhone}`}
-                  className="bg-[#FF9900] hover:bg-[#e88b00] px-3 py-1.5 rounded text-xs font-medium transition-colors"
-                >
-                  Call
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="bg-[#232F3E] shadow-md sticky top-0 z-50">
-        <div className="max-w-[1500px] mx-auto px-4 py-3">
-          <div className="relative max-w-3xl mx-auto">
-            <input
-              type="text"
-              placeholder="Search for fashion items, brands, and more..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-14 py-3 rounded-md border-2 border-[#ff9900] focus:border-[#e77600] outline-none text-sm text-gray-900"
-            />
-            <svg className="w-5 h-5 text-gray-500 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <button className="absolute right-0 top-0 bottom-0 bg-[#febd69] hover:bg-[#f3a847] px-5 rounded-r-md transition-colors">
-              <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Banner Section - Fashion Featured */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white">
-        <div className="max-w-[1500px] mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-4">Fashion Sale</h2>
-              <p className="text-xl mb-2">Up to 70% OFF</p>
-              <p className="text-lg opacity-90 mb-6">Trending styles at unbeatable prices</p>
-              <div className="flex flex-wrap gap-3">
-                <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold">
-                  ⚡ Limited Time Offer
-                </div>
-                <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold">
-                  🚚 Free Shipping
-                </div>
-                <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold">
-                  🎁 Extra Discount
-                </div>
-              </div>
-            </div>
-            <div className="hidden md:block">
-              <div className="text-9xl text-center opacity-90">👔👗👟</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Category Grid - Amazon Fashion Style */}
-      <div className="bg-gray-50 border-y border-gray-200">
-        <div className="max-w-[1500px] mx-auto px-4 py-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Shop by Category</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {FASHION_CATEGORIES.map((category) => (
-              <button
-                key={category.name}
-                onClick={() => setSelectedCategory(selectedCategory === category.name ? null : category.name)}
-                className={`${category.image} rounded-lg p-4 text-white transition-all transform hover:scale-105 ${
-                  selectedCategory === category.name ? 'ring-4 ring-blue-500 scale-105' : ''
-                }`}
-              >
-                <div className="text-4xl mb-2">{category.icon}</div>
-                <div className="text-xs font-semibold text-center">{category.name}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Deals Banner */}
-      <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white">
-        <div className="max-w-[1500px] mx-auto px-4 py-3">
-          <div className="flex items-center justify-center gap-4 text-sm font-semibold">
-            <span className="animate-pulse">⚡</span>
-            <span>MEGA FASHION SALE | Extra 20% OFF on Orders Above ₹1999</span>
-            <span className="animate-pulse">⚡</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Products Grid - Amazon Fashion Cards */}
-      <div className="max-w-[1500px] mx-auto px-4 py-8">
-        {/* Section Header */}
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {selectedCategory ? selectedCategory : 'All Fashion Items'}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">{filteredProducts.length} items</p>
-          </div>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="text-sm text-[#007185] hover:text-[#c7511f] hover:underline font-medium"
-            >
-              Clear search
-            </button>
-          )}
-        </div>
-
-        {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredProducts.map((product) => {
-              const images = Array.isArray(product.images) ? product.images : [];
-              const firstImage = images.length > 0 ? images[0] : null;
-              const discountPercent = getDiscountPercent(Number(product.price));
-              const originalPrice = getOriginalPrice(Number(product.price), discountPercent);
-
-              return (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden group"
-                >
-                  {/* Discount Badge */}
-                  {discountPercent >= 30 && (
-                    <div className="absolute top-2 left-2 bg-[#cc0c39] text-white px-2.5 py-1 rounded-md text-xs font-bold z-10 shadow-lg">
-                      {discountPercent}% OFF
-                    </div>
-                  )}
-
-                  {/* Deal Badge */}
-                  {discountPercent >= 50 && (
-                    <div className="absolute top-2 right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-0.5 rounded text-xs font-bold z-10">
-                      HOT DEAL
-                    </div>
-                  )}
-
-                  <Link href={`/products/${product.id}`} className="block">
-                    {/* Product Image */}
-                    <div className="relative aspect-[3/4] bg-gray-50">
-                      {firstImage ? (
-                        <Image
-                          src={firstImage}
-                          alt={product.name}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-5xl">
-                          👔
-                        </div>
-                      )}
-                      {product.stockQuantity <= 0 && (
-                        <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                          <span className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-bold">
-                            SOLD OUT
-                          </span>
-                        </div>
-                      )}
-                      {product.stockQuantity > 0 && product.stockQuantity <= 5 && (
-                        <div className="absolute bottom-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                          Only {product.stockQuantity} left
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="p-3">
-                      {/* Brand/Category Tag */}
-                      <div className="text-xs text-gray-500 mb-1">Fashion Collection</div>
-
-                      {/* Product Name */}
-                      <h3 className="text-sm text-gray-900 font-medium line-clamp-2 mb-2 min-h-[2.5rem]">
-                        {product.name}
-                      </h3>
-
-                      {/* Rating */}
-                      {product.averageRating && product.reviewCount > 0 && (
-                        <div className="flex items-center gap-1 mb-2">
-                          <div className="flex items-center bg-[#007600] text-white px-1.5 py-0.5 rounded text-xs font-semibold">
-                            <span>{Number(product.averageRating).toFixed(1)}</span>
-                            <span className="ml-0.5">★</span>
-                          </div>
-                          <span className="text-xs text-gray-600">({product.reviewCount})</span>
-                        </div>
-                      )}
-
-                      {/* Price Section */}
-                      <div className="mb-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xl font-bold text-gray-900">
-                            ₹{Number(product.price).toFixed(0)}
-                          </span>
-                          {discountPercent >= 20 && (
-                            <span className="text-xs text-gray-500 line-through">
-                              ₹{originalPrice}
-                            </span>
-                          )}
-                        </div>
-                        {discountPercent >= 20 && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-[#cc0c39] font-semibold">
-                              ({discountPercent}% OFF)
-                            </span>
-                            <span className="text-xs text-[#007600] font-medium">
-                              Save ₹{originalPrice - Number(product.price)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Free Delivery */}
-                      <div className="flex items-center gap-1 text-xs mb-2">
-                        <svg className="w-3 h-3 text-[#007600]" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
-                          <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/>
-                        </svg>
-                        <span className="text-[#007600] font-medium">FREE Delivery</span>
-                      </div>
-                    </div>
-                  </Link>
-
-                  {/* Add to Cart Button */}
-                  <div className="px-3 pb-3">
-                    {product.stockQuantity > 0 ? (
-                      <AddToCartButton product={product} vendorName={vendor.businessName} />
-                    ) : (
-                      <button
-                        disabled
-                        className="w-full bg-gray-200 text-gray-500 text-xs font-bold py-2 rounded cursor-not-allowed"
-                      >
-                        OUT OF STOCK
+    <div className="font-sans text-gray-800 bg-white pb-20">
+      
+      {/* 1. Festive Hero Carousel */}
+      <section className="relative w-full h-[300px] md:h-[450px] lg:h-[500px] overflow-hidden bg-gray-100 group">
+        
+        {banners.map((banner, index) => (
+          <div 
+            key={banner.id}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+          >
+             {/* Background Image */}
+             <Image 
+               src={banner.image} 
+               alt={banner.title} 
+               fill 
+               className="object-cover"
+               priority={index === 0}
+             />
+             
+             {/* Overlay & Content */}
+             <div className={`absolute inset-0 ${banner.overlay} flex items-center`}>
+                <div className="max-w-7xl mx-auto px-4 w-full md:px-12">
+                   <div className={`max-w-xl animate-fadeIn ${index === currentSlide ? 'translate-y-0 opacity-100 transition-all duration-700 delay-300' : 'translate-y-10 opacity-0'}`}>
+                      <h2 className={`text-4xl md:text-6xl font-extrabold mb-2 ${banner.color} drop-shadow-lg leading-tight`}>
+                        {banner.title}
+                      </h2>
+                      <p className={`text-lg md:text-2xl font-medium mb-6 ${banner.color} opacity-90 drop-shadow-md`}>
+                        {banner.subtitle}
+                      </p>
+                      <button className="bg-[#ff3f6c] text-white px-8 py-3 rounded font-bold text-sm md:text-base hover:bg-[#e7355b] transition-transform hover:scale-105 shadow-xl uppercase tracking-wider">
+                        {banner.cta}
                       </button>
-                    )}
-                  </div>
+                   </div>
                 </div>
-              );
-            })}
+             </div>
           </div>
-        ) : (
-          <div className="text-center py-20 bg-gray-50 rounded-lg">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {searchQuery ? 'No items found' : 'No products available'}
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {searchQuery
-                ? `Try different keywords`
-                : selectedCategory
-                  ? `No items in this category yet`
-                  : 'New fashion items coming soon'
-              }
-            </p>
-            {(searchQuery || selectedCategory) && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory(null);
-                }}
-                className="inline-flex items-center px-6 py-2.5 bg-[#ff9900] hover:bg-[#e88b00] text-white rounded-md text-sm font-medium transition-colors"
-              >
-                View All Items
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+        ))}
 
-      {/* Features Section */}
-      <div className="bg-gradient-to-b from-gray-50 to-white border-t border-gray-200">
-        <div className="max-w-[1500px] mx-auto px-4 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-2xl">
-                🚚
-              </div>
-              <h3 className="font-bold text-gray-900 mb-1">Free Shipping</h3>
-              <p className="text-sm text-gray-600">On orders over ₹999</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white text-2xl">
-                ↩️
-              </div>
-              <h3 className="font-bold text-gray-900 mb-1">Easy Returns</h3>
-              <p className="text-sm text-gray-600">7 days return policy</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl">
-                💳
-              </div>
-              <h3 className="font-bold text-gray-900 mb-1">Secure Payment</h3>
-              <p className="text-sm text-gray-600">100% secure checkout</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-pink-500 to-pink-600 rounded-full flex items-center justify-center text-white text-2xl">
-                ⭐
-              </div>
-              <h3 className="font-bold text-gray-900 mb-1">Quality Products</h3>
-              <p className="text-sm text-gray-600">Authentic brands</p>
-            </div>
-          </div>
+        {/* Carousel Indicators */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {banners.map((_, idx) => (
+            <button 
+              key={idx}
+              onClick={() => setCurrentSlide(idx)}
+              className={`w-2 h-2 rounded-full transition-all ${idx === currentSlide ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/80'}`}
+            />
+          ))}
         </div>
-      </div>
+
+        {/* Carousel Arrows (Visible on Hover) */}
+        <button 
+          onClick={() => setCurrentSlide((prev) => (prev === 0 ? banners.length - 1 : prev - 1))}
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <button 
+          onClick={() => setCurrentSlide((prev) => (prev + 1) % banners.length)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </section>
+
+      {/* 2. Highlights / New Release Section - Mosaic Layout */}
+      <section className="max-w-7xl mx-auto px-4 py-12">
+        <div className="flex items-end justify-between mb-8">
+            <div>
+               <h2 className="text-3xl font-bold uppercase tracking-wide text-gray-900">New Arrivals</h2>
+            </div>
+            <Link href="#" className="text-[#ff905a] font-bold text-sm hover:underline tracking-wider">VIEW ALL</Link>
+        </div>
+        
+        {/* Mosaic Grid: 1 Tall, 2 Stacked, 1 Tall */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-auto lg:h-[600px]">
+          
+          {/* Item 1: Tall (Left) */}
+          <div className="relative group overflow-hidden rounded-lg cursor-pointer h-[400px] lg:h-full">
+             <Image 
+               src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80" 
+               alt="New Arrival 1" 
+               fill 
+               className="object-cover transition-transform duration-700 group-hover:scale-110"
+             />
+             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                <div>
+                  <h3 className="text-white text-xl font-bold">Summer Floral</h3>
+                  <p className="text-white/80 text-sm">₹1,299</p>
+                </div>
+             </div>
+          </div>
+
+          {/* Middle Column (Stacked) */}
+          <div className="flex flex-col gap-4 h-[400px] lg:h-full">
+             {/* Item 2: Top */}
+             <div className="relative group flex-1 overflow-hidden rounded-lg cursor-pointer">
+                <Image 
+                  src="https://images.unsplash.com/photo-1529139574466-a302c27e3844?w=800&q=80" 
+                  alt="New Arrival 2" 
+                  fill 
+                  className="object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                  <div>
+                    <h3 className="text-white text-lg font-bold">Urban Chic</h3>
+                    <p className="text-white/80 text-sm">₹899</p>
+                  </div>
+               </div>
+             </div>
+             {/* Item 3: Bottom */}
+             <div className="relative group flex-1 overflow-hidden rounded-lg cursor-pointer">
+                <Image 
+                  src="https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=800&q=80" 
+                  alt="New Arrival 3" 
+                  fill 
+                  className="object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                  <div>
+                    <h3 className="text-white text-lg font-bold">Boho Vibes</h3>
+                    <p className="text-white/80 text-sm">₹1,499</p>
+                  </div>
+               </div>
+             </div>
+          </div>
+
+          {/* Item 4: Tall (Right) */}
+          <div className="relative group overflow-hidden rounded-lg cursor-pointer h-[400px] lg:h-full">
+             <Image 
+               src="https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800&q=80" 
+               alt="New Arrival 4" 
+               fill 
+               className="object-cover transition-transform duration-700 group-hover:scale-110"
+             />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                <div>
+                  <h3 className="text-white text-xl font-bold">Evening Elegance</h3>
+                  <p className="text-white/80 text-sm">₹2,999</p>
+                </div>
+             </div>
+          </div>
+          
+           {/* Item 5: Tall (Far Right) */}
+           <div className="hidden lg:block relative group overflow-hidden rounded-lg cursor-pointer h-[400px] lg:h-full">
+             <Image 
+               src="https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&q=80" 
+               alt="New Arrival 5" 
+               fill 
+               className="object-cover transition-transform duration-700 group-hover:scale-110"
+             />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
+                <div>
+                  <h3 className="text-white text-xl font-bold">Street Style</h3>
+                  <p className="text-white/80 text-sm">₹1,999</p>
+                </div>
+             </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* 3. Clean Categories (Circular/Minimal) */}
+      <section className="bg-gradient-to-r from-pink-50 to-purple-50 py-12">
+        <div className="max-w-7xl mx-auto px-4">
+            <h2 className="text-2xl font-bold text-center mb-10 uppercase tracking-widest text-gray-800">Shop By Category</h2>
+            <div className="flex flex-wrap justify-center gap-8">
+               {FASHION_CATEGORIES.map((cat) => (
+                  <div 
+                    key={cat.name} 
+                    onClick={() => setActiveCategory(cat.name)}
+                    className={`cursor-pointer group flex flex-col items-center gap-3 w-28 md:w-36 transition-transform hover:-translate-y-2`}
+                  >
+                     <div className={`w-28 h-28 md:w-32 md:h-32 rounded-full p-1 border-2 ${activeCategory === cat.name ? 'border-[#ff3f6c]' : 'border-transparent group-hover:border-[#ff3f6c]'}`}>
+                        <div className="w-full h-full rounded-full overflow-hidden relative">
+                           <Image 
+                             src={cat.image} 
+                             alt={cat.name} 
+                             fill 
+                             className="object-cover"
+                           />
+                        </div>
+                     </div>
+                     <span className={`text-sm font-bold uppercase tracking-wide ${activeCategory === cat.name ? 'text-[#ff3f6c]' : 'text-gray-700'}`}>
+                        {cat.name}
+                     </span>
+                  </div>
+               ))}
+            </div>
+        </div>
+      </section>
+
+      {/* 4. Filters & Products Layout */}
+      <section className="max-w-7xl mx-auto px-4 py-12 flex gap-8 relative">
+         
+         {/* Sidebar Filters */}
+         <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-fit border-r border-gray-200 pr-6">
+            <div className="flex items-center justify-between mb-6">
+               <h3 className="font-bold text-lg">Filters</h3>
+               <button 
+                  onClick={() => setSelectedFilters({ gender: [], price: [], discount: [] })}
+                  className="text-xs font-bold text-[#ff3f6c] uppercase"
+                >
+                  Clear All
+               </button>
+            </div>
+
+            {Object.entries(FILTERS).map(([key, options]) => (
+               <div key={key} className="mb-6 border-b border-gray-100 pb-6 last:border-0">
+                  <h4 className="font-bold text-sm uppercase mb-3 text-gray-700">{key}</h4>
+                  <div className="space-y-2">
+                     {options.map(option => (
+                        <label key={option} className="flex items-center gap-3 cursor-pointer group">
+                           <div className={`w-4 h-4 border rounded flex items-center justify-center transition-colors ${selectedFilters[key]?.includes(option) ? 'bg-[#ff3f6c] border-[#ff3f6c]' : 'border-gray-300 group-hover:border-[#ff3f6c]'}`}>
+                              {selectedFilters[key]?.includes(option) && <span className="text-white text-xs">✓</span>}
+                           </div>
+                           <input 
+                             type="checkbox" 
+                             className="hidden" 
+                             checked={selectedFilters[key]?.includes(option) || false}
+                             onChange={() => toggleFilter(key, option)}
+                            />
+                           <span className="text-sm text-gray-600 group-hover:text-gray-900">{option}</span>
+                        </label>
+                     ))}
+                  </div>
+               </div>
+            ))}
+         </aside>
+
+         {/* Product Grid */}
+         <div className="flex-1">
+             <div className="mb-6 flex items-center justify-between">
+                <p className="text-gray-500">
+                   Showing <span className="font-bold text-gray-900">{filteredProducts.length}</span> items for <span className="font-bold text-gray-900">{activeCategory}</span>
+                </p>
+                
+                {/* Mobile Filter Toggle (Visible only on small screens) */}
+                <button className="lg:hidden flex items-center gap-2 font-bold text-gray-700 border border-gray-300 px-4 py-2 rounded">
+                   <span>Filters</span>
+                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                </button>
+             </div>
+
+             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
+                {filteredProducts.map((product) => {
+                   const discountPercent = getDiscountPercent(Number(product.price), product.compareAtPrice ? Number(product.compareAtPrice) : undefined);
+
+                   return (
+                      <div key={product.id} className="group flex flex-col">
+                         {/* Card Image */}
+                         <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-3">
+                            <Image
+                               src={product.images?.[0] || 'https://via.placeholder.com/300x400?text=No+Image'}
+                               alt={product.name}
+                               fill
+                               className="object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                            
+                            {/* Overlay Actions */}
+                            <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/50 to-transparent">
+                               <div className="bg-white rounded shadow-lg p-2">
+                                  <AddToCartButton product={product} vendorName={vendor.businessName} />
+                               </div>
+                            </div>
+                            
+                            {/* Rating Badge */}
+                            {product.averageRating && (
+                               <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-bold flex items-center gap-1 shadow-sm">
+                                  <span>{Number(product.averageRating).toFixed(1)}</span>
+                                  <span className="text-[#ff3f6c]">★</span>
+                                  <span className="text-gray-400 border-l pl-1 border-gray-300 ml-1">{product.reviewCount}</span>
+                               </div>
+                            )}
+                         </div>
+
+                         {/* Card Info */}
+                         <div>
+                            <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1 truncate">{product.name}</h3>
+                            <p className="text-gray-500 text-xs mb-2 line-clamp-1">{product.description}</p>
+                            <div className="flex items-center gap-2">
+                               <span className="font-bold text-sm">₹{Number(product.price).toFixed(0)}</span>
+                               {discountPercent > 0 && product.compareAtPrice && (
+                                  <>
+                                    <span className="text-xs text-gray-400 line-through">₹{Number(product.compareAtPrice).toFixed(0)}</span>
+                                    <span className="text-xs text-[#ff905a] font-bold">({discountPercent}% OFF)</span>
+                                  </>
+                               )}
+                            </div>
+                         </div>
+                      </div>
+                   );
+                })}
+             </div>
+         </div>
+
+      </section>
+
     </div>
   );
 }
