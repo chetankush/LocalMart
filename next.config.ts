@@ -23,8 +23,6 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable optimistic client cache for faster navigation
     optimisticClientCache: true,
-    // Enable parallel route prefetching
-    parallelServerCompiles: true,
     // Optimize package imports - reduces bundle size
     optimizePackageImports: ['lucide-react', 'react-hot-toast', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
   },
