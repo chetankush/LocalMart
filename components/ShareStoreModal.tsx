@@ -28,7 +28,7 @@ export default function ShareStoreModal({
     ? `${window.location.origin}/stores/${storeId}`
     : `/stores/${storeId}`;
 
-  const shareText = `Check out ${storeName} on NearStore! Shop local products and get them delivered.`;
+  const shareText = `Check out ${storeName} on LocalMart! Shop local products and get them delivered.`;
   const whatsappText = encodeURIComponent(`${shareText}\n\n${storeUrl}`);
   const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(storeUrl)}`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(storeUrl)}`;
@@ -145,7 +145,7 @@ export default function ShareStoreModal({
             </div>
             <div class="scan-text">Scan to visit our store</div>
             <div class="url">${storeUrl}</div>
-            <div class="brand">Powered by NearStore</div>
+            <div class="brand">Powered by LocalMart</div>
           </div>
           <script>
             window.onload = function() {

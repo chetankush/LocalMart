@@ -402,7 +402,7 @@ export default function AdminDashboard() {
                 onClick={() => setFilter(status)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
                   filter === status
-                    ? "bg-orange-500 text-white border-orange-500 shadow-md"
+                    ? "bg-[#FF9933] text-white border-orange-500 shadow-md"
                     : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
                 }`}
               >
@@ -417,7 +417,7 @@ export default function AdminDashboard() {
                 onClick={() => setVendorFilter(status)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
                   vendorFilter === status
-                    ? "bg-orange-500 text-white border-orange-500 shadow-md"
+                    ? "bg-[#FF9933] text-white border-orange-500 shadow-md"
                     : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
                 }`}
               >

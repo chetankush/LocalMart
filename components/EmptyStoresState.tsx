@@ -25,10 +25,10 @@ export default function EmptyStoresState({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-orange-50 to-white rounded-2xl border border-orange-100">
         <div className="relative mb-6">
-          <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center">
-            <MapPin className="w-12 h-12 text-orange-500" />
+          <div className="w-24 h-24 bg-[#FFF3E6] rounded-full flex items-center justify-center">
+            <MapPin className="w-12 h-12 text-[#FF9933]" />
           </div>
-          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
+          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#10A37F] rounded-full flex items-center justify-center shadow-lg">
             <span className="text-lg">📍</span>
           </div>
         </div>
@@ -43,7 +43,7 @@ export default function EmptyStoresState({
         {onSelectLocation && (
           <Button
             onClick={onSelectLocation}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+            className="bg-[#10A37F] hover:bg-[#0E8C6C] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
           >
             <MapPin className="w-5 h-5" />
             Set Your Location
@@ -115,7 +115,7 @@ export default function EmptyStoresState({
         {showNotifyButton && onNotifyMe && (
           <Button
             onClick={onNotifyMe}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+            className="bg-[#FF9933] hover:bg-[#e8872b] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
           >
             <Bell className="w-5 h-5" />
             Notify Me When Available
@@ -140,7 +140,7 @@ export default function EmptyStoresState({
           Meanwhile, check out stores in other areas
         </p>
         <div className="flex flex-wrap justify-center gap-2">
-          {["Mumbai", "Delhi", "Bangalore", "Pune"].map((city) => (
+          {["Indore", "Guna", "Jaipur", "Noida"].map((city) => (
             <Link
               key={city}
               href={`/stores?city=${city}`}

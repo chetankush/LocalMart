@@ -148,7 +148,7 @@ const Navbar = () => {
   }, [pathname]);
 
   useEffect(() => {
-    const criticalRoutes = ['/', '/stores', '/products', '/favorite-stores', '/my-orders', '/become-vendor', '/profile'];
+    const criticalRoutes = ['/', '/stores', '/favorite-stores', '/my-orders', '/become-vendor', '/profile'];
     criticalRoutes.forEach(route => {
       router.prefetch(route);
     });
@@ -166,7 +166,7 @@ const Navbar = () => {
       setIsSearching(true);
       try {
         const { apiClient } = await import("@/lib/api/client");
-        const { data } = await apiClient.search(searchQuery);
+        const { data } = await apiClient.search(searchQuery, { city: location?.city });
         setSearchResults(data);
         setShowSearchResults(true);
       } catch (error) {
@@ -196,8 +196,8 @@ const Navbar = () => {
     <>
       {/* Global Loading Bar */}
       {isNavigating && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] h-1 bg-gradient-to-r from-orange-500 via-orange-400 to-orange-500 animate-pulse">
-          <div className="h-full bg-orange-600 animate-progress-bar"></div>
+        <div className="fixed top-0 left-0 right-0 z-[9999] h-1 bg-gradient-to-r from-[#FF9933] via-[#FFB366] to-[#FF9933] animate-pulse">
+          <div className="h-full bg-[#FF9933] animate-progress-bar"></div>
         </div>
       )}
 
@@ -239,7 +239,7 @@ const Navbar = () => {
                 className="flex items-center gap-1 text-lg sm:text-xl font-bold text-white cursor-pointer hover:opacity-90 transition-opacity bg-transparent border-none"
               >
 
-                <span className="text-white">NearStore</span>
+                <span className="text-white">LocalMart</span>
               </button>
             )}
           </div>
@@ -249,11 +249,11 @@ const Navbar = () => {
                 onClick={() => setShowLocationModal(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition-all cursor-pointer border border-gray-700"
               >
-                <MapPin className="w-4 h-4 text-orange-400" />
+                <MapPin className="w-4 h-4 text-[#FF9933]" />
                 <div className="flex flex-col items-start">
                   <span className="text-xs text-gray-400">{location ? "Deliver to" : "Select"}</span>
                   <span className="text-sm font-semibold text-white">
-                    {location ? `${location.locality} - ${location.pincode}` : "Location"}
+                    {location ? `${location.locality || location.city || "Your Area"}${location.pincode ? ` - ${location.pincode}` : ""}` : "Location"}
                   </span>
                 </div>
               </button>
@@ -269,7 +269,7 @@ const Navbar = () => {
                   searchQuery && setShowSearchResults(true);
                 }}
                 onBlur={() => setIsSearchFocused(false)}
-                className="w-full px-4 py-2 sm:py-2.5 pl-10 sm:pl-12 pr-4 bg-white text-gray-900 text-sm sm:text-base rounded-full border-2 border-orange-400 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/20 placeholder-gray-400 cursor-text transition-all shadow-lg shadow-orange-500/10 group-hover:shadow-orange-500/20"
+                className="w-full px-4 py-2 sm:py-2.5 pl-10 sm:pl-12 pr-4 bg-white text-gray-900 text-sm sm:text-base rounded-full border-2 border-[#FF9933] focus:outline-none focus:border-[#e8872b] focus:ring-4 focus:ring-[#FF9933]/20 placeholder-gray-400 cursor-text transition-all shadow-lg shadow-[#FF9933]/10 group-hover:shadow-[#FF9933]/20"
                 placeholder={isSearchFocused ? "Type to search..." : SEARCH_PLACEHOLDERS[placeholderIndex]}
               />
               <div className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2">
@@ -277,7 +277,7 @@ const Navbar = () => {
               </div>
               {isSearching && (
                 <div className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-[#FF9933] border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
             </div>
@@ -298,10 +298,10 @@ const Navbar = () => {
                           setSearchQuery("");
                           handleNavigation(`/stores/${store.id}`, e);
                         }}
-                        className="w-full flex items-center gap-3 p-2 hover:bg-orange-50 rounded-lg transition-all cursor-pointer"
+                        className="w-full flex items-center gap-3 p-2 hover:bg-[#FFF3E6] rounded-lg transition-all cursor-pointer"
                       >
-                        <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <Store className="w-5 h-5 text-orange-600" />
+                        <div className="w-10 h-10 bg-[#FFF3E6] rounded-lg flex items-center justify-center">
+                          <Store className="w-5 h-5 text-[#FF9933]" />
                         </div>
                         <div className="flex-1 text-left">
                           <p className="text-sm font-medium text-gray-900">{store.businessName}</p>
@@ -325,7 +325,7 @@ const Navbar = () => {
                           setSearchQuery("");
                           handleNavigation(`/products/${product.id}`, e);
                         }}
-                        className="w-full flex items-center gap-3 p-2 hover:bg-orange-50 rounded-lg transition-all cursor-pointer"
+                        className="w-full flex items-center gap-3 p-2 hover:bg-[#FFF3E6] rounded-lg transition-all cursor-pointer"
                       >
                         <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                           <Package className="w-5 h-5 text-green-600" />
@@ -357,20 +357,20 @@ const Navbar = () => {
             <div className="hidden lg:flex items-center gap-3">
               <button
                 onClick={(e) => handleNavigation("/stores", e)}
-                className="hover:text-orange-500 transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
+                className="hover:text-[#FF9933] transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
               >
                 Stores
               </button>
 
               <button
                 onClick={(e) => handleNavigation("/favorite-stores", e)}
-                className="hover:text-orange-500 transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
+                className="hover:text-[#FF9933] transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
               >
                 Favorites
               </button>
               <button
                 onClick={(e) => handleNavigation("/my-orders", e)}
-                className="hover:text-orange-500 transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
+                className="hover:text-[#FF9933] transition-all text-gray-300 font-medium cursor-pointer px-3 py-2"
               >
                 Orders
               </button>
@@ -380,10 +380,10 @@ const Navbar = () => {
                   onClick={(e) => handleNavigation(isApprovedVendor ? "/vendor/dashboard" : "/become-vendor", e)}
                   className={`px-4 py-2 rounded-full text-sm font-bold transition-all shadow-md hover:scale-105 cursor-pointer ${
                     vendorStatus === "PENDING" || vendorStatus === "PENDING_APPROVAL"
-                      ? "bg-amber-400 text-amber-900"
+                      ? "bg-gray-200 text-gray-700"
                       : isApprovedVendor
-                      ? "bg-green-500 text-white"
-                      : "bg-yellow-400 text-black"
+                      ? "bg-[#10A37F] text-white"
+                      : "bg-[#10A37F] text-white hover:bg-[#0E8C6C]"
                   }`}
                 >
                   {isApprovedVendor ? "Seller Dashboard" : vendorStatus ? "Application Status" : "Add Your Store"}
@@ -414,7 +414,7 @@ const Navbar = () => {
                 </div>
               ) : !user ? (
                 <Link href="/sign-in">
-                  <Button className="bg-orange-500 hover:bg-orange-600">Sign In</Button>
+                  <Button className="bg-[#FF9933] hover:bg-[#e8872b]">Sign In</Button>
                 </Link>
               ) : (
                 <div className="relative">
@@ -422,7 +422,7 @@ const Navbar = () => {
                     onClick={() => setShowDropdown(!showDropdown)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800 transition-all cursor-pointer"
                   >
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                    <div className="w-8 h-8 bg-[#FF9933] rounded-full flex items-center justify-center text-white font-bold">
                       {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
                     </div>
                     <svg className={`w-4 h-4 transition-transform ${showDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,7 +442,7 @@ const Navbar = () => {
                         <Heart className="w-4 h-4" /> Favorites
                       </button>
                       {isApprovedVendor && (
-                        <button onClick={(e) => { setShowDropdown(false); handleNavigation("/vendor/dashboard", e); }} className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2 font-medium">
+                        <button onClick={(e) => { setShowDropdown(false); handleNavigation("/vendor/dashboard", e); }} className="w-full text-left px-4 py-2 text-sm text-[#FF9933] hover:bg-[#FFF3E6] flex items-center gap-2 font-medium">
                           <Store className="w-4 h-4" /> Vendor Dashboard
                         </button>
                       )}
@@ -490,14 +490,14 @@ const Navbar = () => {
           <div className="flex flex-col h-[calc(100%-64px)] overflow-y-auto">
             {/* User Info Section */}
             {user ? (
-              <div className="p-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+              <div className="p-4 bg-gradient-to-r from-[#FF9933] to-[#e8872b] text-white">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{user.email || user.phone}</p>
-                    <p className="text-sm text-orange-100">Welcome back!</p>
+                    <p className="text-sm text-[#FFD699]">Welcome back!</p>
                   </div>
                 </div>
               </div>
@@ -506,7 +506,7 @@ const Navbar = () => {
                 <Link
                   href="/sign-in"
                   onClick={() => setShowMobileMenu(false)}
-                  className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white py-3 px-4 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 bg-[#FF9933] text-white py-3 px-4 rounded-lg font-semibold hover:bg-[#e8872b] transition-colors"
                 >
                   <User className="w-5 h-5" />
                   Sign In / Register
@@ -523,13 +523,13 @@ const Navbar = () => {
                     setShowMobileMenu(false);
                     setShowLocationModal(true);
                   }}
-                  className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-orange-400 transition-colors"
+                  className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-lg hover:border-[#FF9933] transition-colors"
                 >
-                  <MapPin className="w-5 h-5 text-orange-500" />
+                  <MapPin className="w-5 h-5 text-[#FF9933]" />
                   <div className="flex-1 text-left">
                     <p className="text-xs text-gray-500">Deliver to</p>
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {location ? `${location.locality} - ${location.pincode}` : "Select Location"}
+                      {location ? `${location.locality || location.city || "Your Area"}${location.pincode ? ` - ${location.pincode}` : ""}` : "Select Location"}
                     </p>
                   </div>
                 </button>
@@ -540,7 +540,7 @@ const Navbar = () => {
                     onClick={(e) => {
                       handleNavigation("/notifications", e);
                     }}
-                    className="flex items-center justify-center w-12 bg-white border border-gray-200 rounded-lg hover:border-orange-400 transition-colors relative"
+                    className="flex items-center justify-center w-12 bg-white border border-gray-200 rounded-lg hover:border-[#FF9933] transition-colors relative"
                   >
                     <Bell className="w-5 h-5 text-gray-600" />
                     {/* You can add notification badge here if needed */}
@@ -552,13 +552,13 @@ const Navbar = () => {
             {/* Navigation Links */}
             <nav className="flex-1 p-2">
               <div className="space-y-1">
-                <button onClick={(e) => handleNavigation("/", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                <button onClick={(e) => handleNavigation("/", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                   <Home className="w-5 h-5" />
                   <span className="font-medium">Home</span>
                 </button>
 
-                <button onClick={(e) => handleNavigation("/stores", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                <button onClick={(e) => handleNavigation("/stores", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                   <Store className="w-5 h-5" />
                   <span className="font-medium">Browse Stores</span>
@@ -568,25 +568,25 @@ const Navbar = () => {
 
                 {user && (
                   <>
-                    <button onClick={(e) => handleNavigation("/profile", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                    <button onClick={(e) => handleNavigation("/profile", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                       <User className="w-5 h-5" />
                       <span className="font-medium">My Profile</span>
                     </button>
 
-                    <button onClick={(e) => handleNavigation("/favorite-stores", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                    <button onClick={(e) => handleNavigation("/favorite-stores", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                       <Heart className="w-5 h-5" />
                       <span className="font-medium">Favorite Stores</span>
                     </button>
 
-                    <button onClick={(e) => handleNavigation("/my-orders", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                    <button onClick={(e) => handleNavigation("/my-orders", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                       <Package className="w-5 h-5" />
                       <span className="font-medium">My Orders</span>
                     </button>
 
-                    <button onClick={(e) => handleNavigation("/cart", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-colors cursor-pointer">
+                    <button onClick={(e) => handleNavigation("/cart", e)} className="w-full flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-[#FFF3E6] hover:text-[#FF9933] rounded-lg transition-colors cursor-pointer">
 
                       <ShoppingBag className="w-5 h-5" />
                       <span className="font-medium">Shopping Cart</span>
@@ -595,7 +595,7 @@ const Navbar = () => {
                     <div className="my-2 border-t border-gray-200" />
 
                     {isApprovedVendor ? (
-                      <button onClick={(e) => handleNavigation("/vendor/dashboard", e)} className="w-full flex items-center gap-3 px-4 py-3 text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer">
+                      <button onClick={(e) => handleNavigation("/vendor/dashboard", e)} className="w-full flex items-center gap-3 px-4 py-3 text-[#10A37F] bg-[#E6F7F1] hover:bg-[#C8EDE0] rounded-lg transition-colors cursor-pointer">
 
                         <Store className="w-5 h-5" />
                         <span className="font-medium">Vendor Dashboard</span>

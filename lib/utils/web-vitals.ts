@@ -15,6 +15,8 @@ const isDev = process.env.NODE_ENV === 'development';
  * Send metric to analytics
  */
 function sendToAnalytics(metric: Metric) {
+  if (typeof window === 'undefined') return;
+
   const body = JSON.stringify({
     name: metric.name,
     value: metric.value,
@@ -94,7 +96,7 @@ export function trackCustomMetric(name: string, value: number, metadata?: Record
     console.log('📈 Custom Metric:', { name, value, ...metadata });
   }
 
-  if (!isDev) {
+  if (!isDev && typeof window !== 'undefined') {
     const body = JSON.stringify({
       name,
       value,

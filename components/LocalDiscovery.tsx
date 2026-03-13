@@ -42,11 +42,11 @@ export default function LocalDiscovery() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="text-left max-w-xl">
-            <div className="inline-block px-3 py-1 bg-orange-500/20 rounded-full border border-orange-500/30 mb-4">
-              <span className="text-orange-400 text-xs font-bold uppercase tracking-wider">Hyperlocal Discovery</span>
+            <div className="inline-block px-3 py-1 bg-[#FF9933]/20 rounded-full border border-[#FF9933]/30 mb-4">
+              <span className="text-[#FFB366] text-xs font-bold uppercase tracking-wider">Hyperlocal Discovery</span>
             </div>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4">
-              Connect with Your <span className="text-orange-500">Neighborhood</span>
+              Connect with Your <span className="text-[#FF9933]">Neighborhood</span>
             </h2>
             <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-6">
               Discover hidden gems, local favorites, and daily essentials right around the corner. Support local businesses while enjoying the convenience of quick delivery.
@@ -57,14 +57,15 @@ export default function LocalDiscovery() {
         {/* Google Map Embed */}
         <div className="relative w-full max-w-lg aspect-square md:w-[450px] md:h-[400px] bg-gray-800 rounded-3xl border-4 border-gray-700/50 shadow-2xl overflow-hidden group">
            {/* Dynamic Google Map */}
-           <iframe 
-             width="100%" 
-             height="100%" 
-             frameBorder="0" 
-             scrolling="no" 
-             marginHeight={0} 
-             marginWidth={0} 
-             src={`https://maps.google.com/maps?q=${location?.city || location?.pincode || "Guna, Madhya Pradesh"}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+           <iframe
+             title="Local stores map"
+             width="100%"
+             height="100%"
+             frameBorder="0"
+             scrolling="no"
+             marginHeight={0}
+             marginWidth={0}
+             src={`https://maps.google.com/maps?q=${location?.city || location?.pincode || "India"}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
              className="w-full h-full grayscale group-hover:grayscale-0 transition-all duration-700 opacity-90 group-hover:opacity-100"
            ></iframe>
            

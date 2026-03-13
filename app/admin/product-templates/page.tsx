@@ -211,7 +211,7 @@ export default function ProductTemplatesPage() {
             <p className="text-gray-500 mb-6">Add business categories first</p>
             <Link
               href="/admin/business-categories"
-              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+              className="flex items-center gap-2 px-6 py-3 bg-[#FF9933] text-white rounded-full font-semibold hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <FolderTree className="w-5 h-5" />
               Add Business Categories

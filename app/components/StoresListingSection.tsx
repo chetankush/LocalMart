@@ -5,6 +5,7 @@ import { Store as StoreIcon, MapPin, Bell } from "lucide-react";
 import StoreCard from "./StoreCard";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface Store {
   id: string;
@@ -340,7 +341,7 @@ export default function StoresListingSection({
 
                   {allStores.length === 0 && (
                     <Button
-                      onClick={() => alert("We'll notify you when stores are available!")}
+                      onClick={() => toast.info("We'll notify you when stores are available!")}
                       variant="outline"
                       className="px-6 py-3 rounded-full font-semibold flex items-center gap-2"
                     >

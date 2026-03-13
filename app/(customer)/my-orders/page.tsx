@@ -160,7 +160,7 @@ export default function MyOrdersPage() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={fetchOrders}
-            className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 cursor-pointer"
+            className="bg-[#FF9933] text-white px-6 py-2 rounded-lg hover:bg-[#e8872b] cursor-pointer"
           >
             Try Again
           </button>
@@ -202,7 +202,7 @@ export default function MyOrdersPage() {
             </p>
             <button
               onClick={(e) => handleNavigation("/", e)}
-              className="inline-flex items-center gap-2 bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-orange-600 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 bg-[#FF9933] text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-[#e8872b] transition-colors cursor-pointer"
             >
               {loadingLink === "/" && <LoadingSpinner size="sm" />}
               Browse Products

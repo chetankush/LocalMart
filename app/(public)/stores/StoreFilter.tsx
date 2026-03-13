@@ -120,7 +120,7 @@ export default function StoreFilter({
                   }
                   className={`flex-shrink-0 flex items-center gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full transition-all duration-200 cursor-pointer ${
                     isSelected
-                      ? "bg-orange-500 text-white"
+                      ? "bg-[#FF9933] text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >

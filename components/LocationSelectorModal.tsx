@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useLocation } from "@/context/LocationContext";
 import { useRouter } from "next/navigation";
 import { searchAddresses, getPlaceDetails, type AddressSuggestion } from "@/lib/location/geolocation";
+import { apiClient } from "@/lib/api/client";
 
 interface LocationSelectorModalProps {
   isOpen: boolean;
@@ -37,16 +38,35 @@ export default function LocationSelectorModal({
   const [error, setError] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 
-  // Debounced address search
+  // Debounced address search — try DB first, fall back to Nominatim
   useEffect(() => {
-    if (searchQuery.length < 3) {
+    if (searchQuery.length < 2) {
       setSuggestions([]);
       return;
     }
 
     const timer = setTimeout(async () => {
-      const results = await searchAddresses(searchQuery);
-      setSuggestions(results);
+      try {
+        // Try our DB first for fast, validated results
+        const dbResults = await apiClient.searchLocations(searchQuery);
+        if (dbResults.success && dbResults.data.length > 0) {
+          const mapped: AddressSuggestion[] = dbResults.data.map((item) => ({
+            placeId: `db-${item.type}-${item.id}`,
+            mainText: item.type === 'city' ? item.name : `${item.pincode} - ${item.name}`,
+            secondaryText: [item.city, item.state].filter(Boolean).join(', '),
+          }));
+          setSuggestions(mapped);
+          return;
+        }
+      } catch {
+        // DB search failed, fall through to Nominatim
+      }
+
+      // Fall back to external search
+      if (searchQuery.length >= 3) {
+        const results = await searchAddresses(searchQuery);
+        setSuggestions(results);
+      }
     }, 300);
 
     return () => clearTimeout(timer);
@@ -67,15 +87,27 @@ export default function LocationSelectorModal({
       return;
     }
 
-    // Try to validate and enrich pincode data
+    // Try DB validation first, then fall back to external API
+    try {
+      const dbResult = await apiClient.validatePincodeFromDB(pincode);
+      if (dbResult.success && dbResult.data) {
+        updateLocation(pincode, locality || dbResult.data.area || '');
+        onClose();
+        router.push(`/stores?pincode=${pincode}`);
+        return;
+      }
+    } catch {
+      // DB validation failed, try external
+    }
+
+    // Fall back to external pincode validation
     const result = await validatePincode(pincode);
     if (result) {
-      // Use enriched data but keep user's locality if they entered one
       updateLocation(pincode, locality);
     } else {
       updateLocation(pincode, locality);
     }
-    
+
     onClose();
     router.push(`/stores?pincode=${pincode}`);
   };
@@ -193,7 +225,7 @@ export default function LocationSelectorModal({
               className={`w-full py-6 text-base transition-all ${
                 detectionState === 'success' 
                   ? 'bg-green-100 hover:bg-green-100 text-green-700 border-green-300'
-                  : 'bg-yellow-400 hover:bg-yellow-500 text-black'
+                  : 'bg-[#FF9933] hover:bg-[#e8872b] text-white'
               }`}
               type="button"
             >

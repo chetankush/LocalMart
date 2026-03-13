@@ -350,7 +350,7 @@ export default function ReviewForm({
         <button
           type="submit"
           disabled={submitting || rating === 0}
-          className="px-8 py-3 bg-orange-500 text-white font-semibold rounded hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed uppercase flex items-center gap-2 min-w-[140px] justify-center"
+          className="px-8 py-3 bg-[#FF9933] text-white font-semibold rounded hover:bg-[#e8872b] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed uppercase flex items-center gap-2 min-w-[140px] justify-center"
         >
           {submitting ? (
             <>

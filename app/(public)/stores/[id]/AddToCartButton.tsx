@@ -53,7 +53,7 @@ export default function AddToCartButton({ product, vendorName }: AddToCartButton
     return (
       <button
         disabled
-        className="w-full py-2 rounded-lg font-semibold bg-gray-300 text-gray-500 cursor-not-allowed text-sm"
+        className="w-full py-3 rounded-full font-semibold bg-gray-200 text-gray-400 cursor-not-allowed text-sm"
       >
         Out of Stock
       </button>
@@ -63,13 +63,13 @@ export default function AddToCartButton({ product, vendorName }: AddToCartButton
   return (
     <button
       onClick={handleAddToCart}
-      className={`w-full py-2 rounded font-bold transition-all text-xs border-2 cursor-pointer ${
+      className={`w-full py-3 rounded-full font-semibold transition-all text-sm cursor-pointer ${
         isAdding
-          ? 'bg-[#0c831f] border-[#0c831f] text-white'
-          : 'bg-white border-[#0c831f] text-[#0c831f] hover:bg-[#0c831f] hover:text-white active:scale-95'
+          ? 'bg-green-600 text-white'
+          : 'bg-[#FF9933] text-white hover:bg-[#e8872b] active:scale-95'
       }`}
     >
-      {isAdding ? '✓ ADDED' : 'ADD'}
+      {isAdding ? '✓ Added' : 'Buy Now'}
     </button>
   );
 }

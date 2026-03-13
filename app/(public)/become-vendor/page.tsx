@@ -61,6 +61,8 @@ export default function BecomeVendorPage() {
     businessName: "",
     businessType: "",
     city: "Guna",
+    locality: "",
+    pincode: "",
     address: "",
     description: "",
   });
@@ -224,6 +226,8 @@ export default function BecomeVendorPage() {
           businessName: formData.businessName,
           businessType: formData.businessType,
           city: formData.city,
+          locality: formData.locality,
+          pincode: formData.pincode,
           address: formData.address,
           description: formData.description,
           state: "Madhya Pradesh",
@@ -231,7 +235,7 @@ export default function BecomeVendorPage() {
         });
 
         if (data.success) {
-          setVendorData(prev => ({ 
+          setVendorData(prev => ({
             ...prev,
             status: "PENDING_APPROVAL",
           }));
@@ -242,6 +246,8 @@ export default function BecomeVendorPage() {
             ...prev,
             businessName: "",
             businessType: "",
+            locality: "",
+            pincode: "",
             address: "",
             description: "",
           }));
@@ -276,9 +282,9 @@ export default function BecomeVendorPage() {
 
   if (authLoading || checkingStatus) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#FFF3E6] to-[#FFFBF5]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-[#FF9933] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">Checking your vendor status...</p>
         </div>
       </div>
@@ -297,7 +303,7 @@ export default function BecomeVendorPage() {
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                   currentStep >= step.id
-                    ? "bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+                    ? "bg-[#FF9933] text-white shadow-lg shadow-[#FF9933]/30"
                     : "bg-gray-200 text-gray-500"
                 }`}
               >
@@ -308,14 +314,14 @@ export default function BecomeVendorPage() {
                 )}
               </div>
               <span className={`mt-2 text-xs font-medium text-center ${
-                currentStep >= step.id ? "text-orange-600" : "text-gray-500"
+                currentStep >= step.id ? "text-[#FF9933]" : "text-gray-500"
               }`}>
                 {step.title}
               </span>
             </div>
             {index < steps.length - 1 && (
               <div className={`w-16 sm:w-24 h-1 mx-2 rounded ${
-                currentStep > step.id ? "bg-orange-500" : "bg-gray-200"
+                currentStep > step.id ? "bg-[#FF9933]" : "bg-gray-200"
               }`} />
             )}
           </div>
@@ -330,7 +336,7 @@ export default function BecomeVendorPage() {
     <div className="max-w-4xl mx-auto">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
-          Start Selling on <span className="text-orange-500">NearStore</span>
+          Start Selling on <span className="text-[#FF9933]">LocalMart</span>
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
           Join thousands of local vendors and reach customers in your area. 
@@ -351,8 +357,8 @@ export default function BecomeVendorPage() {
           const BenefitIcon = benefit.icon;
           return (
           <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
-              <BenefitIcon className="w-6 h-6 text-orange-600" />
+            <div className="w-12 h-12 bg-[#FFF3E6] rounded-xl flex items-center justify-center mb-4">
+              <BenefitIcon className="w-6 h-6 text-[#FF9933]" />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">{benefit.title}</h3>
             <p className="text-gray-600 text-sm">{benefit.desc}</p>
@@ -362,12 +368,12 @@ export default function BecomeVendorPage() {
       </div>
 
       {/* CTA */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-8 text-center text-white">
+      <div className="bg-gradient-to-r from-[#FF9933] to-[#FFB366] rounded-2xl p-8 text-center text-white">
         <h2 className="text-2xl font-bold mb-4">Ready to get started?</h2>
         <p className="mb-6 opacity-90">Sign in or create an account to begin your vendor journey</p>
         <Link
           href="/sign-in?redirect=/become-vendor"
-          className="inline-block bg-white text-orange-600 px-8 py-3 rounded-xl font-bold hover:bg-orange-50 transition-colors shadow-lg cursor-pointer"
+          className="inline-block bg-white text-[#FF9933] px-8 py-3 rounded-xl font-bold hover:bg-[#FFF3E6] transition-colors shadow-lg cursor-pointer"
         >
           Sign In to Continue →
         </Link>
@@ -411,7 +417,7 @@ export default function BecomeVendorPage() {
         {/* Personal Info */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+            <span className="w-8 h-8 bg-[#FFF3E6] text-[#FF9933] rounded-full flex items-center justify-center text-sm font-bold">1</span>
             Personal Information
           </h2>
           <div className="grid md:grid-cols-2 gap-4">
@@ -423,7 +429,7 @@ export default function BecomeVendorPage() {
                 value={formData.fullName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
                 placeholder="Your full name"
               />
             </div>
@@ -435,7 +441,7 @@ export default function BecomeVendorPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
                 placeholder="your@email.com"
               />
             </div>
@@ -448,7 +454,7 @@ export default function BecomeVendorPage() {
                 onChange={handleChange}
                 required
                 pattern="[0-9]{10}"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
                 placeholder="10-digit mobile number"
               />
             </div>
@@ -458,7 +464,7 @@ export default function BecomeVendorPage() {
         {/* Business Info */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+            <span className="w-8 h-8 bg-[#FFF3E6] text-[#FF9933] rounded-full flex items-center justify-center text-sm font-bold">2</span>
             Business Details
           </h2>
           <div className="space-y-4">
@@ -470,7 +476,7 @@ export default function BecomeVendorPage() {
                 value={formData.businessName}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
                 placeholder="Your store name"
               />
             </div>
@@ -485,8 +491,8 @@ export default function BecomeVendorPage() {
                     key={category.value}
                     className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
                       formData.businessType === category.value
-                        ? "border-orange-500 bg-orange-50"
-                        : "border-gray-200 hover:border-orange-300"
+                        ? "border-[#FF9933] bg-[#FFF3E6]"
+                        : "border-gray-200 hover:border-[#FFB366]"
                     }`}
                   >
                     <input
@@ -508,7 +514,7 @@ export default function BecomeVendorPage() {
                     </div>
                     <span className="text-xs text-gray-500">{category.description || ''}</span>
                     {formData.businessType === category.value && (
-                      <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-orange-500" />
+                      <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-[#FF9933]" />
                     )}
                   </label>
                   );
@@ -528,18 +534,46 @@ export default function BecomeVendorPage() {
                 />
                 <p className="text-xs text-gray-500 mt-1">Currently serving Guna, MP only</p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
+                <input
+                  type="text"
+                  name="pincode"
+                  value={formData.pincode}
+                  onChange={handleChange}
+                  required
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
+                  placeholder="473001"
+                />
+                <p className="text-xs text-gray-500 mt-1">6-digit PIN code</p>
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Store Address *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Locality / Area *</label>
+              <input
+                type="text"
+                name="locality"
+                value={formData.locality}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
+                placeholder="e.g., Civil Lines, Station Road, Jawahar Chowk"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Complete Store Address *</label>
               <textarea
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
                 required
                 rows={2}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
-                placeholder="Street, Area, Landmark"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all resize-none"
+                placeholder="Shop No., Building Name, Street, Landmark"
               />
             </div>
 
@@ -550,7 +584,7 @@ export default function BecomeVendorPage() {
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all resize-none"
                 placeholder="Tell customers what makes your store special..."
               />
             </div>
@@ -575,7 +609,7 @@ export default function BecomeVendorPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 bg-gradient-to-r from-[#FF9933] to-[#FFB366] text-white py-4 rounded-xl font-bold hover:from-[#e8872b] hover:to-[#FF9933] disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#FF9933]/30 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
@@ -673,7 +707,7 @@ export default function BecomeVendorPage() {
 
         <Link
           href="/"
-          className="inline-block mt-6 text-orange-600 font-medium hover:text-orange-700 cursor-pointer"
+          className="inline-block mt-6 text-[#FF9933] font-medium hover:text-[#e8872b] cursor-pointer"
         >
           ← Back to Homepage
         </Link>
@@ -696,13 +730,13 @@ export default function BecomeVendorPage() {
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           <Link
             href="/vendor/dashboard"
-            className="bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 px-6 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
+            className="bg-gradient-to-r from-[#FF9933] to-[#FFB366] text-white py-4 px-6 rounded-xl font-bold hover:from-[#e8872b] hover:to-[#FF9933] transition-all shadow-lg shadow-[#FF9933]/30 flex items-center justify-center gap-2 cursor-pointer"
           >
            Go to Dashboard
           </Link>
           <Link
             href={`/stores/${vendorData.vendorId}`}
-            className="bg-white border-2 border-orange-500 text-orange-600 py-4 px-6 rounded-xl font-bold hover:bg-orange-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="bg-white border-2 border-[#FF9933] text-[#FF9933] py-4 px-6 rounded-xl font-bold hover:bg-[#FFF3E6] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             👁️ View Your Store
           </Link>
@@ -745,8 +779,8 @@ export default function BecomeVendorPage() {
                 className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                    <Store className="w-6 h-6 text-orange-600" />
+                  <div className="w-12 h-12 bg-[#FFF3E6] rounded-xl flex items-center justify-center">
+                    <Store className="w-6 h-6 text-[#FF9933]" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{store.businessName}</h3>
@@ -766,7 +800,7 @@ export default function BecomeVendorPage() {
                 {store.status === "ACTIVE" && (
                   <Link
                     href={`/stores/${store.id}`}
-                    className="text-orange-600 hover:text-orange-700 font-medium text-sm cursor-pointer"
+                    className="text-[#FF9933] hover:text-[#e8872b] font-medium text-sm cursor-pointer"
                   >
                     View →
                   </Link>
@@ -797,6 +831,8 @@ export default function BecomeVendorPage() {
                 ...prev,
                 businessName: "",
                 businessType: "",
+                locality: "",
+                pincode: "",
                 address: "",
                 description: "",
               }));
@@ -838,7 +874,7 @@ export default function BecomeVendorPage() {
               value={formData.businessName}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
               placeholder="Your new store name"
             />
           </div>
@@ -852,7 +888,7 @@ export default function BecomeVendorPage() {
               onChange={handleChange}
               required
               pattern="[0-9]{10}"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
               placeholder="10-digit mobile number for this store"
             />
           </div>
@@ -867,8 +903,8 @@ export default function BecomeVendorPage() {
                   key={category.value}
                   className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
                     formData.businessType === category.value
-                      ? "border-orange-500 bg-orange-50"
-                      : "border-gray-200 hover:border-orange-300"
+                      ? "border-[#FF9933] bg-[#FFF3E6]"
+                      : "border-gray-200 hover:border-[#FFB366]"
                   }`}
                 >
                   <input
@@ -890,7 +926,7 @@ export default function BecomeVendorPage() {
                   </div>
                   <span className="text-xs text-gray-500">{category.description || ''}</span>
                   {formData.businessType === category.value && (
-                    <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-orange-500" />
+                    <CheckCircle className="absolute top-2 right-2 w-5 h-5 text-[#FF9933]" />
                   )}
                 </label>
                 );
@@ -898,16 +934,56 @@ export default function BecomeVendorPage() {
             </div>
           </div>
 
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-600"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
+              <input
+                type="text"
+                name="pincode"
+                value={formData.pincode}
+                onChange={handleChange}
+                required
+                pattern="[0-9]{6}"
+                maxLength={6}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
+                placeholder="473001"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Store Address *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Locality / Area *</label>
+            <input
+              type="text"
+              name="locality"
+              value={formData.locality}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all"
+              placeholder="e.g., Civil Lines, Station Road, Jawahar Chowk"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Complete Store Address *</label>
             <textarea
               name="address"
               value={formData.address}
               onChange={handleChange}
               required
               rows={2}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
-              placeholder="Street, Area, Landmark"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all resize-none"
+              placeholder="Shop No., Building Name, Street, Landmark"
             />
           </div>
 
@@ -918,7 +994,7 @@ export default function BecomeVendorPage() {
               value={formData.description}
               onChange={handleChange}
               rows={3}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#FF9933] focus:border-transparent transition-all resize-none"
               placeholder="Tell customers what makes this store special..."
             />
           </div>
@@ -939,7 +1015,7 @@ export default function BecomeVendorPage() {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white py-4 rounded-xl font-bold hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 bg-gradient-to-r from-[#FF9933] to-[#FFB366] text-white py-4 rounded-xl font-bold hover:from-[#e8872b] hover:to-[#FF9933] disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#FF9933]/30 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
@@ -972,7 +1048,7 @@ export default function BecomeVendorPage() {
                   ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300"
                   : vendorData.status === "ACTIVE"
                   ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-300"
-                  : "bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-500/30"
+                  : "bg-[#FF9933] text-white hover:bg-[#e8872b] shadow-lg shadow-[#FF9933]/30"
               }`}
             >
               {vendorData.status === "PENDING" || vendorData.status === "PENDING_APPROVAL" ? (

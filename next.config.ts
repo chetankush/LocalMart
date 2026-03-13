@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
     // Enable optimistic client cache for faster navigation
     optimisticClientCache: true,
     // Optimize package imports - reduces bundle size
-    optimizePackageImports: ['lucide-react', 'react-hot-toast', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+    optimizePackageImports: ['lucide-react', 'sonner', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
   },
 
   // 📦 Webpack optimizations for code splitting

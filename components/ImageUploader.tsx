@@ -58,8 +58,10 @@ export default function ImageUploader({
       let response: { success: boolean; url: string; path?: string };
 
       // Use vendor upload for product/store types, admin upload for others
-      if (uploadType === "product" || uploadType === "store") {
-        response = await apiClient.vendorUpload(file, uploadType);
+      if (uploadType === "product" || uploadType === "store" || uploadType === "products" || uploadType === "stores") {
+        // Map to backend expected types (with 's')
+        const backendType = uploadType === "product" ? "products" : uploadType === "store" ? "stores" : uploadType as "products" | "stores";
+        response = await apiClient.vendorUpload(file, backendType);
       } else {
         response = await apiClient.adminUpload(file, uploadType);
       }

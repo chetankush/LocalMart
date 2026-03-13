@@ -7,9 +7,11 @@ import Image from "next/image";
 import { BusinessType } from "@/src/generated/prisma";
 import { Star, MapPin, Bell, BellOff, Store } from "lucide-react";
 import StoreFilter from "./StoreFilter";
+import CitySelector from "./CitySelector";
 import FavoriteButton from "@/components/FavoriteButton";
 import { useLocation } from "@/context/LocationContext";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
+import { apiClient } from "@/lib/api/client";
 
 interface Vendor {
   id: string;
@@ -29,6 +31,7 @@ interface Vendor {
 interface StoresListProps {
   vendors: Vendor[];
   selectedPincode?: string;
+  selectedCity?: string;
 }
 
 // Map category slugs from URL to BusinessType or search terms
@@ -56,6 +59,7 @@ const categoryMapping: { [key: string]: BusinessType | "ALL" } = {
 export default function StoresList({
   vendors,
   selectedPincode,
+  selectedCity,
 }: StoresListProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -74,13 +78,12 @@ export default function StoresList({
   useEffect(() => {
     const checkSubscription = async () => {
       if (!selectedPincode && !location?.pincode) return;
-      
+
       const pincode = selectedPincode || location?.pincode;
       if (!pincode) return;
 
       try {
-        const response = await fetch(`/api/public/area-notify?pincode=${pincode}`);
-        const data = await response.json();
+        const data = await apiClient.checkAreaSubscription(pincode);
         if (data.success) {
           setIsSubscribedToArea(data.data.isSubscribed);
         }
@@ -103,40 +106,32 @@ export default function StoresList({
     try {
       if (isSubscribedToArea) {
         // Unsubscribe
-        const response = await fetch(`/api/public/area-notify?pincode=${pincode}`, {
-          method: "DELETE",
-        });
-        const data = await response.json();
-        
+        const data = await apiClient.unsubscribeFromArea(pincode);
+
         if (data.success) {
           setIsSubscribedToArea(false);
           setSubscribeMessage("Unsubscribed from notifications");
         } else {
-          setSubscribeMessage(data.error || "Failed to unsubscribe");
+          setSubscribeMessage("Failed to unsubscribe");
         }
       } else {
         // Subscribe
-        const response = await fetch("/api/public/area-notify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pincode,
-            city: location?.city,
-            locality: location?.locality,
-          }),
+        const data = await apiClient.subscribeToArea({
+          pincode,
+          city: location?.city,
+          locality: location?.locality,
         });
-        const data = await response.json();
-        
+
         if (data.success) {
           setIsSubscribedToArea(true);
           setSubscribeMessage(data.message);
         } else {
-          setSubscribeMessage(data.error || "Failed to subscribe");
+          setSubscribeMessage("Failed to subscribe");
         }
       }
     } catch (error: any) {
       console.error("Error toggling area subscription:", error);
-      setSubscribeMessage("Something went wrong. Please try again.");
+      setSubscribeMessage(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsSubscribing(false);
       // Clear message after 3 seconds
@@ -206,12 +201,12 @@ export default function StoresList({
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Modern Location Banner */}
         {selectedPincode && location && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-orange-50 via-white to-orange-50 border-2 border-orange-200 rounded-xl sm:rounded-2xl p-4 sm:p-6">
-            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-orange-200/30 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-20 sm:w-24 h-20 sm:h-24 bg-orange-300/20 rounded-full blur-2xl"></div>
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#FFF3E6] via-white to-[#FFF3E6] border-2 border-[#FFD699] rounded-xl sm:rounded-2xl p-4 sm:p-6">
+            <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-[#FFD699]/30 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 w-20 sm:w-24 h-20 sm:h-24 bg-[#FFB366]/20 rounded-full blur-2xl"></div>
             <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-3 sm:gap-4">
-                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg sm:rounded-xl flex items-center justify-center">
+                <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#FF9933] to-[#e8872b] rounded-lg sm:rounded-xl flex items-center justify-center">
                   <svg
                     className="w-5 h-5 sm:w-6 sm:h-6 text-white"
                     fill="none"
@@ -272,7 +267,7 @@ export default function StoresList({
                 </button>
                 <button
                   onClick={() => setShowLocationModal(true)}
-                  className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-white text-orange-600 border-2 border-orange-300 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-orange-50 hover:border-orange-400 transition-all cursor-pointer"
+                  className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-white text-[#FF9933] border-2 border-[#FFB366] rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:bg-[#FFF3E6] hover:border-[#FF9933] transition-all cursor-pointer"
                 >
                   Change
                 </button>
@@ -289,12 +284,12 @@ export default function StoresList({
 
         {/* Modern No Location Banner */}
         {!selectedPincode && !location && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-300 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+          <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-yellow-50 to-[#FFF3E6] border-2 border-amber-300 rounded-xl sm:rounded-2xl p-4 sm:p-6">
             <div className="absolute top-0 right-0 w-32 sm:w-40 h-32 sm:h-40 bg-yellow-200/40 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-24 sm:w-32 h-24 sm:h-32 bg-amber-300/30 rounded-full blur-2xl"></div>
             <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-start gap-3 sm:gap-4">
-                <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center animate-bounce">
+                <div className="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-[#FF9933] to-[#FFB366] rounded-lg sm:rounded-xl flex items-center justify-center animate-bounce">
                   <svg
                     className="w-6 h-6 sm:w-7 sm:h-7 text-white"
                     fill="none"
@@ -326,7 +321,7 @@ export default function StoresList({
               </div>
               <button
                 onClick={() => setShowLocationModal(true)}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:from-orange-600 hover:to-orange-700 transition-all hover:scale-105 cursor-pointer"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#FF9933] to-[#e8872b] text-white rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold hover:from-[#e8872b] hover:to-[#d4771f] transition-all hover:scale-105 cursor-pointer"
               >
                 Select Location
               </button>
@@ -334,21 +329,24 @@ export default function StoresList({
           </div>
         )}
 
-        {/* Simple Results Header */}
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-3">
+        {/* Results Header with City Selector */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-1">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-              {getFriendlyCategoryName()}
+              {selectedCity ? `Stores in ${selectedCity}` : getFriendlyCategoryName()}
             </h2>
             <span className="text-sm text-gray-500">
               ({filteredVendors.length} {filteredVendors.length === 1 ? "store" : "stores"})
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-green-600 text-xs sm:text-sm font-medium">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-            </svg>
-            Fast Delivery
+          <div className="flex items-center gap-3">
+            <CitySelector selectedCity={selectedCity} />
+            <div className="flex items-center gap-1.5 text-green-600 text-xs sm:text-sm font-medium">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+              </svg>
+              Fast Delivery
+            </div>
           </div>
         </div>
 
@@ -363,7 +361,7 @@ export default function StoresList({
                 {/* Image Section */}
                 <Link
                   href={`/stores/${vendor.id}`}
-                  className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200 block"
+                  className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-[#FFF3E6] to-[#FFE4C4] block"
                 >
                   {vendor.storeLogo ? (
                     <Image
@@ -374,7 +372,7 @@ export default function StoresList({
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Store className="w-16 h-16 sm:w-24 sm:h-24 text-orange-400" />
+                      <Store className="w-16 h-16 sm:w-24 sm:h-24 text-[#FF9933]" />
                     </div>
                   )}
 
@@ -402,7 +400,7 @@ export default function StoresList({
                 <div className="mt-3 sm:mt-4 px-3 sm:px-4 pb-3 sm:pb-4">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <Link href={`/stores/${vendor.id}`} className="flex-1 min-w-0">
-                      <h2 className="text-base sm:text-xl font-bold text-gray-900 line-clamp-1 hover:text-orange-600 transition-colors">
+                      <h2 className="text-base sm:text-xl font-bold text-gray-900 line-clamp-1 hover:text-[#FF9933] transition-colors">
                         {vendor.businessName}
                       </h2>
                     </Link>
@@ -456,7 +454,7 @@ export default function StoresList({
                     {/* Visit Button */}
                     <Link
                       href={`/stores/${vendor.id}`}
-                      className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-semibold hover:bg-gray-800 transition active:scale-95 cursor-pointer"
+                      className="bg-[#10A37F] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-semibold hover:bg-[#0E8C6C] transition active:scale-95 cursor-pointer"
                     >
                       Visit Store
                     </Link>
@@ -466,26 +464,30 @@ export default function StoresList({
             ))}
           </div>
         ) : (
-          <div className="relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-orange-50 rounded-2xl sm:rounded-3xl border-2 border-gray-200 py-12 sm:py-20 px-4 sm:px-6">
-            <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-orange-200/20 rounded-full blur-3xl"></div>
+          <div className="relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-[#FFF3E6] rounded-2xl sm:rounded-3xl border-2 border-gray-200 py-12 sm:py-20 px-4 sm:px-6">
+            <div className="absolute top-0 right-0 w-48 sm:w-64 h-48 sm:h-64 bg-[#FFD699]/20 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-36 sm:w-48 h-36 sm:h-48 bg-purple-200/20 rounded-full blur-3xl"></div>
             <div className="relative text-center max-w-2xl mx-auto">
               <div className="mb-4 sm:mb-6 animate-bounce">
                 {selectedPincode ? (
-                  <MapPin className="w-16 h-16 sm:w-24 sm:h-24 text-orange-500 mx-auto" />
+                  <MapPin className="w-16 h-16 sm:w-24 sm:h-24 text-[#FF9933] mx-auto" />
                 ) : (
-                  <Store className="w-16 h-16 sm:w-24 sm:h-24 text-orange-500 mx-auto" />
+                  <Store className="w-16 h-16 sm:w-24 sm:h-24 text-[#FF9933] mx-auto" />
                 )}
               </div>
               <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-3">
-                {selectedPincode
+                {selectedCity
+                  ? `No stores in ${selectedCity}`
+                  : selectedPincode
                   ? `No stores in ${selectedPincode}`
                   : selectedCategory === "ALL" || !categoryFromUrl
                   ? "No Stores Yet"
                   : `No ${getFriendlyCategoryName()} Stores`}
               </h3>
               <p className="text-gray-600 text-sm sm:text-lg mb-6 sm:mb-8 max-w-md mx-auto px-4">
-                {selectedPincode
+                {selectedCity
+                  ? `We're expanding to ${selectedCity} soon! Try another city or check back later.`
+                  : selectedPincode
                   ? "We're working hard to bring stores to your area. Try a different location or check back soon!"
                   : selectedCategory === "ALL" || !categoryFromUrl
                   ? "Be a pioneer! Open the first store in your area and start your business journey."
@@ -502,7 +504,7 @@ export default function StoresList({
                 )}
                 <Link
                   href="/become-vendor"
-                  className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/30 hover:shadow-xl hover:scale-105 cursor-pointer"
+                  className="inline-block px-6 sm:px-8 py-3 sm:py-4 bg-[#10A37F] text-white rounded-full font-bold text-xs sm:text-sm hover:bg-[#0E8C6C] transition-all shadow-lg hover:shadow-xl hover:scale-105 cursor-pointer"
                 >
                   Open Your Store
                 </Link>

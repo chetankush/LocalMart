@@ -41,8 +41,8 @@ export default function QuickStoreFilters({
       id: "fast",
       label: "Fast Delivery",
       icon: <Zap className="w-4 h-4" />,
-      activeColor: "bg-orange-500 border-orange-500",
-      activeBg: "bg-orange-50",
+      activeColor: "bg-[#FF9933] border-[#FF9933]",
+      activeBg: "bg-[#FFF3E6]",
       description: "Quick delivery"
     },
     {

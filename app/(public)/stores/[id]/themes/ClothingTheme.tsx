@@ -629,7 +629,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
 
                           {/* Discount badge */}
                           {discount > 0 && !isOutOfStock && (
-                            <div className="absolute top-2 left-2 bg-orange-500 text-white text-[11px] font-bold px-2 py-1 rounded">
+                            <div className="absolute top-2 left-2 bg-[#FF9933] text-white text-[11px] font-bold px-2 py-1 rounded">
                               {discount}% OFF
                             </div>
                           )}

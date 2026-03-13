@@ -13,7 +13,7 @@ const Footer = () => {
           {/* Company Info */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="text-xl font-bold text-white mb-3 block">
-              NearStore
+              LocalMart
             </Link>
             <p className="text-gray-400 text-sm mb-4">
               Your neighborhood marketplace. Shop local, support local.
@@ -34,10 +34,10 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  href="/products"
+                  href="/stores"
                   className="text-gray-400 hover:text-white transition-colors text-sm"
                 >
-                  All Products
+                  All Stores
                 </Link>
               </li>
               {user && (
@@ -118,7 +118,7 @@ const Footer = () => {
         <div className="border-t border-gray-800 mt-6 pt-6">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <p className="text-gray-500 text-xs">
-              © {new Date().getFullYear()} NearStore. All rights reserved.
+              © {new Date().getFullYear()} LocalMart. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <span className="text-gray-500 text-xs">Secure payments</span>

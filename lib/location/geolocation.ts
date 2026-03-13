@@ -194,7 +194,7 @@ async function reverseGeocodeOSM(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
       {
         headers: {
-          'User-Agent': 'NearStore-App/1.0',
+          'User-Agent': 'LocalMart-App/1.0',
           'Accept-Language': 'en',
         },
         signal: controller.signal,
@@ -424,7 +424,7 @@ export async function searchAddresses(query: string): Promise<AddressSuggestion[
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=6&addressdetails=1`,
       {
-        headers: { 'User-Agent': 'NearStore-App/1.0' },
+        headers: { 'User-Agent': 'LocalMart-App/1.0' },
         signal: controller.signal,
       }
     );
@@ -456,7 +456,7 @@ export async function getPlaceDetails(placeId: string): Promise<LocationResult |
     const response = await fetch(
       `https://nominatim.openstreetmap.org/details?place_id=${placeId}&format=json&addressdetails=1`,
       {
-        headers: { 'User-Agent': 'NearStore-App/1.0' },
+        headers: { 'User-Agent': 'LocalMart-App/1.0' },
         signal: controller.signal,
       }
     );

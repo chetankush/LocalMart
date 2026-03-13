@@ -366,7 +366,7 @@ export default function RecommendedProductsModal({
                             ))}
                           </div>
                         )}
-                        <button className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition-colors font-medium opacity-0 group-hover:opacity-100">
+                        <button className="text-xs bg-[#FF9933] text-white px-3 py-1.5 rounded-lg hover:bg-[#e8872b] transition-colors font-medium opacity-0 group-hover:opacity-100">
                           Select & Edit →
                         </button>
                       </div>
@@ -577,7 +577,7 @@ export default function RecommendedProductsModal({
               <button
                 onClick={handleAddProduct}
                 disabled={processing || uploadingImages}
-                className="flex-1 bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
+                className="flex-1 bg-[#e8872b] text-white py-3 rounded-lg font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
               >
                 {processing ? "Adding Product..." : "Add Product to My Store"}
               </button>

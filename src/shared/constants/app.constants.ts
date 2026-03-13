@@ -4,7 +4,7 @@
 
 export const APP_CONSTANTS = {
   // Application Info
-  APP_NAME: "NearStore",
+  APP_NAME: "LocalMart",
   APP_DESCRIPTION:
     "Hyperlocal Multi-Vendor Marketplace with Vendor-Managed Delivery",
   APP_VERSION: "1.0.0",

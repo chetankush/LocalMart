@@ -47,7 +47,7 @@ export default function CartIcon() {
       >
         <ShoppingCart className="w-6 h-6 text-white" />
         {mounted && (
-          <span className="absolute top-0.5 right-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center leading-none">
+          <span className="absolute top-0.5 right-0.5 bg-[#FF9933] text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center leading-none">
             {itemsCount > 99 ? '99+' : itemsCount}
           </span>
         )}
@@ -136,7 +136,7 @@ export default function CartIcon() {
             </div>
             <Link
               href="/cart"
-              className="block w-full py-2.5 bg-blue-600 text-white text-center rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+              className="block w-full py-2.5 bg-[#FF9933] text-white text-center rounded-lg font-semibold hover:bg-[#e8872b] transition-colors cursor-pointer"
               onClick={() => setShowMiniCart(false)}
             >
               View Cart

@@ -54,7 +54,7 @@ export default function ModernStoreCard({
       {/* Image Section */}
       <div
         onClick={handleCardClick}
-        className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200"
+        className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-[#FFF3E6] to-[#FFE4C4]"
       >
         {allImages.length > 0 ? (
           <Image
@@ -65,7 +65,7 @@ export default function ModernStoreCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Store className="w-16 h-16 sm:w-24 sm:h-24 text-orange-400" />
+            <Store className="w-16 h-16 sm:w-24 sm:h-24 text-[#FF9933]" />
           </div>
         )}
 
@@ -140,7 +140,7 @@ export default function ModernStoreCard({
           {/* Visit Button */}
           <button
             onClick={handleCardClick}
-            className="bg-black text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-900 transition active:scale-95 cursor-pointer"
+            className="bg-[#FF9933] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-[#e8872b] transition active:scale-95 cursor-pointer"
           >
             Visit Store
           </button>

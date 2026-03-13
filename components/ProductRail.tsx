@@ -28,7 +28,7 @@ interface ProductRailProps {
   bgColor?: string; // Optional background color override
 }
 
-export default function ProductRail({ title, subtitle, products, viewAllLink = "/products", bgColor = "bg-white" }: ProductRailProps) {
+export default function ProductRail({ title, subtitle, products, viewAllLink = "/stores", bgColor = "bg-white" }: ProductRailProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
@@ -69,7 +69,7 @@ export default function ProductRail({ title, subtitle, products, viewAllLink = "
               {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
           </div>
           {viewAllLink && (
-            <Link href={viewAllLink} className="text-sm font-semibold text-gray-700 hover:text-orange-600 hover:underline">
+            <Link href={viewAllLink} className="text-sm font-semibold text-gray-700 hover:text-[#FF9933] hover:underline">
               View all
             </Link>
           )}
@@ -81,7 +81,7 @@ export default function ProductRail({ title, subtitle, products, viewAllLink = "
             {showLeftArrow && (
                 <button 
                     onClick={() => scroll("left")}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:text-orange-600 transition-all hover:scale-105 active:scale-95 disabled:opacity-0"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 -ml-2 z-10 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50 flex items-center justify-center text-gray-600 hover:text-[#FF9933] hover:border-[#FF9933]/30 transition-all duration-200 hover:scale-110 active:scale-95"
                     aria-label="Scroll left"
                 >
                     <ChevronLeft className="w-6 h-6" />
@@ -105,7 +105,7 @@ export default function ProductRail({ title, subtitle, products, viewAllLink = "
             {showRightArrow && (
                 <button 
                     onClick={() => scroll("right")}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:text-orange-600 transition-all hover:scale-105 active:scale-95"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 -mr-2 z-10 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50 flex items-center justify-center text-gray-600 hover:text-[#FF9933] hover:border-[#FF9933]/30 transition-all duration-200 hover:scale-110 active:scale-95"
                      aria-label="Scroll right"
                 >
                     <ChevronRight className="w-6 h-6" />

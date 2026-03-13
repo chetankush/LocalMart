@@ -46,7 +46,7 @@ export default async function VendorDashboardPage() {
           </p>
           <Link
             href="/sign-in"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
+            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
           >
             Sign In
           </Link>
@@ -70,7 +70,7 @@ export default async function VendorDashboardPage() {
           </p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
+            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
           >
             Go to Home
           </Link>
@@ -96,7 +96,7 @@ export default async function VendorDashboardPage() {
           </p>
           <Link
             href="/sign-in"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
+            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
           >
             Sign In
           </Link>
@@ -125,7 +125,7 @@ export default async function VendorDashboardPage() {
           </p>
           <Link
             href="/vendor/onboarding"
-            className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors cursor-pointer"
+            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
           >
             Start Onboarding
           </Link>

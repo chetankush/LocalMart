@@ -6,7 +6,7 @@ export default function AboutPage() {
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold mb-4">About NearStore</h1>
+          <h1 className="text-4xl font-bold mb-4">About LocalMart</h1>
           <p className="text-xl text-blue-100">
             Connecting local businesses with their communities in Guna, Madhya
             Pradesh
@@ -20,7 +20,7 @@ export default function AboutPage() {
         <div className="bg-white rounded-lg shadow-sm p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Story</h2>
           <p className="text-gray-600 leading-relaxed">
-            NearStore was born in the heart of Guna, Madhya Pradesh, with a
+            LocalMart was born in the heart of Guna, Madhya Pradesh, with a
             simple vision: to strengthen local communities by connecting
             customers with their neighborhood businesses. We believe that when
             local businesses thrive, entire communities flourish.

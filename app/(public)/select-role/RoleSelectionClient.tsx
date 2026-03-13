@@ -36,7 +36,7 @@ export default function RoleSelectionClient({ userId }: { userId: string }) {
       <div className="max-w-4xl w-full mx-4">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Welcome to NearStore! 🎉
+            Welcome to LocalMart! 🎉
           </h1>
           <p className="text-xl text-gray-600">
             How would you like to use our platform?

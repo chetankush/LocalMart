@@ -121,7 +121,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             <div className="flex gap-2">
               <Link
                 href="/become-vendor"
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF9933] text-white rounded-full text-sm font-medium hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Store</span>
@@ -447,7 +447,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                   <p className="text-gray-600 mb-4 font-medium">No products yet</p>
                   <Link
                     href={`/vendor/products/new?storeId=${currentStoreId}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-full font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF9933] text-white rounded-full font-medium hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     Add Your First Product

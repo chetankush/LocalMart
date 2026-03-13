@@ -15,14 +15,14 @@ async function getHomepageData() {
 
     if (!response.ok) {
       console.error("Failed to fetch homepage data:", response.status);
-      return { vendors: [], featuredProducts: [], categories: [] };
+      return { vendors: [], featuredProducts: [], popularProducts: [], categories: [] };
     }
 
     const result = await response.json();
-    return result.data || { vendors: [], featuredProducts: [], categories: [] };
+    return result.data || { vendors: [], featuredProducts: [], popularProducts: [], categories: [] };
   } catch (error) {
     console.error("Error fetching homepage data:", error);
-    return { vendors: [], featuredProducts: [], categories: [] };
+    return { vendors: [], featuredProducts: [], popularProducts: [], categories: [] };
   }
 }
 
@@ -80,7 +80,7 @@ async function getUserFavorites(userId: string, authToken: string) {
 
 export default async function Home() {
   // Fetch homepage data from API
-  const { vendors, featuredProducts, categories } = await getHomepageData();
+  const { vendors, featuredProducts, popularProducts, categories } = await getHomepageData();
 
   // Get current user
   const user = await getCurrentUser();
@@ -105,6 +105,7 @@ export default async function Home() {
       user={user}
       vendors={vendorsWithFavorites}
       featuredProducts={featuredProducts}
+      popularProducts={popularProducts || []}
       valentineProducts={[]} // Will be populated via occasion system
       categories={categories}
     />

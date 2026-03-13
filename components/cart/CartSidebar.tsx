@@ -149,7 +149,7 @@ export default function CartSidebar() {
 
             {/* View Cart Button */}
             <button
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+              className="w-full bg-[#FF9933] text-white py-3 rounded-full font-semibold hover:bg-[#e8872b] transition-colors cursor-pointer"
               onClick={() => {
                 dispatch(closeCart());
                 router.push('/cart');

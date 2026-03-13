@@ -132,7 +132,7 @@ export default function NotifyMeButton({
           ${isLoading || showLoading ? "opacity-70 cursor-wait" : "cursor-pointer"}
           ${showSubscribed
             ? "bg-green-100 text-green-700 hover:bg-green-200 border border-green-200"
-            : "bg-orange-500 text-white hover:bg-orange-600"
+            : "bg-[#FF9933] text-white hover:bg-[#e8872b]"
           }
           ${className}
         `}

@@ -283,7 +283,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
           className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
             isAdding
               ? "bg-green-600 text-white"
-              : "bg-orange-500 text-white hover:bg-orange-600 shadow-md"
+              : "bg-[#FF9933] text-white hover:bg-[#e8872b] shadow-md"
           }`}
         >
           {isAdding ? (
@@ -306,7 +306,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
               ? "bg-green-600 text-white cursor-default"
               : isSubscribing
               ? "bg-gray-400 text-white cursor-wait"
-              : "bg-orange-500 text-white hover:bg-orange-600 shadow-md"
+              : "bg-[#FF9933] text-white hover:bg-[#e8872b] shadow-md"
           }`}
         >
           {isSubscribing ? (

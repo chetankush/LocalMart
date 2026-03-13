@@ -84,35 +84,35 @@ export default function VendorSettingsForm({
 
   const handleImageUpload = async (
     file: File,
-    type: "logo" | "banner"
+    type: "logo" | "banner" | "store"
   ): Promise<string | null> => {
-    const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
-    uploadFn(true);
+    // Only manage loading state for logo/banner - store images manage their own
+    const shouldManageLoading = type !== "store";
+    if (shouldManageLoading) {
+      const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
+      uploadFn(true);
+    }
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", type);
+      const { apiClient } = await import("@/lib/api/client");
+      // All store-related uploads (logo, banner, store images) use "stores" type
+      const result = await apiClient.vendorUpload(file, "stores");
 
-      const res = await fetch("/api/vendor/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        return data.url;
+      if (result.success) {
+        return result.url;
       } else {
-        alert(data.error || "Failed to upload image");
+        alert("Failed to upload image");
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      alert("Failed to upload image");
+      alert(error.message || "Failed to upload image");
       return null;
     } finally {
-      uploadFn(false);
+      if (shouldManageLoading) {
+        const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
+        uploadFn(false);
+      }
     }
   };
 
@@ -224,8 +224,35 @@ export default function VendorSettingsForm({
     setLoading(false);
   };
 
+  // Business type display config
+  const businessTypeLabels: { [key: string]: { label: string; icon: string; color: string } } = {
+    FASHION: { label: "Fashion & Clothing", icon: "👗", color: "bg-pink-100 text-pink-800 border-pink-300" },
+    GROCERY: { label: "Grocery & Daily Needs", icon: "🛒", color: "bg-green-100 text-green-800 border-green-300" },
+    ELECTRONICS: { label: "Electronics", icon: "📱", color: "bg-blue-100 text-blue-800 border-blue-300" },
+    RESTAURANT: { label: "Restaurant & Food", icon: "🍽️", color: "bg-orange-100 text-orange-800 border-orange-300" },
+    PHARMACY: { label: "Pharmacy & Medical", icon: "💊", color: "bg-red-100 text-red-800 border-red-300" },
+    HOME_SERVICES: { label: "Home & Kitchen", icon: "🏠", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+    OTHER: { label: "Other", icon: "📦", color: "bg-gray-100 text-gray-800 border-gray-300" },
+  };
+
+  const currentBusinessType = businessTypeLabels[vendor.businessType?.toUpperCase()] || businessTypeLabels.OTHER;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Business Type Badge */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Store Category</h2>
+            <p className="text-sm text-gray-500">This is the category you selected during onboarding</p>
+          </div>
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-semibold ${currentBusinessType.color}`}>
+            <span className="text-xl">{currentBusinessType.icon}</span>
+            <span>{currentBusinessType.label}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Store Images Section */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-6">Store Images</h2>

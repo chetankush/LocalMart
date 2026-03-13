@@ -273,9 +273,16 @@ class ApiClient {
   }
 
   // Vendors
-  async getVendors(status?: string) {
-    const query = status ? `?status=${status}` : "";
-    return this.request<{ success: boolean; data: any[] }>(`/vendors${query}`);
+  async getVendors(params?: { status?: string; city?: string; pincode?: string; lat?: number; lng?: number; radius?: number }) {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.city) query.set("city", params.city);
+    if (params?.pincode) query.set("pincode", params.pincode);
+    if (params?.lat) query.set("lat", params.lat.toString());
+    if (params?.lng) query.set("lng", params.lng.toString());
+    if (params?.radius) query.set("radius", params.radius.toString());
+    const queryStr = query.toString();
+    return this.request<{ success: boolean; data: any[] }>(`/vendors${queryStr ? '?' + queryStr : ''}`);
   }
 
   async getVendor(id: string) {
@@ -636,11 +643,14 @@ class ApiClient {
   }
 
   // Search
-  async search(query: string) {
+  async search(query: string, filters?: { city?: string }) {
+    const params = new URLSearchParams();
+    params.set("q", query);
+    if (filters?.city) params.set("city", filters.city);
     return this.request<{
       success: boolean;
       data: { stores: any[]; products: any[] };
-    }>(`/search?q=${encodeURIComponent(query)}`);
+    }>(`/search?${params.toString()}`);
   }
 
   // Advanced Search with abort signal support
@@ -1395,6 +1405,78 @@ class ApiClient {
     }>(`/public/area-notify?pincode=${pincode}`, {
       method: "DELETE",
     });
+  }
+
+  // ============================================
+  // Locations
+  // ============================================
+
+  async getCountries() {
+    return this.request<{
+      success: boolean;
+      data: Array<{ id: string; name: string; code: string }>;
+    }>("/locations/countries");
+  }
+
+  async getStates(countryId?: string) {
+    const query = countryId ? `?countryId=${countryId}` : "";
+    return this.request<{
+      success: boolean;
+      data: Array<{ id: string; name: string; code: string; countryId: string }>;
+    }>(`/locations/states${query}`);
+  }
+
+  async getCities(params?: { stateId?: string; search?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.stateId) query.set("stateId", params.stateId);
+    if (params?.search) query.set("search", params.search);
+    if (params?.limit) query.set("limit", params.limit.toString());
+    const queryStr = query.toString();
+    return this.request<{
+      success: boolean;
+      data: Array<{ id: string; name: string; stateId: string; latitude: number | null; longitude: number | null; tier: number }>;
+    }>(`/locations/cities${queryStr ? '?' + queryStr : ''}`);
+  }
+
+  async getPincodes(cityId: string) {
+    return this.request<{
+      success: boolean;
+      data: Array<{ id: string; code: string; area: string | null; cityId: string }>;
+    }>(`/locations/pincodes?cityId=${cityId}`);
+  }
+
+  async searchLocations(query: string) {
+    return this.request<{
+      success: boolean;
+      data: Array<{
+        type: 'city' | 'pincode';
+        id: string;
+        name: string;
+        city?: string;
+        state?: string;
+        pincode?: string;
+      }>;
+    }>(`/locations/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async validatePincodeFromDB(code: string) {
+    return this.request<{
+      success: boolean;
+      data: {
+        pincode: string;
+        area: string | null;
+        city: string;
+        state: string;
+        country: string;
+      } | null;
+    }>(`/locations/pincode/${code}`);
+  }
+
+  async getCitiesWithVendors() {
+    return this.request<{
+      success: boolean;
+      data: Array<{ city: string; vendorCount: number; state?: string }>;
+    }>("/locations/cities-with-vendors");
   }
 }
 

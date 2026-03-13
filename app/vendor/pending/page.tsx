@@ -57,7 +57,7 @@ export default function VendorPendingPage() {
           <div className="space-y-3">
             <Link
               href="/vendor/dashboard"
-              className="flex items-center justify-center gap-2 w-full bg-orange-500 text-white py-3 px-6 rounded-xl font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+              className="flex items-center justify-center gap-2 w-full bg-[#FF9933] text-white py-3 px-6 rounded-xl font-semibold hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <Store className="w-5 h-5" />
               Go to Dashboard

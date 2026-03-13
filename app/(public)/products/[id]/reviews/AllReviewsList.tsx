@@ -134,7 +134,7 @@ export default function AllReviewsList({
     if (rating === 4) return "bg-green-500";
     if (rating === 3) return "bg-green-400";
     if (rating === 2) return "bg-yellow-500";
-    return "bg-orange-500";
+    return "bg-[#FF9933]";
   };
 
   return (

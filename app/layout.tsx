@@ -29,7 +29,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "NearStore - Local Delivery Platform",
+  title: "LocalMart - Local Delivery Platform",
   description: "Order from local vendors and get it delivered to your doorstep",
 };
 

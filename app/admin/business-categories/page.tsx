@@ -296,7 +296,7 @@ export default function BusinessCategoriesPage() {
               </button>
               <button
                 onClick={openAddModal}
-                className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-medium hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-[#FF9933] text-white rounded-full text-sm font-medium hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Category</span>
@@ -394,7 +394,7 @@ export default function BusinessCategoriesPage() {
             <p className="text-gray-500 mb-6">Get started by seeding default categories</p>
             <button
               onClick={handleSeed}
-              className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-full font-semibold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+              className="flex items-center gap-2 px-6 py-3 bg-[#FF9933] text-white rounded-full font-semibold hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
             >
               <Sparkles className="w-5 h-5" />
               Seed Default Categories
@@ -682,7 +682,7 @@ export default function BusinessCategoriesPage() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="flex-1 flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#FF9933] hover:bg-[#e8872b] text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-orange-500/20 cursor-pointer"
                 >
                   {processing ? (
                     <>

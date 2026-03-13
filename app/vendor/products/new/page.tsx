@@ -5,7 +5,17 @@ import AddProductForm from "@/app/vendor/products/new/AddProductForm";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-async function getVendorInfo(authToken: string) {
+interface StoreInfo {
+  id: string;
+  businessName: string;
+  businessType: string;
+  status: string;
+  isActive: boolean;
+  city?: string;
+  storeLogo?: string;
+}
+
+async function getVendorStores(authToken: string): Promise<StoreInfo[]> {
   try {
     const response = await fetch(`${API_BASE_URL}/vendor/check`, {
       headers: {
@@ -16,13 +26,13 @@ async function getVendorInfo(authToken: string) {
     });
 
     if (!response.ok) {
-      return null;
+      return [];
     }
 
     const result = await response.json();
-    return result.data?.stores?.[0] || null;
+    return result.data?.stores || [];
   } catch (error) {
-    return null;
+    return [];
   }
 }
 
@@ -44,8 +54,14 @@ async function getCategories() {
   }
 }
 
-export default async function AddProductPage() {
+export default async function AddProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
   const user = await requireRole(["VENDOR"]);
+  const params = await searchParams;
+  const storeId = params.storeId;
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -54,10 +70,19 @@ export default async function AddProductPage() {
     redirect("/sign-in");
   }
 
-  const [vendorInfo, categories] = await Promise.all([
-    getVendorInfo(session.access_token),
+  const [stores, categories] = await Promise.all([
+    getVendorStores(session.access_token),
     getCategories(),
   ]);
+
+  if (stores.length === 0) {
+    redirect("/vendor/onboarding");
+  }
+
+  // Find the specific store if storeId is provided, otherwise use the first store
+  const vendorInfo = storeId
+    ? stores.find(s => s.id === storeId) || stores[0]
+    : stores[0];
 
   if (!vendorInfo) {
     redirect("/vendor/onboarding");
@@ -76,7 +101,7 @@ export default async function AddProductPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <AddProductForm vendorId={vendorInfo.id} categories={categories} />
+        <AddProductForm vendorId={vendorInfo.id} categories={categories} businessType={vendorInfo.businessType} />
       </div>
     </div>
   );

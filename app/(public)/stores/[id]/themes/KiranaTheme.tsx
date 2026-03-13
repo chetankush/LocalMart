@@ -646,57 +646,90 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
             <div className="relative">
               <div
                 id="deals-scroll"
-                className="flex gap-4 overflow-x-auto pb-4 scroll-smooth scrollbar-hide"
+                className="flex gap-5 overflow-x-auto pb-4 scroll-smooth scrollbar-hide"
                 style={{ scrollBehavior: "smooth" }}
               >
-                {flashDeals.map((deal) => {
+                {flashDeals.map((deal, index) => {
                   const images = Array.isArray(deal.images) ? deal.images : [];
                   const firstImage = images.length > 0 ? images[0] : null;
 
                   return (
                     <div
                       key={deal.id}
-                      className="flex-shrink-0 w-56 bg-white rounded-2xl border-2 border-gray-200 overflow-hidden hover:shadow-xl hover:border-orange-400 transition-all duration-300 group"
+                      className="flex-shrink-0 w-64 bg-white rounded-3xl shadow-md hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden"
                     >
-                      <Link href={`/products/${deal.id}`} className="block">
-                        <div className="relative">
-                          <div className="relative aspect-square bg-gray-50">
+                      {/* Image Section with Badges */}
+                      <div className="relative bg-gray-100 rounded-t-3xl">
+                        {/* Best Seller Badge */}
+                        {index < 3 && (
+                          <div className="absolute top-4 left-4 bg-white px-3 py-1.5 rounded-full shadow-sm z-10">
+                            <span className="text-xs font-semibold text-gray-700">Best Seller</span>
+                          </div>
+                        )}
+
+                        {/* Heart/Wishlist Icon */}
+                        <button className="absolute top-4 right-4 w-9 h-9 bg-white rounded-full shadow-sm flex items-center justify-center z-10 hover:scale-110 transition-transform">
+                          <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                          </svg>
+                        </button>
+
+                        <Link href={`/products/${deal.id}`} className="block">
+                          <div className="relative aspect-square w-full p-8">
                             {firstImage ? (
                               <Image
                                 src={firstImage}
                                 alt={deal.name}
                                 fill
-                                className="object-contain p-4 group-hover:scale-110 transition-transform duration-300"
+                                className="object-contain group-hover:scale-110 transition-transform duration-500"
                               />
                             ) : (
-                              <div className="absolute inset-0 flex items-center justify-center text-5xl">
+                              <div className="absolute inset-0 flex items-center justify-center text-6xl">
                                 📦
                               </div>
                             )}
                           </div>
-                          <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                            {deal.discountPercent}% OFF
+                        </Link>
+
+                        {/* Image Dots Indicator */}
+                        {images.length > 1 && (
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                            {images.slice(0, 3).map((_, i) => (
+                              <div
+                                key={i}
+                                className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-gray-800' : 'bg-gray-400'}`}
+                              />
+                            ))}
                           </div>
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 min-h-[2.5rem]">
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="p-5 flex flex-col flex-grow">
+                        <Link href={`/products/${deal.id}`} className="flex-grow">
+                          {/* Category/Brand */}
+                          <p className="text-sm font-medium text-emerald-600 mb-1">
+                            {vendor.businessName}
+                          </p>
+
+                          {/* Product Name */}
+                          <h3 className="font-bold text-base text-gray-900 leading-snug line-clamp-2 mb-2">
                             {deal.name}
                           </h3>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-gray-900">
-                              ₹{Number(deal.price).toFixed(0)}
-                            </span>
-                            <span className="text-sm text-gray-500 line-through">
-                              ₹{deal.originalPrice}
-                            </span>
-                          </div>
+
+                          {/* Price */}
+                          <p className="text-lg font-bold text-gray-900">
+                            ₹{Number(deal.price).toFixed(2)}
+                          </p>
+                        </Link>
+
+                        {/* Buy Now Button */}
+                        <div className="mt-4">
+                          <AddToCartButton
+                            product={deal}
+                            vendorName={vendor.businessName}
+                          />
                         </div>
-                      </Link>
-                      <div className="px-4 pb-4">
-                        <AddToCartButton
-                          product={deal}
-                          vendorName={vendor.businessName}
-                        />
                       </div>
                     </div>
                   );
@@ -705,14 +738,14 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
               {showLeftArrow && (
                 <button
                   onClick={() => scrollDeals("left")}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border-2 border-gray-300 rounded-full p-3 shadow-lg hover:bg-gray-50 transition-colors"
+                  className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2.5 shadow-lg hover:shadow-xl transition-all hover:scale-105"
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-700" />
                 </button>
               )}
               <button
                 onClick={() => scrollDeals("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border-2 border-gray-300 rounded-full p-3 shadow-lg hover:bg-gray-50 transition-colors"
+                className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-2.5 shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
                 <ChevronRight className="w-5 h-5 text-gray-700" />
               </button>
@@ -773,7 +806,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                 <div
                   key={product.id}
                   id={`product-${product.id}`}
-                  className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden group relative flex flex-col"
+                  className="bg-white rounded-none border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden group relative flex flex-col"
                 >
                   {/* Discount Badge */}
                   {discountPercent >= 20 && (
@@ -784,7 +817,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
 
                   {/* Limited Stock Badge */}
                   {product.stockQuantity > 0 && product.stockQuantity <= 5 && (
-                    <div className="absolute top-3 right-3 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold z-10 shadow-lg">
+                    <div className="absolute top-3 right-3 bg-[#FF9933] text-white px-2 py-1 rounded-full text-xs font-semibold z-10 shadow-lg">
                       Limited
                     </div>
                   )}

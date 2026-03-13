@@ -214,7 +214,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
           {/* Header with Avatar */}
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-8">
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-orange-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
+              <div className="w-20 h-20 rounded-full bg-[#FF9933] flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                 {user.fullName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
               </div>
               <div className="flex-1">
@@ -485,7 +485,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                   <button
                     onClick={handleToggleRecentlyViewed}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                      showRecentlyViewed ? "bg-orange-500" : "bg-gray-300"
+                      showRecentlyViewed ? "bg-[#FF9933]" : "bg-gray-300"
                     }`}
                     aria-label="Toggle recently viewed visibility"
                   >

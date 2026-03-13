@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, MapPin, CreditCard, Smartphone, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth-provider';
+import { toast } from 'sonner';
 
 type PaymentMethod = 'cod' | 'upi' | 'card' | 'wallet';
 
@@ -55,7 +56,7 @@ export default function CheckoutPage() {
           </p>
           <Link
             href="/"
-            className="inline-block bg-orange-500 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-orange-600 transition-colors cursor-pointer"
+            className="inline-block bg-[#FF9933] text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-[#e8872b] transition-colors cursor-pointer"
           >
             Browse Products
           </Link>
@@ -77,11 +78,11 @@ export default function CheckoutPage() {
 
   const validateForm = () => {
     if (!address.fullName || !address.phone || !address.street || !address.city || !address.zipCode) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return false;
     }
     if (address.phone.length < 10) {
-      alert('Please enter a valid phone number');
+      toast.error('Please enter a valid phone number');
       return false;
     }
     return true;
@@ -91,7 +92,7 @@ export default function CheckoutPage() {
     if (!validateForm()) return;
 
     if (!user) {
-      alert('Please sign in to place an order');
+      toast.error('Please sign in to place an order');
       router.push('/sign-in');
       return;
     }
@@ -112,13 +113,12 @@ export default function CheckoutPage() {
       dispatch(clearCart());
 
       // Show success message
-      alert(`Order placed successfully! ${data.message}\n\nOrder Number: ${data.orders[0]?.orderNumber}\n\nYou will receive a confirmation shortly.`);
+      toast.success(`Order placed successfully! Order #${data.orders[0]?.orderNumber}`);
 
       // Redirect to orders page
       router.push('/my-orders');
     } catch (error) {
-      console.error('Order placement failed:', error);
-      alert(error instanceof Error ? error.message : 'Failed to place order. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to place order. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -412,7 +412,7 @@ export default function CheckoutPage() {
                 className={`w-full py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base transition-colors ${
                   isProcessing
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-orange-500 hover:bg-orange-600 cursor-pointer'
+                    : 'bg-[#FF9933] hover:bg-[#e8872b] cursor-pointer'
                 } text-white`}
               >
                 {isProcessing ? 'Processing...' : `Place Order (₹${finalTotal.toFixed(2)})`}

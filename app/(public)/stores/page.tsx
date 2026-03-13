@@ -11,9 +11,12 @@ interface StoresPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-async function getVendors(pincode?: string) {
+async function getVendors(pincode?: string, city?: string) {
   try {
-    const query = pincode ? `?pincode=${pincode}` : '';
+    const params = new URLSearchParams();
+    if (pincode) params.set('pincode', pincode);
+    if (city) params.set('city', city);
+    const query = params.toString() ? `?${params.toString()}` : '';
     const response = await fetch(`${API_BASE_URL}/vendors${query}`, {
       next: { revalidate: 300 },
     });
@@ -55,10 +58,11 @@ async function getUserFavorites(authToken: string) {
 export default async function StoresPage({ searchParams }: StoresPageProps) {
   const params = await searchParams;
   const pincode = params.pincode as string | undefined;
+  const city = params.city as string | undefined;
 
   // Get user and vendors in parallel
   const user = await getCurrentUser();
-  const vendors = await getVendors(pincode);
+  const vendors = await getVendors(pincode, city);
 
   // Get favorite store IDs if user is logged in
   let favoriteVendorIds: string[] = [];
@@ -80,7 +84,7 @@ export default async function StoresPage({ searchParams }: StoresPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-purple-50/20">
       <div className="relative w-full">
-        <StoresList vendors={vendorsWithFavorites} selectedPincode={pincode} />
+        <StoresList vendors={vendorsWithFavorites} selectedPincode={pincode} selectedCity={city} />
       </div>
     </div>
   );

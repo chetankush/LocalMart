@@ -303,7 +303,7 @@ export default function NotificationsPage() {
             </p>
             <Link
               href="/stores"
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
+              className="inline-block px-6 py-3 bg-[#10A37F] text-white rounded-full hover:bg-[#0E8C6C] transition-colors cursor-pointer font-semibold"
             >
               Browse Stores
             </Link>

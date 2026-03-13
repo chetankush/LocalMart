@@ -6,9 +6,13 @@ import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-async function getVendorSettings(authToken: string) {
+async function getVendorSettings(authToken: string, storeId?: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/vendor/settings`, {
+    const url = storeId
+      ? `${API_BASE_URL}/vendor/settings?storeId=${storeId}`
+      : `${API_BASE_URL}/vendor/settings`;
+
+    const response = await fetch(url, {
       headers: {
         "Authorization": `Bearer ${authToken}`,
         "Content-Type": "application/json",
@@ -32,8 +36,14 @@ async function getVendorSettings(authToken: string) {
   }
 }
 
-export default async function VendorSettingsPage() {
+export default async function VendorSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
   const user = await requireRole(["VENDOR"]);
+  const params = await searchParams;
+  const storeId = params.storeId;
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -42,7 +52,7 @@ export default async function VendorSettingsPage() {
     redirect("/sign-in");
   }
 
-  const vendor = await getVendorSettings(session.access_token);
+  const vendor = await getVendorSettings(session.access_token, storeId);
 
   if (!vendor) {
     redirect("/vendor/onboarding");
