@@ -6,7 +6,20 @@
       "Bash(npx prisma:*)",
       "Bash(dir prisma)",
       "Bash(mkdir:*)",
-      "Read(//d/Screenshots/**)"
+      "Read(//d/Screenshots/**)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(psql:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 30 npx prisma:*)",
+      "Bash(npx tsx:*)",
+      "WebFetch(domain:blinkit.com)",
+      "WebFetch(domain:www.amazon.in)",
+      "WebSearch",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []

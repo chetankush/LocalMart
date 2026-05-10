@@ -1,0 +1,47 @@
+@theme {
+  /* Font families */
+  /* Display/heading: General Sans (Fontshare — loaded via <link> in layout.tsx) */
+  /* Body + prices + brand: DM Sans (next/font)                                  */
+  --font-family-sans: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  --font-family-display: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  --font-family-heading: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  --font-family-brand: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+
+  /* Custom breakpoints */
+  --breakpoint-xs: 320px;
+
+  /* ─── Brand: Periwinkle (secondary role — brand/links/accents) ─── */
+  --color-primary: #93A4FF;
+  --color-primary-dark: #6B7FFF;
+  --color-primary-light: #C4CEFF;
+  --color-primary-xlight: #EEF0FF;
+
+  /* ─── Accent: Saffron Gold (primary CTA role) ─────────────────── */
+  --color-accent: #F59B1C;
+  --color-accent-dark: #D4820E;
+  --color-accent-light: #FDE8B8;
+
+  /* ─── Surfaces ───────────────────────────────────────────────── */
+  --color-ivory: #FAF7F2;
+  --color-cream: #F2EDE4;
+  --color-sand: #E4DED6;
+  --color-blush: #FCE8E6;
+
+  /* ─── Ink / Text ─────────────────────────────────────────────── */
+  --color-ink: #1C1C2E;
+  --color-ink-2: #5A5870;
+  --color-ink-3: #9896AA;
+
+  /* ─── Semantic ───────────────────────────────────────────────── */
+  --color-tulsi: #2A7D4F;
+  --color-laal: #C62828;
+  --color-marigold: #F59B1C;
+
+  /* ─── Vendor side: calm indigo (premium, enterprise feel) ────── */
+  /* Used across /vendor and /admin to differentiate from the      */
+  /* customer-facing saffron-gold accent. Relaxing, trustworthy.   */
+  --color-vendor: #4F5BD5;
+  --color-vendor-dark: #3540AB;
+  --color-vendor-light: #DCE0F8;
+  --color-vendor-xlight: #F2F3FC;
+}

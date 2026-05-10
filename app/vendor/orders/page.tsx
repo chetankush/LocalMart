@@ -1,51 +1,32 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OrdersList from "./OrdersList";
 
-export default async function VendorOrdersPage() {
-  try {
-    const user = await requireRole(["VENDOR"]);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-    // Get vendor profile with error handling
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: user.id },
+async function getVendorOrders(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/orders`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
     });
 
-    if (!vendor) {
-      redirect("/vendor/onboarding");
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { notFound: true, orders: [] };
+      }
+      console.error("Failed to fetch orders:", response.status);
+      return { error: true, orders: [] };
     }
 
-    // Get orders for this vendor with optimized query
-    const rawOrders = await prisma.order.findMany({
-      where: { vendorId: vendor.id },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-          },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                images: true,
-                price: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 100, // Limit to prevent performance issues
-    });
+    const result = await response.json();
 
     // Convert Decimal values to numbers for client components
-    const orders = rawOrders.map((order) => ({
+    const orders = (result.data || []).map((order: any) => ({
       ...order,
       subtotal: Number(order.subtotal),
       deliveryFee: Number(order.deliveryFee),
@@ -54,41 +35,41 @@ export default async function VendorOrdersPage() {
       totalAmount: Number(order.totalAmount),
       platformCommission: Number(order.platformCommission),
       vendorPayout: Number(order.vendorPayout),
-      items: order.items.map((item) => ({
+      items: order.items?.map((item: any) => ({
         ...item,
         unitPrice: Number(item.unitPrice),
         totalPrice: Number(item.totalPrice),
-        product: {
+        product: item.product ? {
           ...item.product,
           price: Number(item.product.price),
-        },
-      })),
+        } : null,
+      })) || [],
     }));
 
-    console.log(
-      `Fetched ${orders.length} orders for vendor ${vendor.businessName}`
-    );
-
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-            <p className="text-sm text-gray-600">
-              Manage and track your orders ({orders.length} total)
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <OrdersList orders={orders} />
-        </div>
-      </div>
-    );
+    return { orders };
   } catch (error) {
     console.error("Error fetching orders:", error);
+    return { error: true, orders: [] };
+  }
+}
 
+export default async function VendorOrdersPage() {
+  const user = await requireRole(["VENDOR"]);
+
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    redirect("/sign-in");
+  }
+
+  const result = await getVendorOrders(session.access_token);
+
+  if (result.notFound) {
+    redirect("/vendor/onboarding");
+  }
+
+  if (result.error) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="bg-white shadow">
@@ -124,15 +105,28 @@ export default async function VendorOrdersPage() {
               There was an error loading your orders. Please try refreshing the
               page.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Refresh Page
-            </button>
           </div>
         </div>
       </div>
     );
   }
+
+  const orders = result.orders;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
+          <p className="text-sm text-gray-600">
+            Manage and track your orders ({orders.length} total)
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <OrdersList orders={orders} />
+      </div>
+    </div>
+  );
 }

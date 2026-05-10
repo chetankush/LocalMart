@@ -60,6 +60,25 @@ enum BusinessType {
   OTHER
 }
 
+enum StoreTheme {
+  KIRANA                  // Kirana stores
+  GROCERY                 // Daily needs grocery and general stores
+  CLOTHING                // Clothing stores
+  SHOES                   // Shoe stores
+  DAIRY                   // Milk and dairy stores
+  ELECTRONICS             // Electronics stores
+  MOBILES                 // Mobiles and laptops stores
+  BRAND_SPEC              // Brand specific stores
+  WHOLESALE               // Wholesale stores
+  COSMETICS               // Cosmetics stores
+  BEAUTY_PARLOUR          // Beauty parlour stores
+  AUTOMOTIVE              // Automotive parts stores
+  BICYCLE                 // Bicycle stores
+  MEDICINE                // Medicine stores
+  DEFAULT                 // Default theme (current UI)
+  OTHER                   // Other stores
+}
+
 // ================================
 // USER MANAGEMENT
 // ================================
@@ -94,15 +113,24 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Additional contact information for delivery notifications
+  additionalEmails String[] @default([]) // Additional email addresses
+  additionalPhones String[] @default([]) // Additional phone numbers
+  priorityEmail    String?  // High priority email for delivery notifications
+  priorityPhone    String?  // High priority phone for delivery calls/SMS
+
   // Relations
-  vendor          Vendor?
-  orders          Order[]    @relation("CustomerOrders")
-  addresses       Address[]
-  reviews         Review[]
-  storeReviews    StoreReview[]
-  productReviews  ProductReview[]
-  cart            CartItem[]
-  favoriteStores  FavoriteStore[]
+  vendor                    Vendor?
+  orders                    Order[]    @relation("CustomerOrders")
+  addresses                 Address[]
+  reviews                   Review[]
+  storeReviews              StoreReview[]
+  productReviews            ProductReview[]
+  cart                      CartItem[]
+  favoriteStores            FavoriteStore[]
+  notifications             Notification[]
+  backInStockSubscriptions  BackInStockSubscription[]
+  areaNotificationSubscriptions AreaNotificationSubscription[]
 
   @@index([email])
   @@index([phone])
@@ -145,6 +173,10 @@ model Vendor {
   storeLogo           String?
   storeImages         Json?        // Array of store image URLs
 
+  // Store Theme Selection
+  storeTheme          StoreTheme   @default(DEFAULT) // Store theme for UI customization
+  themeCustomization  Json?        // Theme-specific customization settings
+
   // Location Information
   city                String       // City name (e.g., "Guna")
   state               String       @default("Madhya Pradesh") // State name
@@ -176,6 +208,13 @@ model Vendor {
   // Business Hours
   businessHours       Json? // { [day]: { open, close, isOpen } }
 
+  // Social Media Links
+  whatsappNumber      String?      // WhatsApp number with country code
+  telegramLink        String?      // Telegram channel/group link
+  instagramHandle     String?      // Instagram username
+  facebookPage        String?      // Facebook page URL
+  websiteUrl          String?      // Store website URL
+
   // Verification
   isVerified          Boolean      @default(false)
   verifiedAt          DateTime?
@@ -199,6 +238,7 @@ model Vendor {
   reviews            Review[]
   storeReviews       StoreReview[]
   favoritedBy        FavoriteStore[]
+  notifications      Notification[]
 
   @@index([userId])
   @@index([status])
@@ -221,15 +261,48 @@ model Category {
   icon        String?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
+  storeThemes StoreTheme[] @default([DEFAULT])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  products    Product[]
+  products          Product[]
+  productTemplates  ProductTemplate[]
 
   @@index([slug])
   @@index([isActive])
   @@map("categories")
+}
+
+// Product Templates for quick product addition
+model ProductTemplate {
+  id                String   @id @default(uuid())
+  categoryId        String
+
+  name              String
+  description       String   @db.Text
+  suggestedImage    String?  // URL to a generic product image
+
+  // Suggested values (vendors can modify these)
+  suggestedPrice    Decimal? @db.Decimal(10, 2)
+  suggestedWeight   Decimal? @db.Decimal(10, 2)
+
+  // Template metadata
+  isPopular         Boolean  @default(false) // Popular products shown first
+  usageCount        Int      @default(0) // Track how many times this template was used
+
+  // Tags for better searchability
+  tags              Json?    // Array of strings like ["oil", "cooking", "edible"]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  category          Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([isPopular])
+  @@map("product_templates")
 }
 
 model Product {
@@ -265,6 +338,9 @@ model Product {
   isActive          Boolean  @default(true)
   isFeatured        Boolean  @default(false)
 
+  // Tags for filtering (valentine, for-her, for-him, gifts, seasonal, etc.)
+  tags              String[] @default([])
+
   // Product Reviews & Ratings
   averageRating     Decimal? @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
   reviewCount       Int      @default(0)
@@ -277,12 +353,14 @@ model Product {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  vendor            Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  category          Category    @relation(fields: [categoryId], references: [id])
-  orderItems        OrderItem[]
-  reviews           Review[]
-  productReviews    ProductReview[]
-  cartItems         CartItem[]
+  vendor                    Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category                  Category    @relation(fields: [categoryId], references: [id])
+  orderItems                OrderItem[]
+  reviews                   Review[]
+  productReviews            ProductReview[]
+  cartItems                 CartItem[]
+  notifications             Notification[]
+  backInStockSubscriptions  BackInStockSubscription[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -610,3 +688,72 @@ model VendorAnalytics {
   @@index([date])
   @@map("vendor_analytics")
 }
+
+// ================================
+// NOTIFICATION SYSTEM
+// ================================
+
+enum NotificationType {
+  NEW_COLLECTION        // Vendor posted new product
+  BACK_IN_STOCK        // Product is back in stock
+  VENDOR_BROADCAST     // Manual message from vendor
+  NEW_STORE_IN_AREA    // New store opened in subscribed area
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  userId          String
+  vendorId        String?          // Null for system notifications
+  productId       String?          // For product-related notifications
+  type            NotificationType
+  title           String
+  message         String           @db.Text
+  isRead          Boolean          @default(false)
+  metadata        Json?            // Additional data (product image, link, etc.)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor          Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  product         Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([vendorId])
+  @@map("notifications")
+}
+
+model BackInStockSubscription {
+  id              String    @id @default(uuid())
+  userId          String
+  productId       String
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("back_in_stock_subscriptions")
+}
+
+// Area notification subscription - notify when new stores open in an area
+model AreaNotificationSubscription {
+  id              String    @id @default(uuid())
+  userId          String
+  pincode         String
+  city            String?
+  locality        String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pincode])
+  @@index([pincode])
+  @@index([userId])
+  @@map("area_notification_subscriptions")
+}
+

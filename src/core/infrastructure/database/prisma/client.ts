@@ -16,7 +16,18 @@ export const prisma =
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     errorFormat: 'pretty',
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
   });
+
+if (!process.env.DATABASE_URL) {
+  console.error("CRITICAL: DATABASE_URL is not defined in environment variables!");
+} else {
+  console.log("Prisma Client initialized with DATABASE_URL present.");
+}
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;

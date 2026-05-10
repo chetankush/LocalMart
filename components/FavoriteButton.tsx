@@ -10,6 +10,7 @@ interface FavoriteButtonProps {
   initialFavoriteCount: number;
   size?: "sm" | "md" | "lg";
   showCount?: boolean;
+  onFavoritesPage?: boolean; // New prop to detect if we're on favorites page
 }
 
 export default function FavoriteButton({
@@ -18,6 +19,7 @@ export default function FavoriteButton({
   initialFavoriteCount,
   size = "md",
   showCount = true,
+  onFavoritesPage = false,
 }: FavoriteButtonProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -46,22 +48,28 @@ export default function FavoriteButton({
     setTimeout(() => setIsAnimating(false), 300);
 
     try {
-      const response = await fetch("/api/favorites/toggle", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ vendorId }),
-      });
+      const { apiClient } = await import("@/lib/api/client");
+      const response = await apiClient.toggleFavorite(vendorId);
 
-      if (!response.ok) {
-        throw new Error("Failed to toggle favorite");
+      // The API returns { success: true, data: { isFavorited, favoriteCount } }
+      if (response && response.success && response.data) {
+        // Update with actual server response
+        setIsFavorited(response.data.isFavorited);
+        setFavoriteCount(response.data.favoriteCount);
+
+        // If on favorites page and unfavorited, refresh the page to remove the card
+        if (onFavoritesPage && !response.data.isFavorited) {
+          // Small delay to show the animation, then refresh
+          setTimeout(() => {
+            router.refresh();
+          }, 500);
+        }
+      } else {
+        // If response is invalid, revert
+        console.error("Invalid response from API:", response);
+        setIsFavorited(previousFavorited);
+        setFavoriteCount(previousCount);
       }
-
-      const data = await response.json();
-      // Update with actual server response
-      setIsFavorited(data.isFavorited);
-      setFavoriteCount(data.favoriteCount);
     } catch (error) {
       console.error("Error toggling favorite:", error);
       // Revert optimistic update on error
@@ -90,7 +98,7 @@ export default function FavoriteButton({
           isFavorited
             ? "bg-red-500 hover:bg-red-600"
             : "bg-white hover:bg-gray-100"
-        } rounded-full flex items-center justify-center shadow-md transition-all duration-200 group relative z-10 active:scale-90 ${
+        } rounded-full flex items-center justify-center shadow-md transition-all duration-200 group relative z-10 active:scale-90 cursor-pointer ${
           isAnimating ? "animate-bounce" : ""
         }`}
         aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}

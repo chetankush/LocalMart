@@ -2,10 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useBusinessCategories } from '@/hooks/useBusinessCategories';
 
 export default function VendorOnboardingForm({ userId }: { userId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+
+  // Use dynamic business categories
+  const { categories: businessCategories, loading: categoriesLoading } = useBusinessCategories(true);
+
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: 'GROCERY',
@@ -25,13 +30,8 @@ export default function VendorOnboardingForm({ userId }: { userId: string }) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/vendor/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import('@/lib/api/client');
+      const data = await apiClient.vendorOnboarding(formData);
 
       if (data.success) {
         router.push('/vendor/dashboard');
@@ -83,15 +83,18 @@ export default function VendorOnboardingForm({ userId }: { userId: string }) {
               value={formData.businessType}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={categoriesLoading}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
             >
-              <option value="GROCERY">Grocery Store</option>
-              <option value="RESTAURANT">Restaurant</option>
-              <option value="PHARMACY">Pharmacy</option>
-              <option value="ELECTRONICS">Electronics</option>
-              <option value="FASHION">Fashion</option>
-              <option value="HOME_SERVICES">Home Services</option>
-              <option value="OTHER">Other</option>
+              {categoriesLoading ? (
+                <option value="">Loading categories...</option>
+              ) : (
+                businessCategories.map((category) => (
+                  <option key={category.value} value={category.value}>
+                    {category.icon ? `${category.icon} ` : ''}{category.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 

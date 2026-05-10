@@ -1,59 +1,110 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+"use client";
 
-import { cn } from "@/lib/utils"
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import Link from "next/link";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-  {
-    variants: {
-      variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-)
+type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type Size = "sm" | "md" | "lg";
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot : "button"
-
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  )
+interface BaseProps {
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
+  fullWidth?: boolean;
+  leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
+  children: ReactNode;
 }
 
-export { Button, buttonVariants }
+interface ButtonAsButton extends BaseProps, Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  href?: undefined;
+}
+
+interface ButtonAsLink extends BaseProps {
+  href: string;
+  type?: never;
+  disabled?: boolean;
+  onClick?: never;
+  "aria-label"?: string;
+}
+
+type Props = ButtonAsButton | ButtonAsLink;
+
+const variantClasses: Record<Variant, string> = {
+  primary:
+    "bg-accent text-white hover:bg-accent-dark shadow-sm hover:shadow-md disabled:bg-sand disabled:text-ink-3 disabled:shadow-none",
+  secondary:
+    "bg-white text-ink border-2 border-sand hover:border-ink hover:bg-cream disabled:text-ink-3 disabled:border-sand",
+  ghost:
+    "bg-transparent text-ink hover:bg-cream disabled:text-ink-3",
+  destructive:
+    "bg-laal text-white hover:bg-laal/90 shadow-sm disabled:bg-sand disabled:text-ink-3",
+};
+
+const sizeClasses: Record<Size, string> = {
+  sm: "px-3 py-1.5 text-xs gap-1.5",
+  md: "px-5 py-2.5 text-sm gap-2",
+  lg: "px-7 py-3.5 text-base gap-2.5",
+};
+
+const Spinner = ({ size }: { size: Size }) => {
+  const cls = size === "sm" ? "w-3 h-3" : size === "lg" ? "w-5 h-5" : "w-4 h-4";
+  return <span className={`${cls} border-2 border-current border-t-transparent rounded-full animate-spin`} aria-hidden />;
+};
+
+const Button = forwardRef<HTMLButtonElement, Props>(function Button(props, ref) {
+  const {
+    variant = "primary",
+    size = "md",
+    loading = false,
+    fullWidth = false,
+    leadingIcon,
+    trailingIcon,
+    children,
+    ...rest
+  } = props;
+
+  const className =
+    `font-semibold rounded-full transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed ${
+      variantClasses[variant]
+    } ${sizeClasses[size]} ${fullWidth ? "w-full" : ""}`;
+
+  const inner = (
+    <>
+      {loading ? <Spinner size={size} /> : leadingIcon}
+      <span>{children}</span>
+      {!loading && trailingIcon}
+    </>
+  );
+
+  if ("href" in rest && rest.href) {
+    const { href, disabled, ...linkRest } = rest;
+    return (
+      <Link
+        href={href}
+        className={`${className} ${disabled ? "pointer-events-none opacity-60" : ""}`}
+        aria-disabled={disabled || undefined}
+        {...linkRest}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  const { type = "button", disabled, ...buttonRest } = rest as ButtonAsButton;
+  return (
+    <button
+      ref={ref}
+      type={type}
+      disabled={disabled || loading}
+      className={className}
+      aria-busy={loading || undefined}
+      {...buttonRest}
+    >
+      {inner}
+    </button>
+  );
+});
+
+export { Button };
+export default Button;

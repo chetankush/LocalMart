@@ -12,6 +12,11 @@ export default function CartIcon() {
   const cartItems = useAppSelector(selectCartItems);
   const [showMiniCart, setShowMiniCart] = useState(false);
   const [prevItemsCount, setPrevItemsCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Show mini cart when items are added
   useEffect(() => {
@@ -41,8 +46,8 @@ export default function CartIcon() {
         aria-label="Shopping cart"
       >
         <ShoppingCart className="w-6 h-6 text-white" />
-        {itemsCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+        {mounted && (
+          <span className="absolute top-0.5 right-0.5 bg-[#FF9933] text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center leading-none">
             {itemsCount > 99 ? '99+' : itemsCount}
           </span>
         )}
@@ -58,7 +63,7 @@ export default function CartIcon() {
             </h3>
             <button
               onClick={() => setShowMiniCart(false)}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4 text-gray-500" />
             </button>
@@ -131,7 +136,7 @@ export default function CartIcon() {
             </div>
             <Link
               href="/cart"
-              className="block w-full py-2.5 bg-blue-600 text-white text-center rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="block w-full py-2.5 bg-[#FF9933] text-white text-center rounded-lg font-semibold hover:bg-[#e8872b] transition-colors cursor-pointer"
               onClick={() => setShowMiniCart(false)}
             >
               View Cart

@@ -1,90 +1,103 @@
-import { getCurrentUser } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { cookies } from "next/headers";
 import LandingPageClient from "./LandingPageClient";
 
-export default async function Home() {
-  const user = await getCurrentUser();
+export const revalidate = 60;
 
-  // Get active vendors with their store images and business types
-  const vendors = await prisma.vendor.findMany({
-    where: {
-      status: "ACTIVE",
-      isActive: true,
-    },
-    select: {
-      id: true,
-      businessName: true,
-      businessType: true,
-      storeDescription: true,
-      storeLogo: true,
-      city: true,
-      locality: true,
-      favoriteCount: true,
-      averageRating: true,
-      reviewCount: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const FETCH_TIMEOUT_MS = 3000;
 
-  // Check which vendors are favorited by current user
-  const vendorsWithFavorites = user
-    ? await Promise.all(
-        vendors.map(async (vendor) => {
-          const isFavorited = await prisma.favoriteStore.findUnique({
-            where: {
-              userId_vendorId: {
-                userId: user.id,
-                vendorId: vendor.id,
-              },
-            },
-          });
-          return {
-            ...vendor,
-            isFavorited: !!isFavorited,
-          };
-        })
-      )
-    : vendors.map((vendor) => ({ ...vendor, isFavorited: false }));
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  // Get featured products with images and ratings
-  const featuredProducts = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      isFeatured: true,
-    },
-    select: {
-      id: true,
-      name: true,
-      price: true,
-      images: true,
-      stockQuantity: true,
-      averageRating: true,
-      reviewCount: true,
-      vendor: {
-        select: {
-          id: true,
-          businessName: true,
-          storeLogo: true,
-        },
+const emptyHomepage = { vendors: [], featuredProducts: [], popularProducts: [], categories: [] };
+
+async function getHomepageData() {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/public/homepage`, {
+      next: { revalidate: 60 },
+    });
+    if (!response.ok) {
+      return { data: emptyHomepage, ok: false, status: response.status };
+    }
+    const result = await response.json();
+    return { data: result.data || emptyHomepage, ok: true };
+  } catch {
+    return { data: emptyHomepage, ok: false, status: 0 };
+  }
+}
+
+async function getCurrentUser(authToken: string) {
+  if (!authToken) return null;
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
       },
-    },
-    take: 12,
-    orderBy: { createdAt: "desc" },
-  });
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result.data || null;
+  } catch {
+    return null;
+  }
+}
 
-  // Get categories for navigation
-  const categories = await prisma.category.findMany({
-    take: 8,
-    orderBy: { name: "asc" },
-  });
+async function getUserFavorites(authToken: string) {
+  if (!authToken) return [];
+  try {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/favorites`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) return [];
+    const result = await response.json();
+    return result.data?.map((f: any) => f.vendorId) || [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function Home() {
+  const cookieStore = await cookies();
+  const authToken =
+    cookieStore.get("sb-access-token")?.value ||
+    cookieStore.get("sb-auth-token")?.value ||
+    "";
+
+  const [homepage, user] = await Promise.all([
+    getHomepageData(),
+    getCurrentUser(authToken),
+  ]);
+
+  const favoriteVendorIds = user ? await getUserFavorites(authToken) : [];
+
+  const { vendors, featuredProducts, popularProducts, categories } = homepage.data;
+
+  const vendorsWithFavorites = vendors.map((vendor: any) => ({
+    ...vendor,
+    isFavorited: favoriteVendorIds.includes(vendor.id),
+  }));
 
   return (
     <LandingPageClient
       user={user}
       vendors={vendorsWithFavorites}
       featuredProducts={featuredProducts}
+      popularProducts={popularProducts || []}
       categories={categories}
+      backendStatus={{ ok: homepage.ok, status: homepage.status }}
     />
   );
 }

@@ -44,7 +44,7 @@ export default function SignInPage() {
           <button
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -118,7 +118,7 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full bg-[#FF9933] text-white py-3 rounded-lg font-semibold hover:bg-[#e8872b] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
@@ -130,7 +130,7 @@ export default function SignInPage() {
             Don't have an account?{" "}
             <Link
               href="/sign-up"
-              className="text-blue-600 hover:underline font-medium"
+              className="text-blue-600 hover:underline font-medium cursor-pointer"
             >
               Sign Up
             </Link>

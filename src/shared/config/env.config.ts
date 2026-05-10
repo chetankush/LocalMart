@@ -5,21 +5,20 @@
 
 // Validate required environment variables
 const requiredEnvVars = [
-  "DATABASE_URL",
-  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
-  "CLERK_SECRET_KEY",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ] as const;
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
+    console.warn(`Missing environment variable: ${envVar}`);
   }
 }
 
 export const env = {
   // Application
   app: {
-    name: process.env.NEXT_PUBLIC_APP_NAME || "NearStore",
+    name: process.env.NEXT_PUBLIC_APP_NAME || "LocalMart",
     url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
     env: process.env.NODE_ENV || "development",
     isDevelopment: process.env.NODE_ENV === "development",
@@ -32,14 +31,12 @@ export const env = {
     directUrl: process.env.DIRECT_URL,
   },
 
-  // Authentication (Clerk)
+  // Authentication (Supabase)
   auth: {
-    publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!,
-    secretKey: process.env.CLERK_SECRET_KEY!,
-    signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || "/sign-in",
-    signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || "/sign-up",
-    afterSignInUrl: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL || "/",
-    afterSignUpUrl: process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL || "/",
+    signInUrl: "/sign-in",
+    signUpUrl: "/sign-up",
+    afterSignInUrl: "/",
+    afterSignUpUrl: "/select-role",
   },
 
   // Supabase
@@ -63,16 +60,16 @@ export const env = {
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || "",
   },
 
-  // Google Maps
+  // Maps (OpenStreetMap - no key needed)
   maps: {
-    apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+    provider: "openstreetmap" as const,
   },
 
   // Email (SendGrid)
   email: {
     apiKey: process.env.SENDGRID_API_KEY || "",
     fromEmail: process.env.SENDGRID_FROM_EMAIL || "noreply@localmart.com",
-    fromName: process.env.SENDGRID_FROM_NAME || "NearStore",
+    fromName: process.env.SENDGRID_FROM_NAME || "LocalMart",
   },
 
   // SMS (Twilio)
@@ -127,7 +124,7 @@ export const isServiceConfigured = (
     case "razorpay":
       return !!env.razorpay.keyId && !!env.razorpay.keySecret;
     case "maps":
-      return !!env.maps.apiKey;
+      return true; // OpenStreetMap, always available
     case "email":
       return !!env.email.apiKey;
     case "sms":

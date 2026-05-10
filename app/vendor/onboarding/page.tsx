@@ -1,33 +1,58 @@
 import { requireRole } from '@/src/shared/utils/auth';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/src/core/infrastructure/database/prisma/client';
-import VendorOnboardingForm from './VendorOnboardingForm';
+import { createClient } from '@/lib/supabase/server';
+import VendorOnboardingWizard from './VendorOnboardingWizard';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+async function checkVendorExists(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/dashboard`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    // If we can access the dashboard, vendor exists
+    return response.ok;
+  } catch (error) {
+    console.error("Error checking vendor:", error);
+    return false;
+  }
+}
 
 export default async function VendorOnboardingPage() {
   const user = await requireRole(['VENDOR']);
 
-  // Check if vendor profile already exists
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (vendor) {
+  if (!session?.access_token) {
+    redirect('/sign-in');
+  }
+
+  // Check if vendor profile already exists
+  const vendorExists = await checkVendorExists(session.access_token);
+
+  if (vendorExists) {
     redirect('/vendor/dashboard');
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-3xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Complete Your Store Setup
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Welcome! Let's Set Up Your Store
           </h1>
-          <p className="text-gray-600 mb-8">
-            Tell us about your business and delivery capabilities
+          <p className="text-lg text-gray-600">
+            Just 3 quick steps to start selling on LocalMart
           </p>
-
-          <VendorOnboardingForm userId={user.id} />
         </div>
+
+        <VendorOnboardingWizard userId={user.id} />
       </div>
     </div>
   );
