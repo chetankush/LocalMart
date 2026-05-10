@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
@@ -64,6 +65,27 @@ async function getVendorDetails(id: string) {
     console.error("Error fetching vendor details:", error);
     return null;
   }
+}
+
+export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
+  const { id } = await params;
+  const vendor = await getVendorDetails(id);
+  if (!vendor) {
+    return { title: "Store not found | LocalMart" };
+  }
+  const title = `${vendor.businessName} | LocalMart`;
+  const description = (vendor.storeDescription || `Shop from ${vendor.businessName} on LocalMart.`).slice(0, 160);
+  const ogImage = vendor.storeLogo || vendor.storeImages?.[0];
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+      type: "website",
+    },
+  };
 }
 
 export default async function StorePage({ params }: StorePageProps) {

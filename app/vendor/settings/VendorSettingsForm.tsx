@@ -214,11 +214,11 @@ export default function VendorSettingsForm({
         alert("Settings updated successfully!");
         router.refresh();
       } else {
-        alert(data.error || "Failed to update settings");
+        alert((data as any).error || (data as any).message || "Failed to update settings");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Settings update error:", error);
-      alert("Something went wrong. Please try again.");
+      alert(error?.message || "Something went wrong. Please try again.");
     }
 
     setLoading(false);

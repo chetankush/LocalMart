@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useBusinessCategories } from '@/hooks/useBusinessCategories';
 
@@ -10,6 +10,22 @@ interface VendorOnboardingWizardProps {
 
 type Step = 1 | 2 | 3;
 
+const STORAGE_KEY = (userId: string) => `vendor-onboarding-wizard:${userId}`;
+
+const INITIAL_FORM = {
+  businessName: '',
+  businessType: 'GROCERY',
+  contactEmail: '',
+  contactPhone: '',
+  street: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  deliveryRadius: '5',
+  deliveryCharge: '50',
+  minOrderAmount: '100',
+};
+
 export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>(1);
@@ -18,24 +34,31 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
   // Use shared hook for dynamic business categories
   const { categories: businessCategories, loading: categoriesLoading } = useBusinessCategories(true);
 
-  const [formData, setFormData] = useState({
-    // Step 1: Business Basics
-    businessName: '',
-    businessType: 'GROCERY',
-    contactEmail: '',
-    contactPhone: '',
+  const [formData, setFormData] = useState(INITIAL_FORM);
 
-    // Step 2: Location
-    street: '',
-    city: '',
-    state: '',
-    zipCode: '',
+  // Restore from sessionStorage on mount (per-user key)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY(userId));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.formData) setFormData({ ...INITIAL_FORM, ...saved.formData });
+        if (saved.currentStep) setCurrentStep(saved.currentStep);
+      }
+    } catch {
+      // Ignore corrupt state
+    }
+  }, [userId]);
 
-    // Step 3: Delivery Settings
-    deliveryRadius: '5',
-    deliveryCharge: '50',
-    minOrderAmount: '100',
-  });
+  // Persist on change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem(
+      STORAGE_KEY(userId),
+      JSON.stringify({ formData, currentStep }),
+    );
+  }, [userId, formData, currentStep]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
@@ -82,6 +105,9 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
       const data = await apiClient.vendorOnboarding(formData);
 
       if (data.success) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(STORAGE_KEY(userId));
+        }
         router.push('/vendor/onboarding/add-products');
       } else {
         alert((data as any).error || (data as any).message || 'Failed to complete onboarding');
