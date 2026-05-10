@@ -194,6 +194,7 @@ export default function EditProductForm({
       if (data.success) {
         alert("Product updated successfully!");
         router.push("/vendor/products");
+        router.refresh();
       } else {
         alert(data.error || "Failed to update product");
       }

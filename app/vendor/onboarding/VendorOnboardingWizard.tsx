@@ -84,11 +84,11 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
       if (data.success) {
         router.push('/vendor/onboarding/add-products');
       } else {
-        alert(data.error || 'Failed to complete onboarding');
+        alert((data as any).error || (data as any).message || 'Failed to complete onboarding');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Onboarding error:', error);
-      alert('Something went wrong. Please try again.');
+      alert(error?.message || 'Something went wrong. Please try again.');
     }
 
     setLoading(false);

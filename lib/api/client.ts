@@ -438,27 +438,13 @@ class ApiClient {
   }
 
   async createVendorProduct(data: any) {
-    console.log("=== API CLIENT: createVendorProduct ===");
-    console.log("API Client Step 1: Received data", JSON.stringify(data, null, 2));
-    console.log("API Client Step 2: VendorId in request:", data.vendorId);
-    console.log("API Client Step 3: Calling POST /vendor/products");
-    
-    try {
-      const result = await this.request<{ success: boolean; data: any; message: string }>(
-        "/vendor/products",
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        }
-      );
-      console.log("API Client Step 4: Response received", JSON.stringify(result, null, 2));
-      return result;
-    } catch (error: any) {
-      console.error("API Client Step 4: ERROR", error);
-      console.error("API Client Error message:", error?.message);
-      console.error("API Client Error status:", error?.status);
-      throw error;
-    }
+    return this.request<{ success: boolean; data: any; message: string }>(
+      "/vendor/products",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
   }
 
   async getVendorProduct(id: string) {
