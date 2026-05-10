@@ -41,8 +41,8 @@ export default function QuickStoreFilters({
       id: "fast",
       label: "Fast Delivery",
       icon: <Zap className="w-4 h-4" />,
-      activeColor: "bg-[#FF9933] border-[#FF9933]",
-      activeBg: "bg-[#FFF3E6]",
+      activeColor: "bg-accent border-accent",
+      activeBg: "bg-accent-light",
       description: "Quick delivery"
     },
     {
@@ -61,14 +61,14 @@ export default function QuickStoreFilters({
     <div className="w-full">
       {/* Filter Header with Clear */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 text-gray-600">
+        <div className="flex items-center gap-2 text-ink-2">
           <SlidersHorizontal className="w-4 h-4" />
           <span className="text-sm font-medium">Quick Filters</span>
         </div>
         {activeFilter && (
           <button
             onClick={() => onFilterChange(null)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition-colors"
+            className="flex items-center gap-1 text-xs text-ink-2 hover:text-red-500 transition-colors"
           >
             <X className="w-3 h-3" />
             Clear filter
@@ -91,7 +91,7 @@ export default function QuickStoreFilters({
                 transition-all duration-200 whitespace-nowrap
                 ${isActive
                   ? `${filter.activeColor} text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5`
-                  : `bg-white text-gray-700 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm`
+                  : `bg-white text-ink-2 border border-sand hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm`
                 }
               `}
               title={filter.description}
@@ -103,7 +103,7 @@ export default function QuickStoreFilters({
               {count !== undefined && count > 0 && (
                 <span className={`
                   ml-1 px-1.5 py-0.5 rounded-full text-xs font-bold
-                  ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'}
+                  ${isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-ink-2'}
                 `}>
                   {count}
                 </span>
@@ -119,8 +119,8 @@ export default function QuickStoreFilters({
         <button
           onClick={onMapViewClick}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium
-            bg-gradient-to-r from-gray-800 to-gray-900 text-white
-            hover:from-gray-700 hover:to-gray-800
+            bg-ink text-white
+            hover:bg-ink/90
             shadow-sm hover:shadow-md transition-all duration-200
             hover:-translate-y-0.5"
         >
@@ -132,10 +132,10 @@ export default function QuickStoreFilters({
       {/* Active Filter Indicator */}
       {activeFilter && activeFilterData && (
         <div className={`mt-3 px-3 py-2 rounded-lg ${activeFilterData.activeBg} border border-current/10`}>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-ink-2">
             <span className="font-medium">Showing:</span> {activeFilterData.description}
             {filterCounts?.[activeFilter as keyof typeof filterCounts] !== undefined && (
-              <span className="ml-1 text-gray-500">
+              <span className="ml-1 text-ink-2">
                 ({filterCounts[activeFilter as keyof typeof filterCounts]} stores)
               </span>
             )}

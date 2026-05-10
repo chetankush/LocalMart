@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Store as StoreIcon, MapPin, Bell } from "lucide-react";
 import StoreCard from "./StoreCard";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { toast } from "sonner";
 

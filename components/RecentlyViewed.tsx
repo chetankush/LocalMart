@@ -135,20 +135,20 @@ export default function RecentlyViewed() {
           className="fixed top-4 right-4 z-[9999] animate-fade-in"
           style={{ pointerEvents: 'auto' }}
         >
-          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4 max-w-sm transform transition-all duration-300 ease-in-out">
+          <div className="bg-white rounded-lg shadow-xl border border-sand p-4 max-w-sm transform transition-all duration-300 ease-in-out">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0">
-                <EyeOff className="w-5 h-5 text-orange-500" />
+                <EyeOff className="w-5 h-5 text-accent" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-ink">
                   Section Hidden
                 </p>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-ink-2 mt-1">
                   You can make this section visible again from your{" "}
                   <Link
                     href="/profile"
-                    className="text-orange-600 hover:text-orange-700 font-medium underline"
+                    className="text-accent-dark hover:text-accent font-medium underline"
                   >
                     profile page
                   </Link>
@@ -157,7 +157,7 @@ export default function RecentlyViewed() {
               </div>
               <button
                 onClick={() => setShowToast(false)}
-                className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+                className="flex-shrink-0 text-ink-3 hover:text-ink-2 transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -169,18 +169,18 @@ export default function RecentlyViewed() {
 
       {/* Section Content - Only render if shouldShowSection is true */}
       {shouldShowSection && (
-        <div className="py-8 bg-gray-50">
+        <div className="py-8 bg-cream">
           <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Clock className="w-6 h-6 text-gray-700" />
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                <Clock className="w-6 h-6 text-ink-2" />
+                <h2 className="text-2xl md:text-3xl font-bold text-ink">
                   Recently Viewed
                 </h2>
               </div>
               <button
                 onClick={handleHideSection}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-ink-2 hover:text-ink hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
                 aria-label="Hide recently viewed section"
                 title="Hide this section"
               >
@@ -195,10 +195,10 @@ export default function RecentlyViewed() {
               {showLeftArrow && (
                 <button
                   onClick={() => scroll("left")}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50 transition-all cursor-pointer border border-gray-200"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50 transition-all cursor-pointer border border-sand"
                   aria-label="Scroll left"
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-700" />
+                  <ChevronLeft className="w-5 h-5 text-ink-2" />
                 </button>
               )}
 
@@ -217,7 +217,7 @@ export default function RecentlyViewed() {
                     return (
                       <div
                         key={`product-${product.id}`}
-                        className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-gray-200 hover:border-orange-400 flex-shrink-0 w-[160px] sm:w-[180px]"
+                        className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-sand hover:border-accent flex-shrink-0 w-[160px] sm:w-[180px]"
                       >
                         <button
                           onClick={(e) => {
@@ -228,7 +228,7 @@ export default function RecentlyViewed() {
                           className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                           aria-label="Remove from recently viewed"
                         >
-                          <X className="w-3.5 h-3.5 text-gray-600 hover:text-red-600" />
+                          <X className="w-3.5 h-3.5 text-ink-2 hover:text-red-600" />
                         </button>
                         <Link href={`/products/${product.id}`} className="block">
                           <div className="relative aspect-square w-full bg-gray-100">
@@ -241,10 +241,10 @@ export default function RecentlyViewed() {
                             />
                           </div>
                           <div className="p-3">
-                            <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1 group-hover:text-orange-600 transition-colors">
+                            <h4 className="text-sm font-medium text-ink line-clamp-2 mb-1 group-hover:text-accent-dark transition-colors">
                               {product.name}
                             </h4>
-                            <p className="text-sm font-bold text-gray-900">
+                            <p className="text-sm font-bold text-ink">
                               ₹{product.price.toLocaleString()}
                             </p>
                           </div>
@@ -256,7 +256,7 @@ export default function RecentlyViewed() {
                     return (
                       <div
                         key={`store-${store.id}`}
-                        className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-gray-200 hover:border-orange-400 flex-shrink-0 w-[160px] sm:w-[180px]"
+                        className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden border border-sand hover:border-accent flex-shrink-0 w-[160px] sm:w-[180px]"
                       >
                         <button
                           onClick={(e) => {
@@ -267,7 +267,7 @@ export default function RecentlyViewed() {
                           className="absolute top-2 right-2 z-10 bg-white/90 hover:bg-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                           aria-label="Remove from recently viewed"
                         >
-                          <X className="w-3.5 h-3.5 text-gray-600 hover:text-red-600" />
+                          <X className="w-3.5 h-3.5 text-ink-2 hover:text-red-600" />
                         </button>
                         <Link href={`/stores/${store.id}`} className="block">
                           <div className="relative aspect-square w-full bg-gray-100">
@@ -280,15 +280,15 @@ export default function RecentlyViewed() {
                                 sizes="160px"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-                                <span className="text-2xl font-bold text-gray-500">
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cream to-sand">
+                                <span className="text-2xl font-bold text-ink-2">
                                   {store.businessName.charAt(0).toUpperCase()}
                                 </span>
                               </div>
                             )}
                           </div>
                           <div className="p-3">
-                            <h4 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-orange-600 transition-colors">
+                            <h4 className="text-sm font-medium text-ink line-clamp-2 group-hover:text-accent-dark transition-colors">
                               {store.businessName}
                             </h4>
                           </div>
@@ -303,10 +303,10 @@ export default function RecentlyViewed() {
               {showRightArrow && (
                 <button
                   onClick={() => scroll("right")}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50 transition-all cursor-pointer border border-gray-200"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full shadow-lg p-2 hover:bg-gray-50 transition-all cursor-pointer border border-sand"
                   aria-label="Scroll right"
                 >
-                  <ChevronRight className="w-5 h-5 text-gray-700" />
+                  <ChevronRight className="w-5 h-5 text-ink-2" />
                 </button>
               )}
             </div>

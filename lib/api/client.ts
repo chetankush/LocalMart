@@ -521,6 +521,43 @@ class ApiClient {
     );
   }
 
+  async cancelOrder(orderId: string, reason?: string) {
+    return this.request<{ success: boolean; data: any; message: string }>(
+      `/customer/orders/${orderId}/cancel`,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }
+    );
+  }
+
+  async getOrderStatus(orderId: string) {
+    return this.request<{ status: string; updatedAt: string }>(
+      `/orders/${orderId}/status`
+    );
+  }
+
+  // Telegram linking (vendor-side)
+  async createTelegramLink() {
+    return this.request<{ deepLink: string; botUsername: string }>(
+      "/vendor/telegram/link",
+      { method: "POST" }
+    );
+  }
+
+  async getTelegramStatus() {
+    return this.request<{ linked: boolean; linkedAt: string | null }>(
+      "/vendor/telegram/status",
+      { suppressAuthError: true, suppressNetworkError: true }
+    );
+  }
+
+  async disconnectTelegram() {
+    return this.request<{ success: true }>("/vendor/telegram/link", {
+      method: "DELETE",
+    });
+  }
+
   // User
   async getUserProfile() {
     return this.request<{ success: boolean; data: any }>("/user/profile");
@@ -1187,7 +1224,7 @@ class ApiClient {
 
   async useProductTemplate(id: string) {
     return this.request<{ success: boolean; data: any }>(
-      `/vendor/product-templates/${id}/use`,
+      `/product-templates/${id}/use`,
       {
         method: "POST",
       }

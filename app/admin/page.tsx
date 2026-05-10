@@ -279,68 +279,89 @@ export default function AdminDashboard() {
     switch (status) {
       case "APPROVED":
       case "ACTIVE":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-tulsi/10 text-tulsi";
       case "REJECTED":
       case "SUSPENDED":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-laal/10 text-laal";
       case "PENDING":
       case "PENDING_APPROVAL":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-accent-light text-accent-dark";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+        return "bg-cream text-ink-2";
     }
   };
 
   // Show loading while checking auth
   if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-ivory">
         <div className="text-center">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+          <div className="w-16 h-16 bg-accent-light rounded-full flex items-center justify-center mx-auto mb-4">
+            <Loader2 className="w-8 h-8 text-accent animate-spin" />
           </div>
-          <p className="text-gray-600 font-medium">Checking authentication...</p>
+          <p className="text-ink-2 font-medium">Checking authentication...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ivory">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="bg-white border-b border-sand sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center">
                 <LayoutDashboard className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-xs text-gray-500">Manage vendors & stores</p>
+                <h1 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">Admin Dashboard</h1>
+                <p className="text-xs text-ink-3">Manage vendors & stores</p>
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-1 items-center">
               <Link
                 href="/admin/analytics"
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
               >
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Analytics</span>
               </Link>
               <Link
                 href="/admin/business-categories"
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-full text-sm font-medium hover:bg-emerald-100 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
               >
                 <FolderTree className="w-4 h-4" />
                 <span className="hidden sm:inline">Categories</span>
               </Link>
               <Link
                 href="/admin/product-templates"
-                className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-600 rounded-full text-sm font-medium hover:bg-purple-100 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
               >
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">Templates</span>
+              </Link>
+              <Link
+                href="/admin/orders"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
+              >
+                <Package className="w-4 h-4" />
+                <span className="hidden sm:inline">Orders</span>
+              </Link>
+              <Link
+                href="/admin/users"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">Users</span>
+              </Link>
+              <Link
+                href="/admin/revenue"
+                className="flex items-center gap-2 px-3 py-2 text-ink-2 hover:text-ink hover:bg-ivory rounded-full text-sm font-medium transition-all cursor-pointer"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Revenue</span>
               </Link>
               <button
                 onClick={async () => {
@@ -349,14 +370,14 @@ export default function AdminDashboard() {
                   await supabase.auth.signOut();
                   router.push("/admin/login");
                 }}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-full text-sm font-medium transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 text-laal hover:bg-laal/5 rounded-full text-sm font-medium transition-all cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
               </button>
               <Link
                 href="/"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 bg-ivory border border-sand text-ink-2 rounded-full text-sm font-medium hover:bg-cream transition-all cursor-pointer ml-1"
               >
                 <Home className="w-4 h-4" />
                 <span className="hidden sm:inline">Home</span>
@@ -368,13 +389,13 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Tabs */}
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex gap-2 border-b border-sand">
           <button
             onClick={() => setActiveTab("requests")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-1 pb-3 -mb-px font-medium text-sm transition-all cursor-pointer border-b-2 ${
               activeTab === "requests"
-                ? "bg-gray-900 text-white shadow-lg"
-                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                ? "border-accent text-ink"
+                : "border-transparent text-ink-2 hover:text-ink"
             }`}
           >
             <Users className="w-4 h-4" />
@@ -382,10 +403,10 @@ export default function AdminDashboard() {
           </button>
           <button
             onClick={() => setActiveTab("vendors")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-1 pb-3 -mb-px ml-6 font-medium text-sm transition-all cursor-pointer border-b-2 ${
               activeTab === "vendors"
-                ? "bg-gray-900 text-white shadow-lg"
-                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                ? "border-accent text-ink"
+                : "border-transparent text-ink-2 hover:text-ink"
             }`}
           >
             <Store className="w-4 h-4" />
@@ -400,10 +421,10 @@ export default function AdminDashboard() {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all border cursor-pointer ${
                   filter === status
-                    ? "bg-[#FF9933] text-white border-orange-500 shadow-md"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
+                    ? "bg-accent text-white border-accent"
+                    : "bg-white text-ink-2 border-sand hover:border-accent hover:text-ink"
                 }`}
               >
                 {filter === status && <CheckCircle className="w-3.5 h-3.5" />}
@@ -415,10 +436,10 @@ export default function AdminDashboard() {
               <button
                 key={status}
                 onClick={() => setVendorFilter(status)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium transition-all border cursor-pointer ${
                   vendorFilter === status
-                    ? "bg-[#FF9933] text-white border-orange-500 shadow-md"
-                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:shadow-sm"
+                    ? "bg-accent text-white border-accent"
+                    : "bg-white text-ink-2 border-sand hover:border-accent hover:text-ink"
                 }`}
               >
                 {vendorFilter === status && <CheckCircle className="w-3.5 h-3.5" />}
@@ -432,85 +453,82 @@ export default function AdminDashboard() {
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
+              <div className="w-12 h-12 bg-accent-light rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="w-6 h-6 text-accent animate-spin" />
               </div>
-              <p className="text-gray-500 font-medium">Loading data...</p>
+              <p className="text-ink-2 font-medium">Loading data...</p>
             </div>
           </div>
         ) : activeTab === "requests" ? (
           requests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Users className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">No requests found</h3>
-              <p className="text-gray-500">No {filter.toLowerCase()} vendor requests at the moment</p>
+            <div className="flex flex-col items-center justify-center py-14 bg-white rounded-2xl border border-dashed border-sand">
+              <h3 className="text-base font-semibold text-ink mb-1 font-[family-name:var(--font-family-heading)]">No requests found</h3>
+              <p className="text-sm text-ink-3">No {filter.toLowerCase()} vendor requests at the moment</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-2xl border border-sand overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <tr className="bg-ivory border-b border-sand">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Business
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Contact
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Location
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Date
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-cream">
                     {requests.map((request) => (
-                      <tr key={request.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={request.id} className="hover:bg-ivory transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                            <div className="w-10 h-10 bg-primary-xlight rounded-lg flex items-center justify-center text-primary-dark font-semibold text-sm">
                               {request.businessName.charAt(0)}
                             </div>
                             <div>
-                              <div className="font-semibold text-gray-900">
+                              <div className="font-medium text-ink">
                                 {request.businessName}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-xs text-ink-3">
                                 {request.businessType}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 font-medium">{request.fullName}</div>
-                          <div className="text-sm text-gray-500">{request.email}</div>
+                          <div className="text-sm text-ink font-medium">{request.fullName}</div>
+                          <div className="text-xs text-ink-3">{request.email}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{request.city}</span>
+                          <span className="text-sm text-ink-2">{request.city}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyles(request.status)}`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${getStatusStyles(request.status)}`}>
                             {getStatusIcon(request.status)}
                             {request.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
+                        <td className="px-6 py-4 text-sm text-ink-3">
                           {new Date(request.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4">
                           <button
                             onClick={() => setSelectedRequest(request)}
-                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 text-accent hover:text-accent-dark font-medium text-sm transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                             View Details
@@ -526,77 +544,74 @@ export default function AdminDashboard() {
           )
         ) : (
           vendors.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Store className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">No vendors found</h3>
-              <p className="text-gray-500">No {vendorFilter.toLowerCase().replace("_", " ")} vendors at the moment</p>
+            <div className="flex flex-col items-center justify-center py-14 bg-white rounded-2xl border border-dashed border-sand">
+              <h3 className="text-base font-semibold text-ink mb-1 font-[family-name:var(--font-family-heading)]">No vendors found</h3>
+              <p className="text-sm text-ink-3">No {vendorFilter.toLowerCase().replace("_", " ")} vendors at the moment</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="bg-white rounded-2xl border border-sand overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <tr className="bg-ivory border-b border-sand">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Business
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Owner
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Location
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-3.5 text-left text-xs font-medium text-ink-2 uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-cream">
                     {vendors.map((vendor) => (
-                      <tr key={vendor.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={vendor.id} className="hover:bg-ivory transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
+                            <div className="w-10 h-10 bg-primary-xlight rounded-lg flex items-center justify-center text-primary-dark font-semibold text-sm">
                               {vendor.businessName.charAt(0)}
                             </div>
                             <div>
-                              <div className="font-semibold text-gray-900">
+                              <div className="font-medium text-ink">
                                 {vendor.businessName}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-xs text-ink-3">
                                 {vendor.businessType}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 font-medium">{vendor.user.fullName}</div>
-                          <div className="text-sm text-gray-500">{vendor.user.email}</div>
+                          <div className="text-sm text-ink font-medium">{vendor.user.fullName}</div>
+                          <div className="text-xs text-ink-3">{vendor.user.email}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{vendor.city}, {vendor.state}</span>
+                          <span className="text-sm text-ink-2">{vendor.city}, {vendor.state}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyles(vendor.status)}`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${getStatusStyles(vendor.status)}`}>
                             {getStatusIcon(vendor.status)}
                             {vendor.status.replace("_", " ")}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
+                        <td className="px-6 py-4 text-sm text-ink-3">
                           {new Date(vendor.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4">
                           <button
                             onClick={() => setSelectedVendor(vendor)}
-                            className="flex items-center gap-1.5 text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 text-accent hover:text-accent-dark font-medium text-sm transition-colors cursor-pointer"
                           >
                             <Eye className="w-4 h-4" />
                             Manage
@@ -615,89 +630,89 @@ export default function AdminDashboard() {
 
       {/* Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-sand">
+            <div className="sticky top-0 bg-white border-b border-cream px-6 py-5 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Request Details</h2>
-                <p className="text-sm text-gray-500">Review vendor application</p>
+                <h2 className="text-lg font-semibold text-ink font-[family-name:var(--font-family-heading)]">Request Details</h2>
+                <p className="text-xs text-ink-3 mt-0.5">Review vendor application</p>
               </div>
               <button
                 onClick={() => {
                   setSelectedRequest(null);
                   setRejectionReason("");
                 }}
-                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+                className="w-9 h-9 hover:bg-ivory rounded-full flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-ink-2" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               {/* Business Info Card */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl p-5 border border-orange-100">
+              <div className="bg-ivory rounded-xl p-5 border border-sand">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-orange-500/30">
+                  <div className="w-14 h-14 bg-primary-xlight rounded-xl flex items-center justify-center text-primary-dark font-semibold text-xl">
                     {selectedRequest.businessName.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{selectedRequest.businessName}</h3>
-                    <p className="text-orange-600 font-medium">{selectedRequest.businessType}</p>
+                    <h3 className="font-semibold text-ink text-lg font-[family-name:var(--font-family-heading)]">{selectedRequest.businessName}</h3>
+                    <p className="text-ink-2 text-sm">{selectedRequest.businessType}</p>
                   </div>
                 </div>
               </div>
 
               {/* Info Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Contact Person</label>
-                  <p className="text-gray-900 font-medium mt-1">{selectedRequest.fullName}</p>
-                  <p className="text-gray-600 text-sm">{selectedRequest.email}</p>
-                  <p className="text-gray-600 text-sm">{selectedRequest.phone}</p>
+                <div className="border border-sand rounded-xl p-4">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Contact Person</label>
+                  <p className="text-ink font-medium mt-1.5">{selectedRequest.fullName}</p>
+                  <p className="text-ink-2 text-sm">{selectedRequest.email}</p>
+                  <p className="text-ink-2 text-sm">{selectedRequest.phone}</p>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</label>
-                  <p className="text-gray-900 font-medium mt-1">{selectedRequest.city}</p>
-                  <p className="text-gray-600 text-sm">{selectedRequest.address}</p>
+                <div className="border border-sand rounded-xl p-4">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Location</label>
+                  <p className="text-ink font-medium mt-1.5">{selectedRequest.city}</p>
+                  <p className="text-ink-2 text-sm">{selectedRequest.address}</p>
                 </div>
               </div>
 
               {selectedRequest.description && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
-                  <p className="text-gray-900 mt-1">{selectedRequest.description}</p>
+                <div className="border border-sand rounded-xl p-4">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Description</label>
+                  <p className="text-ink mt-1.5 text-sm">{selectedRequest.description}</p>
                 </div>
               )}
 
               {/* Status Badge */}
               <div className="flex items-center gap-3">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
-                <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-full border ${getStatusStyles(selectedRequest.status)}`}>
+                <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Status</label>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full ${getStatusStyles(selectedRequest.status)}`}>
                   {getStatusIcon(selectedRequest.status)}
                   {selectedRequest.status}
                 </span>
               </div>
 
               {selectedRequest.rejectionReason && (
-                <div className="bg-red-50 rounded-xl p-4 border border-red-100">
-                  <label className="text-xs font-semibold text-red-600 uppercase tracking-wide">Rejection Reason</label>
-                  <p className="text-red-800 mt-1">{selectedRequest.rejectionReason}</p>
+                <div className="bg-laal/5 rounded-xl p-4 border border-laal/20">
+                  <label className="text-[10px] font-semibold text-laal uppercase tracking-wider">Rejection Reason</label>
+                  <p className="text-laal mt-1.5 text-sm">{selectedRequest.rejectionReason}</p>
                 </div>
               )}
 
               {/* Actions for Pending Requests */}
               {selectedRequest.status === "PENDING" && (
-                <div className="pt-4 border-t border-gray-100 space-y-4">
+                <div className="pt-4 border-t border-cream space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-ink mb-2">
                       Rejection Reason (required if rejecting)
                     </label>
                     <textarea
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all resize-none"
+                      className="w-full px-4 py-3 border border-sand rounded-xl bg-ivory focus:ring-2 focus:ring-accent focus:border-accent focus:bg-white transition-all resize-none text-sm"
                       placeholder="Enter reason if rejecting..."
                     />
                   </div>
@@ -706,7 +721,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => handleApprove(selectedRequest.id)}
                       disabled={processing}
-                      className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white py-3 rounded-full font-medium text-sm transition-all disabled:bg-sand disabled:text-ink-3 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {processing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -718,7 +733,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => handleReject(selectedRequest.id)}
                       disabled={processing}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20 cursor-pointer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-white border border-laal text-laal hover:bg-laal/5 py-3 rounded-full font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {processing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -733,11 +748,11 @@ export default function AdminDashboard() {
 
               {/* Delete button for non-pending */}
               {selectedRequest.status !== "PENDING" && (
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-cream">
                   <button
                     onClick={() => handleDelete(selectedRequest.id)}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold transition-all disabled:cursor-not-allowed cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-white border border-sand text-ink-2 hover:bg-ivory hover:text-ink py-3 rounded-full font-medium text-sm transition-all disabled:cursor-not-allowed cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -755,85 +770,85 @@ export default function AdminDashboard() {
 
       {/* Vendor Details Modal */}
       {selectedVendor && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-sand">
+            <div className="sticky top-0 bg-white border-b border-cream px-6 py-5 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Vendor Store Details</h2>
-                <p className="text-sm text-gray-500">Manage vendor status</p>
+                <h2 className="text-lg font-semibold text-ink font-[family-name:var(--font-family-heading)]">Vendor Store Details</h2>
+                <p className="text-xs text-ink-3 mt-0.5">Manage vendor status</p>
               </div>
               <button
                 onClick={() => setSelectedVendor(null)}
-                className="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors cursor-pointer"
+                className="w-9 h-9 hover:bg-ivory rounded-full flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-ink-2" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               {/* Business Info Card */}
-              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-5 border border-emerald-100">
+              <div className="bg-ivory rounded-xl p-5 border border-sand">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/30">
+                  <div className="w-14 h-14 bg-primary-xlight rounded-xl flex items-center justify-center text-primary-dark font-semibold text-xl">
                     {selectedVendor.businessName.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{selectedVendor.businessName}</h3>
-                    <p className="text-emerald-600 font-medium">{selectedVendor.businessType}</p>
+                    <h3 className="font-semibold text-ink text-lg font-[family-name:var(--font-family-heading)]">{selectedVendor.businessName}</h3>
+                    <p className="text-ink-2 text-sm">{selectedVendor.businessType}</p>
                   </div>
                 </div>
               </div>
 
               {/* Info Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Owner</label>
-                  <p className="text-gray-900 font-medium mt-1">{selectedVendor.user.fullName}</p>
-                  <p className="text-gray-600 text-sm">{selectedVendor.user.email}</p>
+                <div className="border border-sand rounded-xl p-4">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Owner</label>
+                  <p className="text-ink font-medium mt-1.5">{selectedVendor.user.fullName}</p>
+                  <p className="text-ink-2 text-sm">{selectedVendor.user.email}</p>
                   {selectedVendor.user.phone && (
-                    <p className="text-gray-600 text-sm">{selectedVendor.user.phone}</p>
+                    <p className="text-ink-2 text-sm">{selectedVendor.user.phone}</p>
                   )}
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</label>
-                  <p className="text-gray-900 font-medium mt-1">{selectedVendor.city}, {selectedVendor.state}</p>
+                <div className="border border-sand rounded-xl p-4">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Location</label>
+                  <p className="text-ink font-medium mt-1.5">{selectedVendor.city}, {selectedVendor.state}</p>
                 </div>
               </div>
 
               {/* Status & Active */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
-                  <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-full border ${getStatusStyles(selectedVendor.status)}`}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Status</label>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full ${getStatusStyles(selectedVendor.status)}`}>
                     {getStatusIcon(selectedVendor.status)}
                     {selectedVendor.status.replace("_", " ")}
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Active</label>
-                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${selectedVendor.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Active</label>
+                  <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${selectedVendor.isActive ? 'bg-tulsi/10 text-tulsi' : 'bg-cream text-ink-2'}`}>
                     {selectedVendor.isActive ? "Yes" : "No"}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</label>
-                <p className="text-gray-900 font-medium mt-1">
+              <div className="border border-sand rounded-xl p-4">
+                <label className="text-[10px] font-semibold text-ink-3 uppercase tracking-wider">Created</label>
+                <p className="text-ink font-medium mt-1.5 text-sm">
                   {new Date(selectedVendor.createdAt).toLocaleString()}
                 </p>
               </div>
 
               {/* Status Update Actions */}
-              <div className="pt-4 border-t border-gray-100 space-y-3">
-                <label className="text-sm font-semibold text-gray-700">Update Status</label>
+              <div className="pt-4 border-t border-cream space-y-3">
+                <label className="text-sm font-medium text-ink">Update Status</label>
 
                 {selectedVendor.status === "PENDING_APPROVAL" && (
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white py-3 rounded-full font-medium text-sm transition-all disabled:bg-sand disabled:text-ink-3 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -848,7 +863,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-red-500/20 cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-white border border-laal text-laal hover:bg-laal/5 py-3 rounded-full font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
@@ -863,7 +878,7 @@ export default function AdminDashboard() {
                   <button
                     onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
                     disabled={processing}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white py-3 rounded-full font-medium text-sm transition-all disabled:bg-sand disabled:text-ink-3 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {processing ? (
                       <Loader2 className="w-5 h-5 animate-spin" />

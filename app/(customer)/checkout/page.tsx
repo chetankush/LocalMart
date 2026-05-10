@@ -113,10 +113,17 @@ export default function CheckoutPage() {
       dispatch(clearCart());
 
       // Show success message
-      toast.success(`Order placed successfully! Order #${data.orders[0]?.orderNumber}`);
+      toast.success(
+        `Order placed! Waiting for ${data.orders.length === 1 ? 'confirmation' : `${data.orders.length} stores`}…`
+      );
 
-      // Redirect to orders page
-      router.push('/my-orders');
+      // Redirect to waiting room (single vs multi-order)
+      if (data.orders.length === 1) {
+        router.push(`/orders/waiting/${data.orders[0].id}`);
+      } else {
+        const ids = data.orders.map((o: any) => o.id).join(',');
+        router.push(`/orders/waiting?ids=${ids}`);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to place order. Please try again.');
     } finally {

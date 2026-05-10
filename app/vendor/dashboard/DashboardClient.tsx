@@ -93,42 +93,42 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
   const getStatusStyles = (status: string) => {
     switch (status) {
       case "ACTIVE":
-        return "bg-green-100 text-green-700 border-green-200";
+        return "bg-tulsi/10 text-tulsi";
       case "PENDING_APPROVAL":
-        return "bg-amber-100 text-amber-700 border-amber-200";
+        return "bg-accent-light text-accent-dark";
       case "SUSPENDED":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "bg-laal/10 text-laal";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+        return "bg-cream text-ink-2";
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ivory">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="bg-white border-b border-sand sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <div className="w-10 h-10 bg-vendor rounded-xl flex items-center justify-center">
                 <Store className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Vendor Dashboard</h1>
-                <p className="text-xs text-gray-500">Manage your stores and products</p>
+                <h1 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">Vendor Dashboard</h1>
+                <p className="text-xs text-ink-3">Manage your stores and products</p>
               </div>
             </div>
             <div className="flex gap-2">
               <Link
                 href="/become-vendor"
-                className="flex items-center gap-2 px-4 py-2 bg-[#FF9933] text-white rounded-full text-sm font-medium hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-vendor text-white rounded-full text-sm font-medium hover:bg-vendor-dark transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Add Store</span>
               </Link>
               <Link
                 href="/vendor/stores"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-sand text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all cursor-pointer"
               >
                 <Store className="w-4 h-4" />
                 <span className="hidden sm:inline">All Stores</span>
@@ -142,29 +142,25 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
         {/* Loading overlay */}
         {loading && (
           <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-white p-5 rounded-2xl shadow-xl flex items-center gap-3 border border-gray-200">
-              <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
-              <span className="text-gray-700 font-medium">Loading store data...</span>
+            <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-3 border border-sand">
+              <Loader2 className="w-6 h-6 text-accent animate-spin" />
+              <span className="text-ink-2 font-medium text-sm">Loading store data...</span>
             </div>
           </div>
         )}
 
         {/* Your Stores Section */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm mb-8">
-          <div className="p-6 border-b border-gray-100">
+        <div className="bg-white rounded-2xl border border-sand shadow-sm mb-8">
+          <div className="p-6 border-b border-cream">
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Store className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Your Stores</h2>
-                  <p className="text-sm text-gray-500">{stores.length} store{stores.length !== 1 ? 's' : ''}</p>
-                </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-1">YOUR PORTFOLIO</div>
+                <h2 className="text-lg font-semibold text-ink font-[family-name:var(--font-family-heading)]">Your Stores</h2>
+                <p className="text-xs text-ink-3 mt-0.5">{stores.length} store{stores.length !== 1 ? 's' : ''}</p>
               </div>
               <Link
                 href="/vendor/stores"
-                className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
+                className="text-sm text-accent hover:text-accent-dark font-medium cursor-pointer"
               >
                 View All →
               </Link>
@@ -190,14 +186,14 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               {/* Add Store Card */}
               <Link
                 href="/become-vendor"
-                className="rounded-2xl border-2 border-dashed border-gray-300 hover:border-orange-400 hover:bg-orange-50/50 transition-all flex flex-col items-center justify-center gap-3 min-h-[320px] p-6 group cursor-pointer"
+                className="rounded-2xl border border-dashed border-sand hover:border-vendor hover:bg-vendor-xlight transition-all flex flex-col items-center justify-center gap-3 min-h-[320px] p-6 group cursor-pointer"
               >
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Plus className="w-8 h-8 text-orange-600" />
+                <div className="w-14 h-14 bg-vendor-light rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Plus className="w-7 h-7 text-vendor-dark" />
                 </div>
                 <div className="text-center">
-                  <span className="text-lg font-bold text-gray-700 block">Add New Store</span>
-                  <span className="text-sm text-gray-500">Expand your business</span>
+                  <span className="text-base font-semibold text-ink block font-[family-name:var(--font-family-heading)]">Add New Store</span>
+                  <span className="text-xs text-ink-3">Expand your business</span>
                 </div>
               </Link>
             </div>
@@ -207,7 +203,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               <div className="mt-6 text-center">
                 <button
                   onClick={() => setShowAllStores(!showAllStores)}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-full transition-all border border-orange-200 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-ink-2 hover:text-ink hover:bg-ivory rounded-full transition-all border border-sand cursor-pointer"
                 >
                   {showAllStores ? (
                     <>
@@ -225,20 +221,21 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
         </div>
 
         {/* Selected Store Dashboard */}
-        <div className="bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 rounded-2xl p-6 mb-8 border border-orange-200">
+        <div className="bg-white rounded-2xl p-6 mb-8 border border-sand shadow-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center overflow-hidden border border-orange-100">
+              <div className="w-16 h-16 bg-ivory rounded-2xl flex items-center justify-center overflow-hidden border border-sand">
                 {vendor.storeLogo ? (
                   <img src={vendor.storeLogo} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <Store className="w-8 h-8 text-orange-500" />
+                  <Store className="w-8 h-8 text-ink-3" />
                 )}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">{vendor.businessName}</h2>
-                <p className="text-sm text-gray-600">{vendor.city}</p>
-                <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 text-xs font-medium rounded-full border ${getStatusStyles(vendor.status)}`}>
+                <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-1">ACTIVE STORE</div>
+                <h2 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">{vendor.businessName}</h2>
+                <p className="text-sm text-ink-2">{vendor.city}</p>
+                <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusStyles(vendor.status)}`}>
                   {vendor.status === "ACTIVE" && <CheckCircle className="w-3 h-3" />}
                   {vendor.status === "PENDING_APPROVAL" && <Clock className="w-3 h-3" />}
                   {vendor.status.replace("_", " ")}
@@ -248,7 +245,7 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-full text-sm font-medium hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-vendor text-white rounded-full text-sm font-medium hover:bg-vendor-dark transition-all cursor-pointer"
               >
                 <Share2 className="w-4 h-4" />
                 Share
@@ -256,14 +253,14 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
               <Link
                 href={`/stores/${currentStoreId}`}
                 target="_blank"
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all border border-sand cursor-pointer"
               >
                 <ExternalLink className="w-4 h-4" />
                 View
               </Link>
               <Link
                 href={`/vendor/settings?storeId=${currentStoreId}`}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-all border border-gray-200 cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 bg-white text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all border border-sand cursor-pointer"
               >
                 <Settings className="w-4 h-4" />
                 Settings
@@ -273,75 +270,79 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           <button
             onClick={() => setShowShareModal(true)}
-            className="p-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl hover:from-emerald-600 hover:to-emerald-700 transition-all text-center shadow-lg shadow-emerald-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <Share2 className="w-5 h-5" />
+            <div className="w-9 h-9 bg-vendor-xlight rounded-lg flex items-center justify-center mb-3">
+              <Share2 className="w-5 h-5 text-vendor" />
             </div>
-            <div className="font-semibold">Share Store</div>
-            <div className="text-xs opacity-80 mt-0.5">QR + Links</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Share Store</div>
+            <div className="text-xs text-ink-3 mt-0.5">QR + Links</div>
           </button>
           <Link
             href={`/vendor/products/bulk-add?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl hover:from-indigo-600 hover:to-purple-700 transition-all text-center shadow-lg shadow-indigo-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <Zap className="w-5 h-5" />
+            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
+              <Zap className="w-5 h-5 text-ink-2" />
             </div>
-            <div className="font-semibold">Bulk Add</div>
-            <div className="text-xs opacity-80 mt-0.5">Quick Setup</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Bulk Add</div>
+            <div className="text-xs text-ink-3 mt-0.5">Quick Setup</div>
           </Link>
           <Link
             href={`/vendor/products/new?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all text-center shadow-lg shadow-blue-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5" />
+            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
+              <Package className="w-5 h-5 text-ink-2" />
             </div>
-            <div className="font-semibold">Add Product</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Add Product</div>
+            <div className="text-xs text-ink-3 mt-0.5">New listing</div>
           </Link>
           <Link
             href={`/vendor/orders?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-2xl hover:from-amber-600 hover:to-orange-600 transition-all text-center shadow-lg shadow-amber-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <ShoppingCart className="w-5 h-5" />
+            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
+              <ShoppingCart className="w-5 h-5 text-ink-2" />
             </div>
-            <div className="font-semibold">Orders</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Orders</div>
+            <div className="text-xs text-ink-3 mt-0.5">View all</div>
           </Link>
           <Link
             href={`/vendor/broadcast?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all text-center shadow-lg shadow-purple-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <Megaphone className="w-5 h-5" />
+            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
+              <Megaphone className="w-5 h-5 text-ink-2" />
             </div>
-            <div className="font-semibold">Broadcast</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Broadcast</div>
+            <div className="text-xs text-ink-3 mt-0.5">Notify users</div>
           </Link>
           <Link
             href={`/vendor/products?storeId=${currentStoreId}`}
-            className="p-4 bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-2xl hover:from-orange-600 hover:to-red-600 transition-all text-center shadow-lg shadow-orange-500/20 group cursor-pointer"
+            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
           >
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5" />
+            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
+              <Package className="w-5 h-5 text-ink-2" />
             </div>
-            <div className="font-semibold">Products</div>
+            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Products</div>
+            <div className="text-xs text-ink-3 mt-0.5">Manage catalog</div>
           </Link>
         </div>
 
         {/* Pending Approval Notice */}
         {vendor.status === "PENDING_APPROVAL" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-8">
+          <div className="bg-accent-light/40 border border-accent-light rounded-2xl p-5 mb-8">
             <div className="flex gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 bg-accent-light rounded-xl flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-accent-dark" />
               </div>
               <div>
-                <h3 className="font-bold text-amber-800">Awaiting Approval</h3>
-                <p className="text-sm text-amber-700 mt-1">
+                <h3 className="font-semibold text-accent-dark text-sm font-[family-name:var(--font-family-heading)]">Awaiting Approval</h3>
+                <p className="text-sm text-ink-2 mt-1">
                   This store is under review. You can add products now, but they
                   will only be visible to customers after approval.
                 </p>
@@ -352,64 +353,40 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Products</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalProducts}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Package className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
+            <p className="text-sm text-ink-2 font-medium">Products</p>
+            <p className="text-3xl font-semibold text-ink mt-2 font-[family-name:var(--font-family-heading)]">{stats.totalProducts}</p>
+            <p className="text-xs text-ink-3 mt-1">Total in catalog</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Total Orders</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalOrders}</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
+            <p className="text-sm text-ink-2 font-medium">Total Orders</p>
+            <p className="text-3xl font-semibold text-ink mt-2 font-[family-name:var(--font-family-heading)]">{stats.totalOrders}</p>
+            <p className="text-xs text-ink-3 mt-1">All time</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Pending</p>
-                <p className="text-3xl font-bold text-amber-500 mt-1">{stats.pendingOrders}</p>
-              </div>
-              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
-                <Clock className="w-6 h-6 text-amber-500" />
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
+            <p className="text-sm text-ink-2 font-medium">Pending</p>
+            <p className="text-3xl font-semibold text-accent-dark mt-2 font-[family-name:var(--font-family-heading)]">{stats.pendingOrders}</p>
+            <p className="text-xs text-ink-3 mt-1">Awaiting action</p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 font-medium">Completed</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{stats.completedOrders}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
+            <p className="text-sm text-ink-2 font-medium">Completed</p>
+            <p className="text-3xl font-semibold text-tulsi mt-2 font-[family-name:var(--font-family-heading)]">{stats.completedOrders}</p>
+            <p className="text-xs text-ink-3 mt-1">Delivered</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Products */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-gray-100">
+          <div className="bg-white rounded-2xl border border-sand shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-cream">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-900">Recent Products</h2>
+                <h2 className="text-base font-semibold text-ink font-[family-name:var(--font-family-heading)]">Recent Products</h2>
                 <Link
                   href={`/vendor/products?storeId=${currentStoreId}`}
-                  className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
+                  className="text-sm text-accent hover:text-accent-dark font-medium cursor-pointer"
                 >
                   View all →
                 </Link>
@@ -417,22 +394,22 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             </div>
             <div className="p-5">
               {vendor.products.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {vendor.products.map((product: any) => (
                     <div
                       key={product.id}
-                      className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      className="flex justify-between items-center p-3 border border-sand rounded-xl hover:bg-ivory transition-colors"
                     >
                       <div>
-                        <div className="font-semibold text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">
-                          ₹{product.price.toString()} • Stock: {product.stockQuantity}
+                        <div className="font-medium text-ink text-sm">{product.name}</div>
+                        <div className="text-xs text-ink-3 mt-0.5">
+                          ₹{product.price.toString()} · Stock {product.stockQuantity}
                         </div>
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                         product.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-tulsi/10 text-tulsi"
+                          : "bg-cream text-ink-2"
                       }`}>
                         {product.isActive ? "Active" : "Inactive"}
                       </span>
@@ -440,14 +417,12 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-10">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Package className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 mb-4 font-medium">No products yet</p>
+                <div className="text-center py-10 border border-dashed border-sand rounded-xl">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">CATALOG · EMPTY</div>
+                  <p className="text-ink-2 mb-4 font-medium text-sm">No products yet</p>
                   <Link
                     href={`/vendor/products/new?storeId=${currentStoreId}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF9933] text-white rounded-full font-medium hover:bg-[#e8872b] transition-all shadow-lg shadow-orange-500/20 cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-vendor text-white rounded-full font-medium text-sm hover:bg-vendor-dark transition-all cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     Add Your First Product
@@ -458,13 +433,13 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
           </div>
 
           {/* Recent Orders */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-gray-100">
+          <div className="bg-white rounded-2xl border border-sand shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-cream">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-900">Recent Orders</h2>
+                <h2 className="text-base font-semibold text-ink font-[family-name:var(--font-family-heading)]">Recent Orders</h2>
                 <Link
                   href={`/vendor/orders?storeId=${currentStoreId}`}
-                  className="text-sm text-orange-600 hover:text-orange-700 font-medium cursor-pointer"
+                  className="text-sm text-vendor hover:text-vendor-dark font-medium cursor-pointer"
                 >
                   View all →
                 </Link>
@@ -472,22 +447,22 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
             </div>
             <div className="p-5">
               {vendor.orders.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {vendor.orders.map((order: any) => (
                     <div
                       key={order.id}
-                      className="flex justify-between items-center p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      className="flex justify-between items-center p-3 border border-sand rounded-xl hover:bg-ivory transition-colors"
                     >
                       <div>
-                        <div className="font-semibold text-gray-900">{order.orderNumber}</div>
-                        <div className="text-sm text-gray-500">₹{order.totalAmount.toString()}</div>
+                        <div className="font-medium text-ink text-sm">{order.orderNumber}</div>
+                        <div className="text-xs text-ink-3 mt-0.5">₹{order.totalAmount.toString()}</div>
                       </div>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                         order.status === "DELIVERED"
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-tulsi/10 text-tulsi"
                           : order.status === "PENDING"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-blue-100 text-blue-700"
+                          ? "bg-accent-light text-accent-dark"
+                          : "bg-primary-xlight text-primary-dark"
                       }`}>
                         {order.status}
                       </span>
@@ -495,12 +470,10 @@ export default function DashboardClient({ stores, initialStoreData }: DashboardC
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-10">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <ShoppingCart className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 font-medium">No orders yet</p>
-                  <p className="text-sm text-gray-500 mt-1">Orders will appear here</p>
+                <div className="text-center py-10 border border-dashed border-sand rounded-xl">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">ORDERS · NONE</div>
+                  <p className="text-ink-2 font-medium text-sm">No orders yet</p>
+                  <p className="text-xs text-ink-3 mt-1">Orders will appear here</p>
                 </div>
               )}
             </div>

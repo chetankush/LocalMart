@@ -1,21 +1,53 @@
-import * as React from "react"
+"use client";
 
-import { cn } from "@/lib/utils"
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-  return (
-    <input
-      type={type}
-      data-slot="input"
-      className={cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      )}
-      {...props}
-    />
-  )
+interface Props extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  hint?: string;
+  leadingIcon?: ReactNode;
+  trailingIcon?: ReactNode;
 }
 
-export { Input }
+const Input = forwardRef<HTMLInputElement, Props>(function Input(
+  { label, error, hint, leadingIcon, trailingIcon, className = "", id, ...rest },
+  ref
+) {
+  const inputId = id || `input-${Math.random().toString(36).slice(2, 9)}`;
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && (
+        <label htmlFor={inputId} className="text-sm font-medium text-ink">
+          {label}
+        </label>
+      )}
+      <div
+        className={`flex items-center gap-2 bg-white rounded-2xl border-2 px-4 py-2.5 transition-all ${
+          error
+            ? "border-laal focus-within:border-laal"
+            : "border-sand focus-within:border-accent"
+        } ${className}`}
+      >
+        {leadingIcon && <span className="text-ink-3 shrink-0">{leadingIcon}</span>}
+        <input
+          ref={ref}
+          id={inputId}
+          aria-invalid={!!error}
+          aria-describedby={hint || error ? `${inputId}-desc` : undefined}
+          className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-3 outline-none disabled:text-ink-3 disabled:cursor-not-allowed"
+          {...rest}
+        />
+        {trailingIcon && <span className="text-ink-3 shrink-0">{trailingIcon}</span>}
+      </div>
+      {(hint || error) && (
+        <p id={`${inputId}-desc`} className={`text-xs ${error ? "text-laal" : "text-ink-3"}`}>
+          {error || hint}
+        </p>
+      )}
+    </div>
+  );
+});
+
+export { Input };
+export default Input;

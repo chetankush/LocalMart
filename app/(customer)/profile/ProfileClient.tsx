@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, User, Mail, Phone, Calendar, Edit2, Plus, X, Star, Eye, EyeOff, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import {
   getRecentlyViewedVisibility,
   setRecentlyViewedVisibility,

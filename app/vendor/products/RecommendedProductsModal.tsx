@@ -100,7 +100,7 @@ export default function RecommendedProductsModal({
     );
   });
 
-  const handleSelectTemplate = (template: ProductTemplate) => {
+  const handleSelectTemplate = async (template: ProductTemplate) => {
     setSelectedTemplate(template);
     setFormData({
       name: template.name,
@@ -124,9 +124,8 @@ export default function RecommendedProductsModal({
 
     // Record template usage
     try {
-      fetch(`/api/vendor/product-templates/${template.id}/use`, {
-        method: "POST",
-      });
+      const { apiClient } = await import("@/lib/api/client");
+      apiClient.useProductTemplate(template.id);
     } catch (error) {
       console.error("Error recording template usage:", error);
     }

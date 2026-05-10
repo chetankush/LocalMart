@@ -46,7 +46,7 @@ export default function ProductReviewsTable({
   const [filter, setFilter] = useState<string>("all");
   const [expandedReview, setExpandedReview] = useState<string | null>(null);
 
-  const handleDelete = async (reviewId: string) {
+  const handleDelete = async (reviewId: string) => {
     if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
       return;
     }

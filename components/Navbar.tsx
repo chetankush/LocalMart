@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/supabase/auth-provider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { useRouter, usePathname } from "next/navigation";
 import CartIcon from "@/components/cart/CartIcon";
 import { useLocation } from "@/context/LocationContext";
@@ -382,8 +382,8 @@ const Navbar = () => {
                     vendorStatus === "PENDING" || vendorStatus === "PENDING_APPROVAL"
                       ? "bg-gray-200 text-gray-700"
                       : isApprovedVendor
-                      ? "bg-[#10A37F] text-white"
-                      : "bg-[#10A37F] text-white hover:bg-[#0E8C6C]"
+                      ? "bg-accent text-white"
+                      : "bg-accent text-white hover:bg-accent-dark"
                   }`}
                 >
                   {isApprovedVendor ? "Seller Dashboard" : vendorStatus ? "Application Status" : "Add Your Store"}
@@ -595,7 +595,7 @@ const Navbar = () => {
                     <div className="my-2 border-t border-gray-200" />
 
                     {isApprovedVendor ? (
-                      <button onClick={(e) => handleNavigation("/vendor/dashboard", e)} className="w-full flex items-center gap-3 px-4 py-3 text-[#10A37F] bg-[#E6F7F1] hover:bg-[#C8EDE0] rounded-lg transition-colors cursor-pointer">
+                      <button onClick={(e) => handleNavigation("/vendor/dashboard", e)} className="w-full flex items-center gap-3 px-4 py-3 text-accent-dark bg-accent-light hover:bg-accent/20 rounded-lg transition-colors cursor-pointer">
 
                         <Store className="w-5 h-5" />
                         <span className="font-medium">Vendor Dashboard</span>
@@ -610,7 +610,7 @@ const Navbar = () => {
                         </div>
                       </button>
                     ) : (
-                      <button onClick={(e) => handleNavigation("/become-vendor", e)} className="w-full flex items-center gap-3 px-4 py-3 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors cursor-pointer">
+                      <button onClick={(e) => handleNavigation("/become-vendor", e)} className="w-full flex items-center gap-3 px-4 py-3 text-accent-dark bg-accent-light hover:bg-accent/20 rounded-lg transition-colors cursor-pointer">
 
                         <Store className="w-5 h-5" />
                         <span className="font-medium">Become a Vendor</span>

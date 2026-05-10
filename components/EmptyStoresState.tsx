@@ -1,7 +1,5 @@
 "use client";
 
-import { MapPin, Store, Bell, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 interface EmptyStoresStateProps {
@@ -21,33 +19,33 @@ export default function EmptyStoresState({
   onNotifyMe,
   showNotifyButton = true,
 }: EmptyStoresStateProps) {
+
   if (variant === "no-location") {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-orange-50 to-white rounded-2xl border border-orange-100">
-        <div className="relative mb-6">
-          <div className="w-24 h-24 bg-[#FFF3E6] rounded-full flex items-center justify-center">
-            <MapPin className="w-12 h-12 text-[#FF9933]" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#10A37F] rounded-full flex items-center justify-center shadow-lg">
-            <span className="text-lg">📍</span>
-          </div>
+      <div className="rounded-2xl border border-dashed border-sand bg-white/50 px-6 sm:px-10 py-12 sm:py-16 max-w-2xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="font-heading text-accent text-[11px] font-semibold tabular-nums tracking-[0.18em]">
+            01
+          </span>
+          <span className="h-px flex-1 bg-sand max-w-[80px]" aria-hidden />
         </div>
-
-        <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">
+        <h3 className="font-heading text-ink text-xl sm:text-2xl font-semibold leading-tight mb-3">
           Where should we deliver?
         </h3>
-        <p className="text-gray-500 text-center max-w-md mb-6">
-          Set your location to discover amazing local stores and get the freshest products delivered to your doorstep
+        <p className="text-ink-2 text-sm sm:text-base leading-relaxed mb-6 max-w-md">
+          Set your location to discover local shops in your neighbourhood and get the
+          freshest picks delivered to your doorstep.
         </p>
-
         {onSelectLocation && (
-          <Button
+          <button
             onClick={onSelectLocation}
-            className="bg-[#10A37F] hover:bg-[#0E8C6C] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+            className="font-heading inline-flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-6 py-3 rounded-full font-semibold text-sm shadow-lg shadow-accent/25 transition-all active:scale-[0.97]"
           >
-            <MapPin className="w-5 h-5" />
-            Set Your Location
-          </Button>
+            Set your location
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
         )}
       </div>
     );
@@ -55,96 +53,87 @@ export default function EmptyStoresState({
 
   if (variant === "no-stores-category") {
     return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 bg-gray-50 rounded-2xl border border-gray-200">
-        <div className="relative mb-5">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
-            <Store className="w-10 h-10 text-gray-400" />
-          </div>
+      <div className="rounded-2xl border border-dashed border-sand bg-white/50 px-6 py-12 max-w-2xl mx-auto">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="font-heading text-accent text-[11px] font-semibold tabular-nums tracking-[0.18em]">
+            —
+          </span>
+          <span className="h-px flex-1 bg-sand max-w-[80px]" aria-hidden />
         </div>
-
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 text-center">
-          No {category} stores found
+        <h3 className="font-heading text-ink text-lg sm:text-xl font-semibold leading-tight mb-2">
+          No {category?.toLowerCase()} stores found
         </h3>
-        <p className="text-gray-500 text-center max-w-sm mb-4 text-sm">
-          We couldn't find any {category?.toLowerCase()} stores matching your filters. Try a different category.
+        <p className="text-ink-2 text-sm leading-relaxed mb-5 max-w-md">
+          We couldn't find any {category?.toLowerCase()} stores matching your filters.
+          Try a different category or clear the filter.
         </p>
-
-        <Link href="/stores">
-          <Button variant="outline" className="rounded-full">
-            View All Stores
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+        <Link
+          href="/stores"
+          className="font-heading inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark transition-colors"
+        >
+          View all stores
+          <span>→</span>
         </Link>
       </div>
     );
   }
 
-  // Default: no-stores in area
+  // Default: no-stores in this area
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-blue-50 to-white rounded-2xl border border-blue-100">
-      <div className="relative mb-6">
-        {/* Animated illustration */}
-        <div className="w-28 h-28 bg-blue-100 rounded-full flex items-center justify-center relative overflow-hidden">
-          <Store className="w-14 h-14 text-blue-500" />
-          {/* Decorative circles */}
-          <div className="absolute top-2 left-2 w-3 h-3 bg-blue-200 rounded-full animate-pulse" />
-          <div className="absolute bottom-4 right-2 w-2 h-2 bg-blue-300 rounded-full animate-pulse delay-300" />
-        </div>
-        {/* Sad emoji */}
-        <div className="absolute -top-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg border border-gray-100">
-          <span className="text-2xl">😔</span>
-        </div>
+    <div className="rounded-2xl border border-dashed border-sand bg-white/50 px-6 sm:px-10 py-12 sm:py-16 max-w-2xl mx-auto">
+      <div className="flex items-center gap-3 mb-5">
+        <span className="font-heading text-accent text-[11px] font-semibold tabular-nums tracking-[0.18em] uppercase">
+          {locationName || "Your area"}
+        </span>
+        <span className="h-px flex-1 bg-sand max-w-[120px]" aria-hidden />
       </div>
 
-      <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 text-center">
-        Oh no! No stores in {locationName || "your area"} yet
+      <h3 className="font-heading text-ink text-xl sm:text-2xl font-semibold leading-tight mb-3">
+        No stores in {locationName || "your area"} yet
       </h3>
-      <p className="text-gray-500 text-center max-w-md mb-2">
-        We're working hard to bring local stores to your neighborhood. Great things are coming soon!
+      <p className="text-ink-2 text-sm sm:text-base leading-relaxed mb-4 max-w-md">
+        We're onboarding shops in new neighbourhoods every week. Leave your details
+        and we'll let you know the moment stores go live near you.
       </p>
 
-      {/* Stats or reassurance */}
-      <div className="flex items-center gap-2 text-sm text-blue-600 mb-6">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          Expanding to new areas daily
-        </span>
+      <div className="flex items-center gap-2 text-[12px] text-ink-2 mb-7">
+        <span className="w-1.5 h-1.5 rounded-full bg-tulsi" aria-hidden />
+        <span>Expanding to new neighbourhoods daily</span>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 mb-8">
         {showNotifyButton && onNotifyMe && (
-          <Button
+          <button
             onClick={onNotifyMe}
-            className="bg-[#FF9933] hover:bg-[#e8872b] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+            className="font-heading inline-flex items-center gap-2 bg-accent hover:bg-accent-dark text-white px-6 py-3 rounded-full font-semibold text-sm shadow-lg shadow-accent/25 transition-all active:scale-[0.97]"
           >
-            <Bell className="w-5 h-5" />
-            Notify Me When Available
-          </Button>
+            Notify me when available
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
         )}
-
         {onSelectLocation && (
-          <Button
+          <button
             onClick={onSelectLocation}
-            variant="outline"
-            className="px-6 py-3 rounded-full font-semibold flex items-center gap-2"
+            className="font-heading inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark px-4 py-3 transition-colors"
           >
-            <MapPin className="w-5 h-5" />
-            Try Different Location
-          </Button>
+            Try a different location →
+          </button>
         )}
       </div>
 
-      {/* Browse other areas suggestion */}
-      <div className="mt-6 pt-6 border-t border-gray-200 w-full max-w-md">
-        <p className="text-sm text-gray-500 text-center mb-3">
-          Meanwhile, check out stores in other areas
+      {/* Other cities strip */}
+      <div className="pt-6 border-t border-sand">
+        <p className="font-heading text-[10px] text-ink-2 tracking-[0.18em] uppercase mb-3">
+          Meanwhile — Browse Stores In
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex flex-wrap gap-2">
           {["Indore", "Guna", "Jaipur", "Noida"].map((city) => (
             <Link
               key={city}
               href={`/stores?city=${city}`}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-sm text-gray-700 transition-colors cursor-pointer"
+              className="font-heading px-4 py-1.5 border border-sand hover:border-ink bg-white hover:bg-ivory rounded-full text-xs font-medium text-ink-2 hover:text-ink transition-all"
             >
               {city}
             </Link>

@@ -4,25 +4,40 @@
 
 /* Font Configuration */
 body {
-  font-family: var(--font-roboto), sans-serif;
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
   font-weight: 400;
+  background-color: #FAF7F2;
+  color: #1C1C2E;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6,
-.heading {
-  font-family: var(--font-montserrat), sans-serif;
-  font-weight: 700;
+@layer base {
+  h1, h2, h3, h4, h5, h6,
+  .heading {
+    font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
 }
 
 /* Utility classes for manual font application */
-.font-heading {
-  font-family: var(--font-montserrat), sans-serif;
-  font-weight: 700;
+.font-heading,
+.font-display {
+  font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .font-body {
-  font-family: var(--font-roboto), sans-serif;
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
   font-weight: 400;
+}
+
+.font-brand {
+  font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 
 /* Custom scrollbar styles */

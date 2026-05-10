@@ -44,17 +44,17 @@ export default function ModernStoreCard({
   };
 
   return (
-    <div className="w-full rounded-2xl sm:rounded-3xl bg-white border-2 border-gray-300 hover:border-black transition-all duration-300 cursor-pointer relative overflow-hidden">
+    <div className="w-full rounded-2xl sm:rounded-3xl bg-white border border-sand hover:border-ink/30 hover:shadow-lg transition-all duration-300 cursor-pointer relative overflow-hidden">
       {isLoading && (
         <div className="absolute inset-0 bg-white/90 z-10 flex items-center justify-center rounded-2xl sm:rounded-3xl">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-black border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-6 h-6 sm:w-8 sm:h-8 border-4 border-ink border-t-transparent rounded-full animate-spin"></div>
         </div>
       )}
 
       {/* Image Section */}
       <div
         onClick={handleCardClick}
-        className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-[#FFF3E6] to-[#FFE4C4]"
+        className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-primary-xlight via-cream to-accent-light/70"
       >
         {allImages.length > 0 ? (
           <Image
@@ -65,7 +65,7 @@ export default function ModernStoreCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Store className="w-16 h-16 sm:w-24 sm:h-24 text-[#FF9933]" />
+            <Store className="w-16 h-16 sm:w-24 sm:h-24 text-accent" />
           </div>
         )}
 
@@ -95,13 +95,13 @@ export default function ModernStoreCard({
           <h2 className="text-base sm:text-xl font-semibold line-clamp-1 flex-1 min-w-0">
             {store.businessName}
           </h2>
-          <span className="bg-green-500 text-white px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium whitespace-nowrap flex-shrink-0">
+          <span className="bg-tulsi text-white px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium whitespace-nowrap flex-shrink-0">
             Open Now
           </span>
         </div>
 
         {store.storeDescription && (
-          <p className="text-gray-600 text-[11px] sm:text-xs leading-relaxed mb-2 sm:mb-3 line-clamp-2">
+          <p className="text-ink-2 text-[11px] sm:text-xs leading-relaxed mb-2 sm:mb-3 line-clamp-2">
             {store.storeDescription}
           </p>
         )}
@@ -125,8 +125,8 @@ export default function ModernStoreCard({
                       key={i}
                       className={`w-3 h-3 sm:w-4 sm:h-4 ${
                         isFullStar || isHalfStar
-                          ? "fill-green-500 text-green-500"
-                          : "fill-gray-300 text-gray-300"
+                          ? "fill-accent text-accent"
+                          : "fill-gray-300 text-ink-3"
                       }`}
                     />
                   );
@@ -134,13 +134,13 @@ export default function ModernStoreCard({
               </div>
             </div>
           ) : (
-            <span className="text-[9px] sm:text-[10px] text-gray-500">No reviews</span>
+            <span className="text-[9px] sm:text-[10px] text-ink-2">No reviews</span>
           )}
 
           {/* Visit Button */}
           <button
             onClick={handleCardClick}
-            className="bg-[#FF9933] text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-[#e8872b] transition active:scale-95 cursor-pointer"
+            className="bg-accent text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-[10px] sm:text-xs font-medium shadow-sm hover:bg-accent-dark transition active:scale-95 cursor-pointer"
           >
             Visit Store
           </button>

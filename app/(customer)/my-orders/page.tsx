@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter, usePathname } from 'next/navigation';
-import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft, Ban } from 'lucide-react';
+import { toast } from 'sonner';
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
@@ -67,6 +68,7 @@ export default function MyOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingLink, setLoadingLink] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   // Optimized navigation handler for instant navigation
   const handleNavigation = (href: string, e?: React.MouseEvent) => {
@@ -137,6 +139,23 @@ export default function MyOrdersPage() {
       setOrders([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to cancel this order?')) return;
+
+    try {
+      setCancellingOrderId(orderId);
+      const { apiClient } = await import('@/lib/api/client');
+      await apiClient.cancelOrder(orderId, 'Cancelled by customer');
+      toast.success('Order cancelled successfully');
+      fetchOrders();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to cancel order';
+      toast.error(message);
+    } finally {
+      setCancellingOrderId(null);
     }
   };
 
@@ -239,6 +258,20 @@ export default function MyOrdersPage() {
                           <StatusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                           {statusInfo.label}
                         </span>
+                        {order.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={cancellingOrderId === order.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {cancellingOrderId === order.id ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <Ban className="w-3.5 h-3.5" />
+                            )}
+                            Cancel
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

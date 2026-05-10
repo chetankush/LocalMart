@@ -2,8 +2,26 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
-import StoreImageCarousel from "./StoreImageCarousel";
+import { useEffect, useState } from "react";
+import {
+  Store,
+  Star,
+  MapPin,
+  Clock,
+  Truck,
+  ShieldCheck,
+  Phone,
+  Globe,
+  MessageCircle,
+  Send,
+  Instagram,
+  Facebook,
+  Package,
+  ArrowRight,
+  Search,
+  ChevronDown,
+  X,
+} from "lucide-react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import NotifyMeButton from "@/components/NotifyMeButton";
 
@@ -11,134 +29,552 @@ interface Product {
   id: string;
   name: string;
   description: string;
-  price: any;
-  images: any;
+  price: number | string;
+  images: unknown;
   stockQuantity: number;
   vendorId: string;
-  averageRating: any;
+  averageRating: number | string | null;
   reviewCount: number;
   createdAt: Date;
+  tags?: string[] | null;
+  category?: string | null;
+}
+
+type SortKey = "featured" | "new" | "price-asc" | "price-desc" | "rating";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "featured", label: "Featured" },
+  { key: "new", label: "Newest" },
+  { key: "price-asc", label: "Price: Low to high" },
+  { key: "price-desc", label: "Price: High to low" },
+  { key: "rating", label: "Highest rated" },
+];
+
+function deriveCategories(products: Product[]): string[] {
+  const set = new Set<string>();
+  for (const p of products) {
+    if (p.category) set.add(p.category.trim());
+    if (Array.isArray(p.tags)) {
+      for (const t of p.tags) {
+        if (typeof t === "string" && t.trim().length > 0) set.add(t.trim());
+      }
+    }
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function productMatchesCategory(p: Product, cat: string): boolean {
+  const c = cat.toLowerCase();
+  if (p.category && p.category.toLowerCase() === c) return true;
+  if (Array.isArray(p.tags) && p.tags.some((t) => t?.toLowerCase() === c))
+    return true;
+  return false;
 }
 
 interface DefaultThemeProps {
-  vendor: any;
+  vendor: {
+    id: string;
+    businessName: string;
+    businessType?: string;
+    storeDescription?: string | null;
+    storeLogo?: string | null;
+    storeImages?: unknown;
+    averageRating?: number | string | null;
+    reviewCount?: number;
+    city?: string;
+    state?: string;
+    locality?: string;
+    pincode?: string;
+    businessAddress?:
+      | string
+      | {
+          address?: string;
+          street?: string;
+          landmark?: string;
+        }
+      | null;
+    whatsappNumber?: string;
+    telegramLink?: string;
+    instagramHandle?: string;
+    facebookPage?: string;
+    websiteUrl?: string;
+  };
   products: Product[];
+}
+
+function getAddressLine(vendor: DefaultThemeProps["vendor"]): string {
+  if (typeof vendor.businessAddress === "string") {
+    return vendor.businessAddress;
+  }
+  if (vendor.businessAddress && typeof vendor.businessAddress === "object") {
+    const parts = [
+      vendor.businessAddress.address,
+      vendor.businessAddress.street,
+      vendor.businessAddress.landmark
+        ? `Near ${vendor.businessAddress.landmark}`
+        : null,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(", ");
+  }
+  return [vendor.locality, vendor.city].filter(Boolean).join(", ");
+}
+
+function getRegionLine(vendor: DefaultThemeProps["vendor"]): string {
+  return [vendor.locality, vendor.city, vendor.state, vendor.pincode]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
   const { setBranding } = useStoreBranding();
+  const [activeImage, setActiveImage] = useState(0);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("featured");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [showInStockOnly, setShowInStockOnly] = useState(false);
 
   useEffect(() => {
-    // Set the store branding when component mounts
     setBranding({
       storeName: vendor.businessName,
-      storeLogo: vendor.storeLogo,
+      storeLogo: vendor.storeLogo ?? null,
       storeId: vendor.id,
     });
-
-    // Clear the branding when component unmounts
-    return () => {
-      setBranding(null);
-    };
+    return () => setBranding(null);
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
 
+  const storeImages: string[] = Array.isArray(vendor.storeImages)
+    ? (vendor.storeImages as string[])
+    : [];
+  const heroImages: string[] =
+    storeImages.length > 0
+      ? storeImages
+      : vendor.storeLogo
+      ? [vendor.storeLogo]
+      : [];
+
+  // Hero carousel: slot 0 = dark title card, slots 1..N = store images
+  const totalHeroSlides = 1 + heroImages.length;
+
+  // Auto-advance every 5.5s (skip if no images to rotate to)
+  useEffect(() => {
+    if (totalHeroSlides <= 1) return;
+    const id = window.setInterval(() => {
+      setHeroSlide((s) => (s + 1) % totalHeroSlides);
+    }, 5500);
+    return () => window.clearInterval(id);
+  }, [totalHeroSlides]);
+
+  const rating =
+    vendor.averageRating != null ? Number(vendor.averageRating) : null;
+  const reviewCount = vendor.reviewCount ?? 0;
+
+  const hasSocial = !!(
+    vendor.whatsappNumber ||
+    vendor.telegramLink ||
+    vendor.instagramHandle ||
+    vendor.facebookPage ||
+    vendor.websiteUrl
+  );
+
+  const productCount = products.length;
+  const inStockCount = products.filter((p) => p.stockQuantity > 0).length;
+
+  // Derive categories + per-category counts
+  const categories = deriveCategories(products);
+  const categoryCounts = new Map<string, number>();
+  for (const cat of categories) {
+    categoryCounts.set(
+      cat,
+      products.filter((p) => productMatchesCategory(p, cat)).length
+    );
+  }
+
+  // Apply filters + sort
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const filteredProducts = products
+    .filter((p) => {
+      if (activeCategory && !productMatchesCategory(p, activeCategory)) return false;
+      if (showInStockOnly && p.stockQuantity <= 0) return false;
+      if (trimmedQuery) {
+        const hay = `${p.name} ${p.description ?? ""}`.toLowerCase();
+        if (!hay.includes(trimmedQuery)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "price-asc") return Number(a.price) - Number(b.price);
+      if (sortBy === "price-desc") return Number(b.price) - Number(a.price);
+      if (sortBy === "rating")
+        return Number(b.averageRating ?? 0) - Number(a.averageRating ?? 0);
+      if (sortBy === "new")
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      return 0;
+    });
+
+  const filtersActive =
+    activeCategory !== null ||
+    trimmedQuery.length > 0 ||
+    showInStockOnly ||
+    sortBy !== "featured";
+
+  const clearFilters = () => {
+    setActiveCategory(null);
+    setSearchQuery("");
+    setShowInStockOnly(false);
+    setSortBy("featured");
+  };
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "Featured";
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Store Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 lg:px-6 xl:px-8">
-          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-            {/* Store Images Carousel */}
-            <div className="w-full lg:w-1/2">
-              <StoreImageCarousel
-                images={Array.isArray(vendor.storeImages) ? (vendor.storeImages as string[]) : []}
-                storeName={vendor.businessName}
-                storeLogo={vendor.storeLogo}
+    <div className="min-h-screen bg-ivory">
+      {/* ── Editorial Hero ─────────────────────────────────────── */}
+      <section className="relative bg-ink overflow-hidden">
+        {/* Carousel layers (crossfade) */}
+        <div className="absolute inset-0">
+          {/* Slide 0: Dark title card — always rendered, kept for legibility */}
+          <div
+            className={`absolute inset-0 transition-opacity duration-1000 ease-out ${
+              heroSlide === 0 ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            <div className="w-full h-full bg-gradient-to-br from-ink via-ink to-accent-dark/30" />
+          </div>
+
+          {/* Slides 1..N: Store images */}
+          {heroImages.map((img, i) => (
+            <div
+              key={`hero-${img}-${i}`}
+              className={`absolute inset-0 transition-opacity duration-1000 ease-out ${
+                heroSlide === i + 1 ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <Image
+                src={img}
+                alt=""
+                fill
+                priority={i === 0}
+                sizes="100vw"
+                className="object-cover opacity-70"
               />
             </div>
+          ))}
 
-            {/* Store Info */}
-            <div className="w-full lg:w-1/2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 line-clamp-2">
-                    {vendor.businessName}
-                  </h1>
-                  <p className="text-sm sm:text-base text-gray-600 mb-2">
-                    {vendor.businessType}
-                  </p>
-                </div>
-                {vendor.averageRating && vendor.reviewCount > 0 ? (
-                  <div className="flex items-center text-yellow-500 flex-shrink-0">
-                    <span className="text-base sm:text-lg font-bold">
-                      {Number(vendor.averageRating).toFixed(1)}
-                    </span>
-                    <svg
-                      className="w-4 h-4 sm:w-5 sm:h-5 ml-1"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="text-xs sm:text-sm text-gray-600 ml-1 sm:ml-2">
-                      ({vendor.reviewCount})
-                    </span>
-                  </div>
-                ) : (
-                  <div className="text-xs sm:text-sm text-gray-400 flex-shrink-0">No reviews yet</div>
-                )}
-              </div>
+          {/* Always-on text legibility overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/30 pointer-events-none" />
+        </div>
 
-              {/* Notify Me Button */}
-              <div className="mb-3 sm:mb-4">
-                <NotifyMeButton vendorId={vendor.id} size="md" />
-              </div>
+        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 lg:pt-40 pb-12 sm:pb-16 lg:pb-20">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-3 mb-5">
+            <span className="h-px w-8 bg-accent" aria-hidden />
+            <span className="font-heading text-[10px] sm:text-[11px] font-semibold text-accent tracking-[0.22em] uppercase">
+              {vendor.businessType?.replace(/_/g, " ") || "Local store"}
+              {vendor.city ? ` · ${vendor.city}` : ""}
+            </span>
+          </div>
 
-              {vendor.storeDescription && (
-                <p className="text-sm sm:text-base text-gray-700 mb-3 sm:mb-4 leading-relaxed line-clamp-3 sm:line-clamp-none">
-                  {vendor.storeDescription}
+          {/* Display name */}
+          <h1 className="font-heading text-white text-[34px] sm:text-[52px] lg:text-[72px] font-semibold leading-[0.98] tracking-tight max-w-3xl">
+            {vendor.businessName}
+          </h1>
+
+          {/* Description teaser */}
+          {vendor.storeDescription && (
+            <p className="mt-5 text-base sm:text-lg text-white/70 max-w-2xl leading-relaxed line-clamp-2">
+              {vendor.storeDescription}
+            </p>
+          )}
+
+          {/* Inline meta */}
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-white/80 text-sm">
+            {rating != null && reviewCount > 0 ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Star className="w-4 h-4 fill-accent text-accent" />
+                <span className="font-semibold text-white">
+                  {rating.toFixed(1)}
+                </span>
+                <span className="text-white/60">({reviewCount} reviews)</span>
+              </span>
+            ) : (
+              <span className="text-white/60 text-xs uppercase tracking-[0.18em]">
+                New store
+              </span>
+            )}
+
+            <span className="hidden sm:inline-block w-px h-4 bg-white/20" aria-hidden />
+
+            <span className="inline-flex items-center gap-1.5">
+              <Package className="w-4 h-4 text-white/50" />
+              {productCount} {productCount === 1 ? "product" : "products"}
+            </span>
+
+            {(vendor.locality || vendor.city) && (
+              <>
+                <span className="hidden sm:inline-block w-px h-4 bg-white/20" aria-hidden />
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-white/50" />
+                  {[vendor.locality, vendor.city].filter(Boolean).join(", ")}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Primary actions */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <NotifyMeButton vendorId={vendor.id} size="md" />
+            {vendor.whatsappNumber && (
+              <a
+                href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Message store
+              </a>
+            )}
+          </div>
+
+          {/* Slide indicator dots */}
+          {totalHeroSlides > 1 && (
+            <div className="mt-12 sm:mt-16 flex items-center gap-2">
+              {Array.from({ length: totalHeroSlides }).map((_, i) => (
+                <button
+                  key={`dot-${i}`}
+                  onClick={() => setHeroSlide(i)}
+                  aria-label={
+                    i === 0 ? "Show title slide" : `Show photo ${i}`
+                  }
+                  className={`h-1 rounded-full transition-all duration-500 cursor-pointer ${
+                    heroSlide === i
+                      ? "w-10 bg-white"
+                      : "w-5 bg-white/30 hover:bg-white/60"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Sticky meta bar ───────────────────────────────────── */}
+      <div className="sticky top-0 z-30 bg-ivory/90 backdrop-blur-md border-b border-sand">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-cream border border-sand overflow-hidden shrink-0 flex items-center justify-center">
+              {vendor.storeLogo ? (
+                <Image
+                  src={vendor.storeLogo}
+                  alt=""
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Store className="w-4 h-4 text-ink-3" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="font-heading text-ink text-sm font-semibold truncate">
+                {vendor.businessName}
+              </p>
+              {(vendor.locality || vendor.city) && (
+                <p className="text-[11px] text-ink-3 truncate">
+                  {[vendor.locality, vendor.city].filter(Boolean).join(", ")}
                 </p>
               )}
+            </div>
+          </div>
+          <a
+            href="#products"
+            className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark transition-colors"
+          >
+            See products
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
 
-              {/* Social Media Links */}
-              {(vendor.whatsappNumber ||
-                vendor.telegramLink ||
-                vendor.instagramHandle ||
-                vendor.facebookPage ||
-                vendor.websiteUrl) && (
-                <div className="mb-3 sm:mb-4">
-                  <h3 className="text-xs sm:text-sm font-medium text-gray-900 mb-2 sm:mb-3 flex items-center">
-                    <svg
-                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                      />
-                    </svg>
-                    Connect with us
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
+      {/* ── About / Story ─────────────────────────────────────── */}
+      {vendor.storeDescription && (
+        <section className="bg-ivory">
+          <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+            <span className="block h-px w-12 bg-accent mb-6" aria-hidden />
+            <p className="font-heading text-ink text-xl sm:text-2xl lg:text-[28px] font-medium leading-[1.4] tracking-tight">
+              {vendor.storeDescription}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ── Visit & Info ──────────────────────────────────────── */}
+      <section className="bg-ivory border-y border-sand">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+            {/* ── Left: Store gallery ──────────────────────── */}
+            <div className="lg:col-span-7">
+              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
+              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight mb-6 sm:mb-8">
+                Inside the store
+              </h2>
+
+              {heroImages.length > 0 ? (
+                <div className="space-y-3">
+                  {/* Primary photo */}
+                  <div className="relative aspect-[4/3] sm:aspect-[16/10] bg-cream rounded-2xl overflow-hidden border border-sand">
+                    <Image
+                      src={heroImages[activeImage] ?? heroImages[0]}
+                      alt={`${vendor.businessName} storefront`}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 60vw"
+                      className="object-cover"
+                    />
+                  </div>
+
+                  {/* Thumbnail strip */}
+                  {heroImages.length > 1 && (
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                      {heroImages.slice(0, 5).map((img, i) => (
+                        <button
+                          key={`${img}-${i}`}
+                          onClick={() => setActiveImage(i)}
+                          aria-label={`Show photo ${i + 1}`}
+                          className={`relative aspect-square rounded-xl overflow-hidden border transition-all ${
+                            activeImage === i
+                              ? "border-accent ring-2 ring-accent/30"
+                              : "border-sand hover:border-ink"
+                          }`}
+                        >
+                          <Image
+                            src={img}
+                            alt=""
+                            fill
+                            sizes="120px"
+                            className="object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="aspect-[16/10] bg-cream rounded-2xl border border-sand flex flex-col items-center justify-center text-ink-3">
+                  <Store className="w-10 h-10 mb-2" strokeWidth={1.25} />
+                  <p className="text-sm">No store photos yet</p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Right: Visit details ──────────────────────── */}
+            <div className="lg:col-span-5">
+              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
+              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight mb-6 sm:mb-8">
+                Visit &amp; order
+              </h2>
+
+              {/* Info list */}
+              <dl className="divide-y divide-sand border-y border-sand">
+                {/* Address */}
+                <div className="py-5 flex items-start gap-4">
+                  <MapPin
+                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
+                      Address
+                    </dt>
+                    <dd className="text-[15px] text-ink leading-relaxed">
+                      {getAddressLine(vendor) || "Not provided"}
+                    </dd>
+                    {getRegionLine(vendor) && (
+                      <dd className="text-xs text-ink-3 mt-1">
+                        {getRegionLine(vendor)}
+                      </dd>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hours / Status */}
+                <div className="py-5 flex items-start gap-4">
+                  <Clock
+                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
+                      Hours
+                    </dt>
+                    <dd className="text-[15px] text-ink leading-relaxed inline-flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />
+                      Open now
+                    </dd>
+                    <dd className="text-xs text-ink-3 mt-1">
+                      Local delivery available
+                    </dd>
+                  </div>
+                </div>
+
+                {/* Delivery */}
+                <div className="py-5 flex items-start gap-4">
+                  <Truck
+                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
+                      Delivery
+                    </dt>
+                    <dd className="text-[15px] text-ink leading-relaxed">
+                      Same-day in {vendor.city || "your area"}
+                    </dd>
+                    <dd className="text-xs text-ink-3 mt-1">
+                      Direct from the store
+                    </dd>
+                  </div>
+                </div>
+
+                {/* Verified */}
+                <div className="py-5 flex items-start gap-4">
+                  <ShieldCheck
+                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
+                    strokeWidth={1.5}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
+                      Verification
+                    </dt>
+                    <dd className="text-[15px] text-ink leading-relaxed">
+                      Verified local vendor
+                    </dd>
+                    <dd className="text-xs text-ink-3 mt-1">
+                      Real shopkeeper, local pickup
+                    </dd>
+                  </div>
+                </div>
+              </dl>
+
+              {/* Social channels */}
+              {hasSocial && (
+                <div className="mt-8">
+                  <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-3">
+                    Connect
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
                     {vendor.whatsappNumber && (
                       <a
                         href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs sm:text-sm font-medium"
+                        aria-label="WhatsApp"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
-                        <svg
-                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                        </svg>
-                        <span className="hidden xs:inline">WhatsApp</span>
+                        <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
                     {vendor.telegramLink && (
@@ -146,16 +582,10 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                         href={vendor.telegramLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs sm:text-sm font-medium"
+                        aria-label="Telegram"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
-                        <svg
-                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-                        </svg>
-                        <span className="hidden xs:inline">Telegram</span>
+                        <Send className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
                     {vendor.instagramHandle && (
@@ -163,16 +593,10 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                         href={`https://instagram.com/${vendor.instagramHandle.replace("@", "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors text-xs sm:text-sm font-medium"
+                        aria-label="Instagram"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
-                        <svg
-                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
-                        </svg>
-                        <span className="hidden xs:inline">Instagram</span>
+                        <Instagram className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
                     {vendor.facebookPage && (
@@ -180,16 +604,10 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                         href={vendor.facebookPage}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium"
+                        aria-label="Facebook"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
-                        <svg
-                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                        </svg>
-                        <span className="hidden xs:inline">Facebook</span>
+                        <Facebook className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
                     {vendor.websiteUrl && (
@@ -197,227 +615,381 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                         href={vendor.websiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-2.5 sm:px-4 py-1.5 sm:py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-xs sm:text-sm font-medium"
+                        aria-label="Website"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
-                        <svg
-                          className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
-                          />
-                        </svg>
-                        <span className="hidden xs:inline">Website</span>
+                        <Globe className="w-4 h-4" strokeWidth={1.5} />
+                      </a>
+                    )}
+                    {vendor.whatsappNumber && (
+                      <a
+                        href={`tel:${vendor.whatsappNumber}`}
+                        aria-label="Call"
+                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
+                      >
+                        <Phone className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
                   </div>
                 </div>
               )}
 
-              <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <h3 className="font-medium text-gray-900 flex items-center text-xs sm:text-sm">
-                    <svg
-                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    Store Address
-                  </h3>
-                  <div className="flex gap-1.5 sm:gap-2 flex-wrap">
-                    <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 bg-green-100 text-green-800 text-[10px] sm:text-xs font-medium rounded-full">
-                      <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-green-500 rounded-full mr-1 sm:mr-1.5"></div>
-                      Open Now
-                    </span>
-                    <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-800 text-[10px] sm:text-xs font-medium rounded-full">
-                      <svg
-                        className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-1 sm:mr-1.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                      </svg>
-                      Local Delivery
-                    </span>
-                  </div>
-                </div>
-                <div className="space-y-2 sm:space-y-3">
-                  {vendor.businessAddress ? (
-                    <div>
-                      {typeof vendor.businessAddress === "string" ? (
-                        <div className="space-y-1.5 sm:space-y-2">
-                          <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
-                            {vendor.businessAddress}
-                          </p>
-                          <div className="text-gray-500 text-[11px] sm:text-sm">
-                            {[
-                              vendor.locality,
-                              vendor.city,
-                              vendor.state,
-                              vendor.pincode,
-                            ]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-1.5 sm:space-y-2">
-                          {vendor.businessAddress.address && (
-                            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
-                              {vendor.businessAddress.address}
-                            </p>
-                          )}
-                          {vendor.businessAddress.street && (
-                            <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                              {vendor.businessAddress.street}
-                            </p>
-                          )}
-                          {vendor.businessAddress.landmark && (
-                            <p className="text-gray-500 text-[11px] sm:text-sm">
-                              Near {vendor.businessAddress.landmark}
-                            </p>
-                          )}
-                          <div className="text-gray-500 text-[11px] sm:text-sm">
-                            {[
-                              vendor.locality,
-                              vendor.city,
-                              vendor.state,
-                              vendor.pincode,
-                            ]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 sm:space-y-2">
-                      {vendor.locality && (
-                        <p className="text-xs sm:text-sm text-gray-600 leading-relaxed font-medium">
-                          {vendor.locality}
-                        </p>
-                      )}
-                      <div className="text-gray-500 text-[11px] sm:text-sm">
-                        {[vendor.city, vendor.state, vendor.pincode]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {/* Primary CTA */}
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a
+                  href="#products"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-full text-sm font-semibold hover:bg-accent-dark transition-colors shadow-sm hover:shadow-md"
+                >
+                  Browse products
+                  <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
+                </a>
+                {vendor.whatsappNumber && (
+                  <a
+                    href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-sand text-ink rounded-full text-sm font-semibold hover:border-ink transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
+                    Chat with store
+                  </a>
+                )}
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Products Section */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 lg:px-6 xl:px-8">
-        <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-            Products ({products.length})
-          </h2>
-        </div>
+      {/* ── Products ──────────────────────────────────────────── */}
+      <section id="products" className="bg-ivory">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+          {/* Section header */}
+          <div className="flex items-end justify-between mb-8 sm:mb-10">
+            <div>
+              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
+              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight">
+                {activeCategory ?? "All products"}
+              </h2>
+              {productCount > 0 && (
+                <p className="text-ink-2 text-sm mt-2">
+                  {filteredProducts.length}{" "}
+                  {filteredProducts.length === 1 ? "item" : "items"}
+                  {filteredProducts.length !== productCount && ` of ${productCount}`}
+                </p>
+              )}
+            </div>
 
-        {products.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-            {products.map((product) => {
-              const images = Array.isArray(product.images) ? product.images : [];
-              const firstImage = images.length > 0 ? images[0] : null;
+            {/* Mobile filter toggle */}
+            {productCount > 0 && (
+              <button
+                onClick={() => setSortMenuOpen((v) => !v)}
+                className="lg:hidden inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark transition-colors"
+                aria-expanded={sortMenuOpen}
+              >
+                Filter &amp; Sort
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${sortMenuOpen ? "rotate-180" : ""}`}
+                  strokeWidth={1.75}
+                />
+              </button>
+            )}
+          </div>
 
-              return (
-                <Link
-                  key={product.id}
-                  href={`/products/${product.id}`}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                >
-                  <div className="relative aspect-square bg-gray-100">
-                    {firstImage ? (
-                      <Image
-                        src={firstImage}
-                        alt={product.name}
-                        fill
-                        className="object-cover"
+          {productCount === 0 ? (
+            <div className="border border-dashed border-sand rounded-2xl bg-white/40 px-6 py-16 sm:py-20 text-center max-w-2xl mx-auto">
+              <span className="inline-flex w-12 h-12 rounded-full bg-cream items-center justify-center mb-5">
+                <Package className="w-5 h-5 text-ink-3" strokeWidth={1.5} />
+              </span>
+              <h3 className="font-heading text-ink text-lg sm:text-xl font-semibold mb-2">
+                No products yet
+              </h3>
+              <p className="text-ink-2 text-sm leading-relaxed max-w-md mx-auto">
+                {vendor.businessName} is preparing their catalogue. Check back soon
+                — or follow this store to be notified when new items go live.
+              </p>
+              <div className="mt-6">
+                <NotifyMeButton vendorId={vendor.id} size="md" />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+              {/* ── Sidebar (Nike-style) ─────────────────────── */}
+              <aside
+                className={`lg:col-span-3 lg:block ${sortMenuOpen ? "block" : "hidden"}`}
+              >
+                <div className="lg:sticky lg:top-20 space-y-10">
+                  {/* Search */}
+                  <div>
+                    <label className="block font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-3">
+                      Search
+                    </label>
+                    <div className="relative">
+                      <Search
+                        className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2"
+                        strokeWidth={1.75}
                       />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-3xl sm:text-4xl">
-                        📦
-                      </div>
-                    )}
-                    {product.stockQuantity <= 0 && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                        <span className="bg-red-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-sm font-bold">
-                          Out of Stock
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-2.5 sm:p-4">
-                    <h3 className="font-semibold text-gray-900 text-xs sm:text-sm line-clamp-2 mb-1.5 sm:mb-2">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm sm:text-lg font-bold text-blue-600">
-                        ₹{Number(product.price).toFixed(2)}
-                      </span>
-                      {product.averageRating && product.reviewCount > 0 && (
-                        <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs">
-                          <span className="text-yellow-500">★</span>
-                          <span className="font-medium text-gray-700">
-                            {Number(product.averageRating).toFixed(1)}
-                          </span>
-                        </div>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Find a product"
+                        className="w-full bg-white border border-sand rounded-full pl-9 pr-9 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-ink transition-colors"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          aria-label="Clear search"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
+                        >
+                          <X className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
                       )}
                     </div>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-10 sm:py-16 bg-white rounded-xl">
-            <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">📦</div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
-              No Products Yet
-            </h3>
-            <p className="text-sm sm:text-base text-gray-600">
-              This store hasn't added any products yet.
-            </p>
-          </div>
-        )}
-      </div>
+
+                  {/* Categories */}
+                  <div>
+                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
+                      Categories
+                    </p>
+                    <ul className="space-y-3">
+                      <li>
+                        <button
+                          onClick={() => setActiveCategory(null)}
+                          className={`flex items-center justify-between w-full text-left text-[15px] transition-colors ${
+                            activeCategory === null
+                              ? "text-ink font-semibold"
+                              : "text-ink-2 hover:text-ink"
+                          }`}
+                        >
+                          <span>All products</span>
+                          <span className="text-ink-3 text-xs tabular-nums">
+                            {productCount}
+                          </span>
+                        </button>
+                      </li>
+                      {categories.length === 0 ? (
+                        <li className="text-xs text-ink-3 leading-relaxed">
+                          This store has no category tags yet.
+                        </li>
+                      ) : (
+                        categories.map((cat) => {
+                          const isActive = activeCategory === cat;
+                          return (
+                            <li key={cat}>
+                              <button
+                                onClick={() =>
+                                  setActiveCategory(isActive ? null : cat)
+                                }
+                                className={`flex items-center justify-between w-full text-left text-[15px] transition-colors ${
+                                  isActive
+                                    ? "text-ink font-semibold"
+                                    : "text-ink-2 hover:text-ink"
+                                }`}
+                              >
+                                <span className="truncate">{cat}</span>
+                                <span className="text-ink-3 text-xs tabular-nums shrink-0 ml-2">
+                                  {categoryCounts.get(cat) ?? 0}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })
+                      )}
+                    </ul>
+                  </div>
+
+                  {/* Filter by */}
+                  <div>
+                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
+                      Filter by
+                    </p>
+                    <label className="flex items-center justify-between cursor-pointer group">
+                      <span
+                        className={`text-[15px] transition-colors ${
+                          showInStockOnly
+                            ? "text-ink font-semibold"
+                            : "text-ink-2 group-hover:text-ink"
+                        }`}
+                      >
+                        In stock only
+                      </span>
+                      <span
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                          showInStockOnly ? "bg-accent" : "bg-sand"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={showInStockOnly}
+                          onChange={(e) => setShowInStockOnly(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                            showInStockOnly ? "translate-x-4" : "translate-x-0.5"
+                          }`}
+                        />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Sort */}
+                  <div>
+                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
+                      Sort by
+                    </p>
+                    <ul className="space-y-3">
+                      {SORT_OPTIONS.map((opt) => {
+                        const isActive = sortBy === opt.key;
+                        return (
+                          <li key={opt.key}>
+                            <button
+                              onClick={() => setSortBy(opt.key)}
+                              className={`text-left text-[15px] transition-colors ${
+                                isActive
+                                  ? "text-ink font-semibold"
+                                  : "text-ink-2 hover:text-ink"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  {filtersActive && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-sm font-semibold text-accent-dark hover:text-ink transition-colors inline-flex items-center gap-1.5"
+                    >
+                      Reset filters
+                      <X className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
+              </aside>
+
+              {/* ── Grid ──────────────────────────────────────── */}
+              <div className="lg:col-span-9">
+                {/* Toolbar (desktop) */}
+                <div className="hidden lg:flex items-center justify-between mb-6 pb-4 border-b border-sand">
+                  <p className="text-sm text-ink-2">
+                    {filteredProducts.length}{" "}
+                    {filteredProducts.length === 1 ? "product" : "products"}
+                  </p>
+                  <p className="text-sm text-ink-2">
+                    Sorted by{" "}
+                    <span className="text-ink font-semibold">{sortLabel}</span>
+                  </p>
+                </div>
+
+                {filteredProducts.length === 0 ? (
+                  <div className="border border-dashed border-sand rounded-2xl bg-white/40 px-6 py-16 text-center">
+                    <h3 className="font-heading text-ink text-lg font-semibold mb-2">
+                      No products match these filters
+                    </h3>
+                    <p className="text-ink-2 text-sm mb-5">
+                      Try removing a filter or clearing your search.
+                    </p>
+                    <button
+                      onClick={clearFilters}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink text-white rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors"
+                    >
+                      Reset filters
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12">
+                    {filteredProducts.map((product) => {
+                      const images = Array.isArray(product.images)
+                        ? (product.images as string[])
+                        : [];
+                      const firstImage = images.length > 0 ? images[0] : null;
+                      const price = Number(product.price);
+                      const productRating =
+                        product.averageRating != null
+                          ? Number(product.averageRating)
+                          : null;
+                      const productCategory =
+                        product.category ||
+                        (Array.isArray(product.tags) && product.tags[0]) ||
+                        null;
+
+                      return (
+                        <Link
+                          key={product.id}
+                          href={`/products/${product.id}`}
+                          className="group block"
+                        >
+                          <div className="relative aspect-square bg-cream rounded-2xl overflow-hidden border border-sand">
+                            {firstImage ? (
+                              <Image
+                                src={firstImage}
+                                alt={product.name}
+                                fill
+                                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center text-ink-3">
+                                <Package
+                                  className="w-10 h-10"
+                                  strokeWidth={1.25}
+                                />
+                              </div>
+                            )}
+
+                            {product.stockQuantity <= 0 && (
+                              <div className="absolute inset-0 bg-ink/60 flex items-center justify-center">
+                                <span className="bg-laal text-white text-[10px] font-semibold tracking-wider uppercase px-3 py-1 rounded-full">
+                                  Out of stock
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="pt-4">
+                            <h3 className="font-heading text-ink text-sm sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-accent-dark transition-colors">
+                              {product.name}
+                            </h3>
+                            {productCategory && (
+                              <p className="text-xs text-ink-3 mt-1">
+                                {productCategory}
+                              </p>
+                            )}
+
+                            <div className="mt-2 flex items-baseline justify-between gap-2">
+                              <span className="font-heading text-ink text-base sm:text-lg font-semibold tabular-nums">
+                                ₹{price.toFixed(0)}
+                              </span>
+                              {productRating != null &&
+                                product.reviewCount > 0 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] text-ink-3">
+                                    <Star
+                                      className="w-3 h-3 fill-accent text-accent"
+                                      strokeWidth={1.5}
+                                    />
+                                    <span className="font-medium text-ink-2 tabular-nums">
+                                      {productRating.toFixed(1)}
+                                    </span>
+                                    <span>({product.reviewCount})</span>
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
