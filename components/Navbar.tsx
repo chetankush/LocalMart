@@ -4,7 +4,7 @@ import Link from "next/link";
 import React, { useState, useEffect, useTransition } from "react";
 import Image from "next/image";
 import { useAuth } from "@/lib/supabase/auth-provider";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { useRouter, usePathname } from "next/navigation";
 import CartIcon from "@/components/cart/CartIcon";
 import { useLocation } from "@/context/LocationContext";
@@ -166,7 +166,12 @@ const Navbar = () => {
       setIsSearching(true);
       try {
         const { apiClient } = await import("@/lib/api/client");
-        const { data } = await apiClient.search(searchQuery, { city: location?.city });
+        const { data } = await apiClient.search(searchQuery, {
+          city: location?.city,
+          pincode: location?.pincode,
+          lat: location?.latitude,
+          lng: location?.longitude,
+        });
         setSearchResults(data);
         setShowSearchResults(true);
       } catch (error) {
@@ -178,7 +183,7 @@ const Navbar = () => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, location?.city, location?.pincode, location?.latitude, location?.longitude]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -413,9 +418,7 @@ const Navbar = () => {
                   <div className="w-4 h-4 bg-gray-700 rounded" />
                 </div>
               ) : !user ? (
-                <Link href="/sign-in">
-                  <Button className="bg-[#FF9933] hover:bg-[#e8872b]">Sign In</Button>
-                </Link>
+                <Button href="/sign-in">Sign In</Button>
               ) : (
                 <div className="relative">
                   <button

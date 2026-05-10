@@ -15,6 +15,5 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // Redirect to select-role or home
-  return NextResponse.redirect(`${origin}/select-role`);
+  return NextResponse.redirect(`${origin}/`);
 }

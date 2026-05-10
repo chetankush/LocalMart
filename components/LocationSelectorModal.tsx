@@ -8,11 +8,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocation } from "@/context/LocationContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { searchAddresses, getPlaceDetails, type AddressSuggestion } from "@/lib/location/geolocation";
 import { apiClient } from "@/lib/api/client";
 
@@ -29,6 +29,16 @@ export default function LocationSelectorModal({
 }: LocationSelectorModalProps) {
   const { updateLocation, detectAndSetLocation, setLocationFromResult, validatePincode } = useLocation();
   const router = useRouter();
+  const pathname = usePathname();
+  // From the landing page we want to stay on `/` and re-render in personalized mode.
+  // From anywhere else, the existing "redirect to /stores" behaviour is preserved.
+  const goAfterPick = (pincode: string) => {
+    if (pathname === "/") {
+      router.refresh();
+    } else {
+      router.push(`/stores?pincode=${pincode}`);
+    }
+  };
 
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
@@ -93,7 +103,7 @@ export default function LocationSelectorModal({
       if (dbResult.success && dbResult.data) {
         updateLocation(pincode, locality || dbResult.data.area || '');
         onClose();
-        router.push(`/stores?pincode=${pincode}`);
+        goAfterPick(pincode);
         return;
       }
     } catch {
@@ -109,7 +119,7 @@ export default function LocationSelectorModal({
     }
 
     onClose();
-    router.push(`/stores?pincode=${pincode}`);
+    goAfterPick(pincode);
   };
 
   const handleDetectLocation = async () => {
@@ -127,7 +137,7 @@ export default function LocationSelectorModal({
       // Brief success state before closing
       await new Promise(resolve => setTimeout(resolve, 800));
       onClose();
-      router.push(`/stores?pincode=${result.pincode}`);
+      goAfterPick(result.pincode);
     } catch (err: any) {
       setDetectionState('error');
       setError(err.message || "Failed to detect location. Please enter manually.");
@@ -140,7 +150,7 @@ export default function LocationSelectorModal({
       if (result) {
         setLocationFromResult(result);
         onClose();
-        router.push(`/stores?pincode=${result.pincode}`);
+        goAfterPick(result.pincode);
       }
     } catch (err) {
       setError("Failed to get location details");

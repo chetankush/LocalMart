@@ -76,7 +76,7 @@ export default function PhoneSignInPage() {
       setError(verifyError.message);
       setLoading(false);
     } else {
-      router.push("/select-role");
+      router.push("/");
     }
   };
 

@@ -17,7 +17,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
-import { Button } from "@/components/ui/Button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface SearchStore {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 
@@ -15,15 +15,23 @@ import ShopByCategorySection from "@/components/landing/ShopByCategorySection";
 import FaqAccordion from "@/components/landing/FaqAccordion";
 import VendorCtaSection from "@/components/landing/VendorCtaSection";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
+import ExploreHero from "@/components/landing/ExploreHero";
+import CitiesAvailable from "@/components/landing/CitiesAvailable";
+import PopularStoresGlobal, { type PopularStore } from "@/components/landing/PopularStoresGlobal";
 import type { ProductCardProduct } from "@/components/landing/ProductCard";
 import { isStoreOpen, calculateDistanceKm } from "@/lib/landing/distance";
 
 interface Props {
   user: { id: string } | null;
+  mode: "personalized" | "explore";
   vendors: Vendor[];
   featuredProducts: ProductCardProduct[];
   popularProducts: ProductCardProduct[];
   categories: { id: string; name: string; slug: string }[];
+  popularStoresGlobal: PopularStore[];
+  cities: { city: string; vendorCount: number }[];
+  stats: { totalVendors: number; totalCities: number };
+  serviceableVendorCount: number;
   backendStatus?: { ok: boolean; status?: number };
 }
 
@@ -40,19 +48,56 @@ const CATEGORY_TITLES: Record<string, string> = {
   OTHER: "More Categories",
 };
 
+const FIRST_VISIT_MODAL_KEY = "lm_first_visit_modal_shown";
+
 export default function LandingPageClient({
   user,
+  mode,
   vendors,
   featuredProducts,
   popularProducts,
+  categories,
+  popularStoresGlobal,
+  cities,
+  stats,
+  serviceableVendorCount,
   backendStatus,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { location } = useLocation();
+  const { location, isLoading: locationLoading } = useLocation();
   const [, startTransition] = useTransition();
   const [loadingLink, setLoadingLink] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const cookieHydrated = useRef(false);
+
+  // If the user's localStorage location appears after server-rendered explore
+  // mode (e.g. they cleared cookies but kept localStorage), trigger a refresh
+  // once so the server can re-render with the proper personalized data.
+  useEffect(() => {
+    if (cookieHydrated.current) return;
+    cookieHydrated.current = true;
+    if (mode === "explore" && location && !locationLoading) {
+      router.refresh();
+    }
+  }, [mode, location, locationLoading, router]);
+
+  // First-visit nudge: open the location modal if we still don't have a
+  // location after the context finishes hydrating. Session-scoped so we
+  // don't pester on every navigation back to "/".
+  useEffect(() => {
+    if (locationLoading) return;
+    if (location) return;
+    if (mode !== "explore") return;
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(FIRST_VISIT_MODAL_KEY)) return;
+
+    const t = setTimeout(() => {
+      setShowLocationModal(true);
+      sessionStorage.setItem(FIRST_VISIT_MODAL_KEY, "1");
+    }, 800);
+    return () => clearTimeout(t);
+  }, [locationLoading, location, mode]);
 
   const handleNavigate = (href: string) => {
     if (pathname === href) {
@@ -78,6 +123,33 @@ export default function LandingPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ─────────────────────────────────────────────────────────────────
+  // Explore mode (no location set yet)
+  // ─────────────────────────────────────────────────────────────────
+  if (mode === "explore") {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <ExploreHero stats={stats} onOpenLocationModal={() => setShowLocationModal(true)} />
+        <PopularStoresGlobal stores={popularStoresGlobal} />
+        <CitiesAvailable
+          cities={cities}
+          onNotifyMe={() => setShowLocationModal(true)}
+        />
+        <HowItWorksHorizontal authenticated={!!user} />
+        <VendorCtaSection />
+        <FaqAccordion />
+
+        <LocationSelectorModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+        />
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Personalized mode (location set, server returned serviceable data)
+  // ─────────────────────────────────────────────────────────────────
   const allProducts = featuredProducts.length > 0 ? featuredProducts : popularProducts;
   const popularSorted = [...(popularProducts.length > 0 ? popularProducts : allProducts)].sort(
     (a, b) => (Number(b.reviewCount) || 0) - (Number(a.reviewCount) || 0)
@@ -117,11 +189,47 @@ export default function LandingPageClient({
 
   const locationLabel = location?.locality || location?.city || undefined;
 
+  // Empty serviceable supply for this pincode — dedicated state, not a fallback.
+  const hasNoServiceableSupply =
+    serviceableVendorCount === 0 && vendors.length === 0;
+
+  if (hasNoServiceableSupply) {
+    return (
+      <div className="min-h-screen bg-ivory">
+        <section className="max-w-[720px] mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+          <div className="text-5xl mb-4">📍</div>
+          <h1 className="font-heading text-ink text-2xl sm:text-3xl font-semibold tracking-tight">
+            We&apos;re not in {locationLabel || "your area"} yet — but we&apos;re growing.
+          </h1>
+          <p className="text-ink-2 mt-3 max-w-md mx-auto">
+            Leave your details and we&apos;ll let you know the moment local shops in your pincode
+            join LocalMart.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => setShowLocationModal(true)}
+              className="h-11 px-6 rounded-full bg-ink text-white font-semibold hover:bg-ink/90"
+            >
+              Try a different pincode
+            </button>
+          </div>
+        </section>
+        <PopularStoresGlobal stores={popularStoresGlobal} />
+        <HowItWorksHorizontal authenticated={!!user} />
+        <VendorCtaSection />
+        <LocationSelectorModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-ivory">
       <HeroBanner />
       <HowItWorksHorizontal authenticated={!!user} />
-      <CategoryTiles />
+      <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />
       <FlashDealsSection products={enrichedDeals} />
       <StoresNearYouSection
         vendors={vendors}

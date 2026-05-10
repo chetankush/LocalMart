@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocation } from "@/context/LocationContext";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 
 export default function VendorCtaSection() {
   const { location } = useLocation();

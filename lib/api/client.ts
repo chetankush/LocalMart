@@ -570,16 +570,6 @@ class ApiClient {
     });
   }
 
-  async selectRole(role: "CUSTOMER" | "VENDOR") {
-    return this.request<{ success: boolean; data: any; message: string }>(
-      "/user/select-role",
-      {
-        method: "POST",
-        body: JSON.stringify({ role }),
-      }
-    );
-  }
-
   // Notifications
   async getNotifications(params?: {
     limit?: number;
@@ -680,10 +670,16 @@ class ApiClient {
   }
 
   // Search
-  async search(query: string, filters?: { city?: string }) {
+  async search(
+    query: string,
+    filters?: { city?: string; pincode?: string; lat?: number; lng?: number },
+  ) {
     const params = new URLSearchParams();
     params.set("q", query);
     if (filters?.city) params.set("city", filters.city);
+    if (filters?.pincode) params.set("pincode", filters.pincode);
+    if (typeof filters?.lat === "number") params.set("lat", String(filters.lat));
+    if (typeof filters?.lng === "number") params.set("lng", String(filters.lng));
     return this.request<{
       success: boolean;
       data: { stores: any[]; products: any[] };
@@ -693,13 +689,24 @@ class ApiClient {
   // Advanced Search with abort signal support
   async searchAdvanced(
     query: string,
-    options?: { limit?: number; signal?: AbortSignal }
+    options?: {
+      limit?: number;
+      signal?: AbortSignal;
+      pincode?: string;
+      city?: string;
+      lat?: number;
+      lng?: number;
+    },
   ) {
     const params = new URLSearchParams();
     params.set("q", query);
     if (options?.limit) {
       params.set("limit", options.limit.toString());
     }
+    if (options?.pincode) params.set("pincode", options.pincode);
+    if (options?.city) params.set("city", options.city);
+    if (typeof options?.lat === "number") params.set("lat", String(options.lat));
+    if (typeof options?.lng === "number") params.set("lng", String(options.lng));
 
     const url = `${this.baseUrl}/search/advanced?${params.toString()}`;
     const headers = await this.getAuthHeaders();

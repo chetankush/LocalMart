@@ -24,7 +24,7 @@ export default function SignInPage() {
       setError(signInError.message);
       setLoading(false);
     } else {
-      router.push("/select-role");
+      router.push("/");
     }
   };
 

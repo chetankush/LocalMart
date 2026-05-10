@@ -60,7 +60,22 @@ const categories: Category[] = [
   },
 ];
 
-export default function CategoryTiles() {
+interface Props {
+  /**
+   * When provided, only categories whose slug appears in this list are
+   * rendered. Lets the personalized landing page hide categories with no
+   * serviceable vendors in the user's pincode.
+   */
+  availableSlugs?: string[];
+}
+
+export default function CategoryTiles({ availableSlugs }: Props = {}) {
+  const visible = availableSlugs && availableSlugs.length > 0
+    ? categories.filter((c) => availableSlugs.includes(c.slug))
+    : categories;
+
+  if (visible.length === 0) return null;
+
   return (
     <section className="bg-ivory">
       <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
@@ -78,7 +93,9 @@ export default function CategoryTiles() {
               What do you need today?
             </h2>
             <p className="text-ink-2 text-sm mt-2 max-w-lg hidden sm:block">
-              Eight categories, one neighbourhood marketplace. Pick a lane to start browsing local shops.
+              {availableSlugs
+                ? "Categories with shops serving your area."
+                : "Eight categories, one neighbourhood marketplace. Pick a lane to start browsing local shops."}
             </p>
           </div>
 
@@ -95,7 +112,7 @@ export default function CategoryTiles() {
 
         {/* Tile grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
-          {categories.map((cat, i) => (
+          {visible.map((cat, i) => (
             <Link
               key={cat.slug}
               href={`/stores?category=${cat.slug}`}

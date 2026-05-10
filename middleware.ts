@@ -72,11 +72,12 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // 🏠 HOME PAGE - Cache for 1 minute (matches ISR revalidate time)
+  // 🏠 HOME PAGE - Per-user (depends on the lm_loc cookie). Disable shared CDN
+  // cache so users in different pincodes don't see each other's data.
   if (pathname === '/') {
     response.headers.set(
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=120'
+      'private, no-cache, no-store, must-revalidate'
     );
     return response;
   }

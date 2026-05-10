@@ -35,6 +35,35 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 
 const LOCATION_STORAGE_KEY = "user_location_v2";
 const AUTO_DETECT_ATTEMPTED_KEY = "location_auto_detect_attempted";
+const LOCATION_COOKIE_KEY = "lm_loc";
+const LOCATION_COOKIE_MAX_AGE_DAYS = 90;
+
+/**
+ * Persist a compact location representation to a cookie so server components
+ * (page.tsx) can read it on the next navigation/refresh and fetch location-
+ * aware data on the server. Kept small: pincode, lat, lng, city, locality.
+ */
+function writeLocationCookie(loc: LocationData | null) {
+  if (typeof document === "undefined") return;
+  if (!loc) {
+    document.cookie = `${LOCATION_COOKIE_KEY}=; path=/; max-age=0; SameSite=Lax`;
+    return;
+  }
+  const payload = {
+    p: loc.pincode || "",
+    lat: typeof loc.latitude === "number" ? loc.latitude : undefined,
+    lng: typeof loc.longitude === "number" ? loc.longitude : undefined,
+    c: loc.city || "",
+    l: loc.locality || "",
+  };
+  try {
+    const value = encodeURIComponent(JSON.stringify(payload));
+    const maxAge = LOCATION_COOKIE_MAX_AGE_DAYS * 24 * 60 * 60;
+    document.cookie = `${LOCATION_COOKIE_KEY}=${value}; path=/; max-age=${maxAge}; SameSite=Lax`;
+  } catch {
+    /* cookie write failures are non-fatal */
+  }
+}
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
@@ -101,7 +130,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     autoDetect();
   }, [hasInitialized, location]);
 
-  // Save location to localStorage whenever it changes
+  // Save location to localStorage and cookie whenever it changes
   useEffect(() => {
     if (location) {
       try {
@@ -109,6 +138,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("Failed to save location:", err);
       }
+      writeLocationCookie(location);
     }
   }, [location]);
 
@@ -142,6 +172,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     localStorage.removeItem(LOCATION_STORAGE_KEY);
     localStorage.removeItem(AUTO_DETECT_ATTEMPTED_KEY);
+    writeLocationCookie(null);
     clearLocationCache();
   }, []);
 

@@ -36,7 +36,7 @@ export const env = {
     signInUrl: "/sign-in",
     signUpUrl: "/sign-up",
     afterSignInUrl: "/",
-    afterSignUpUrl: "/select-role",
+    afterSignUpUrl: "/",
   },
 
   // Supabase

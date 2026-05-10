@@ -7,7 +7,7 @@ import { ShoppingCart, Check, Star } from "lucide-react";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { addToCart, openCart } from "@/lib/redux/slices/cartSlice";
 import type { CartItem } from "@/lib/redux/slices/cartSlice";
-import Button from "@/components/ui/Button";
+import Button from "@/components/ui/button";
 
 export interface ProductCardProduct {
   id: string;
