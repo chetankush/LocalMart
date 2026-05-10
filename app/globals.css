@@ -82,6 +82,20 @@ body {
   animation: fade-in 0.3s ease-out forwards;
 }
 
+/* Vendor approval card arrival */
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Vendor approval card failed-action feedback */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-4px); }
+  75%      { transform: translateX(4px); }
+}
+.animate-shake { animation: shake 240ms ease-in-out 2; }
+
 /* Animation delays for festive elements */
 .delay-100 {
   animation-delay: 100ms;

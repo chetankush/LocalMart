@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import VendorSettingsForm from "@/app/vendor/settings/VendorSettingsForm";
 import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
+import { NotificationSoundSettings } from "@/app/vendor/settings/NotificationSoundSettings";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -76,6 +77,9 @@ export default async function VendorSettingsPage({
 
         {/* Settings Form */}
         <VendorSettingsForm vendor={vendor} />
+
+        {/* Per-store new-order chime mute */}
+        <NotificationSoundSettings />
       </div>
     </div>
   );

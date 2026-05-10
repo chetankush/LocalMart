@@ -6,6 +6,7 @@ interface Props {
   durationMs: number;
   size?: number;
   strokeWidth?: number;
+  showLabel?: boolean;
 }
 
 export function CountdownRing({
@@ -13,6 +14,7 @@ export function CountdownRing({
   durationMs,
   size = 180,
   strokeWidth = 12,
+  showLabel = true,
 }: Props) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -31,8 +33,14 @@ export function CountdownRing({
   const mm = Math.floor(remaining / 60000).toString().padStart(2, '0');
   const ss = Math.floor((remaining % 60000) / 1000).toString().padStart(2, '0');
 
+  // Orange (hue 30) -> red (hue 0) interpolation across the full duration.
   const hue = 30 - progress * 30;
   const color = `hsl(${hue}, 90%, 55%)`;
+
+  const totalSecondsRemaining = Math.ceil(remaining / 1000);
+  const minutesRemaining = Math.floor(totalSecondsRemaining / 60);
+  const secondsRemaining = totalSecondsRemaining % 60;
+  const srText = `${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'} ${secondsRemaining} second${secondsRemaining === 1 ? '' : 's'} remaining`;
 
   return (
     <div style={{ position: 'relative', width: size, height: size }}>
@@ -72,10 +80,13 @@ export function CountdownRing({
         <div style={{ fontSize: size / 5, fontWeight: 700, color }}>
           {mm}:{ss}
         </div>
-        <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-          remaining
-        </div>
+        {showLabel && (
+          <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
+            remaining
+          </div>
+        )}
       </div>
+      <span className="sr-only">{srText}</span>
     </div>
   );
 }

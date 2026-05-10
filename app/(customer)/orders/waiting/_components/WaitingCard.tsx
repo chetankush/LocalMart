@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
-import { CountdownRing } from './CountdownRing';
+import { CountdownRing } from '@/components/ui/CountdownRing';
 import { StatusCopyRotator } from './StatusCopyRotator';
 
 interface OrderSummary {

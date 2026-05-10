@@ -419,6 +419,64 @@ class ApiClient {
     return this.request<{ success: boolean; data: any[] }>(`/vendor/orders${query}`);
   }
 
+  // ── In-platform order approval inbox ──────────────────────────
+  // Spec: docslocalmart/superpowers/specs/2026-04-21-in-platform-order-approval-design.md
+
+  async getPendingApprovals(storeId?: string) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{
+      success: boolean;
+      data: {
+        stores: Array<{
+          id: string;
+          businessName: string;
+          storeLogo: string | null;
+          approvalSoundMuted: boolean;
+        }>;
+        orders: Array<{
+          id: string;
+          orderNumber: string;
+          totalAmount: string | number;
+          paymentMethod: string | null;
+          deliveryAddress: any;
+          placedAt: string;
+          customer: { fullName: string; phone: string | null };
+          vendor: { id: string; businessName: string; storeLogo: string | null };
+          items: Array<{
+            quantity: number;
+            productName: string;
+            unitPrice: string | number;
+            totalPrice: string | number;
+          }>;
+        }>;
+      };
+    }>(`/vendor/pending-approvals${query}`, { suppressNetworkError: true });
+  }
+
+  async approveOrder(orderId: string) {
+    return this.request<{ success: boolean; data: { id: string; status: string } }>(
+      `/vendor/orders/${orderId}/approve`,
+      { method: "POST" },
+    );
+  }
+
+  async rejectOrder(orderId: string) {
+    return this.request<{ success: boolean; data: { id: string; status: string } }>(
+      `/vendor/orders/${orderId}/reject`,
+      { method: "POST" },
+    );
+  }
+
+  async setApprovalSoundMuted(storeId: string, muted: boolean) {
+    return this.request<{
+      success: boolean;
+      data: { id: string; businessName: string; approvalSoundMuted: boolean };
+    }>(`/vendor/settings/approval-sound`, {
+      method: "PATCH",
+      body: JSON.stringify({ storeId, muted }),
+    });
+  }
+
   // async updateOrderStatus(
   //   orderId: string,
   //   data: { status: string; note?: string }
