@@ -397,16 +397,21 @@ class ApiClient {
     );
   }
 
-  async getVendorTheme() {
-    return this.request<{ success: boolean; data: any }>("/vendor/theme");
+  async getVendorTheme(storeId?: string) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{ success: boolean; data: any }>(`/vendor/theme${query}`);
   }
 
-  async updateVendorTheme(data: {
-    storeTheme: string;
-    themeCustomization?: any;
-  }) {
+  async updateVendorTheme(
+    data: {
+      storeTheme: string;
+      themeCustomization?: any;
+    },
+    storeId?: string,
+  ) {
+    const query = storeId ? `?storeId=${storeId}` : "";
     return this.request<{ success: boolean; data: any; message: string }>(
-      "/vendor/theme",
+      `/vendor/theme${query}`,
       {
         method: "PATCH",
         body: JSON.stringify(data),
