@@ -26,7 +26,10 @@ export function ApprovalCard({ order }: Props) {
   const isUrgent = remaining > 0 && remaining < URGENT_THRESHOLD_MS;
 
   const total = Math.round(Number(order.totalAmount));
-  const isCod = (order.paymentMethod || '').toUpperCase() === 'COD';
+  const method = (order.paymentMethod || '').toUpperCase();
+  const isCod = method === 'COD';
+  // UPI is paid to the shop only after it approves — never show it as paid here
+  const paymentLabel = isCod ? 'Cash on delivery' : method === 'UPI' ? 'UPI · paid after you approve' : method;
   const phone = order.customer.phone || (order.deliveryAddress?.phone ?? '');
   const street = order.deliveryAddress?.street ?? '';
   const city = order.deliveryAddress?.city ?? '';
@@ -140,9 +143,9 @@ export function ApprovalCard({ order }: Props) {
           <div className="flex items-center gap-2 pt-1">
             <span className="text-lg font-bold text-ink">₹{total}</span>
             <span
-              className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${isCod ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
+              className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${isCod ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
             >
-              {isCod ? 'COD' : 'PAID'}
+              {paymentLabel}
             </span>
           </div>
         </div>

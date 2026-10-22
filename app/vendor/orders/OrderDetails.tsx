@@ -50,13 +50,13 @@ interface OrderDetailsProps {
 
 export default function OrderDetails({ order }: OrderDetailsProps) {
   const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat("en-IN", {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "UTC",
+      timeZone: "Asia/Kolkata",
     }).format(new Date(date));
   };
 

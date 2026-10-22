@@ -71,12 +71,16 @@ export default function LandingPageClient({
   // single refresh so the server can re-render with personalized data.
   useEffect(() => {
     if (cookieHydrated.current) return;
-    cookieHydrated.current = true;
+    // Wait until the stored location has actually loaded — on the first
+    // render it is still null, and marking done then meant we never refreshed.
     if (!location || locationLoading) return;
+    cookieHydrated.current = true;
     // Only refresh if we currently have NO personalized data — otherwise
     // we already have what we need from this server render.
     if (vendors.length > 0) return;
-    router.refresh();
+    // Next tick, so LocationProvider has written the lm_loc cookie first
+    const t = setTimeout(() => router.refresh(), 0);
+    return () => clearTimeout(t);
   }, [location, locationLoading, vendors.length, router]);
 
   // First-visit nudge: open the location modal if we still don't have a
