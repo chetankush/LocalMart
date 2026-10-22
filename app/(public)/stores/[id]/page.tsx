@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
@@ -6,6 +7,7 @@ import ClothingTheme from "./themes/ClothingTheme";
 import ShoesTheme from "./themes/ShoesTheme";
 import SareeTheme from "./themes/SareeTheme";
 import DefaultTheme from "./themes/DefaultTheme";
+import PlaceholderTheme from "./themes/PlaceholderTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
 import { TrackStoreView } from "@/components/TrackView";
 
@@ -66,6 +68,27 @@ async function getVendorDetails(id: string) {
   }
 }
 
+export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
+  const { id } = await params;
+  const vendor = await getVendorDetails(id);
+  if (!vendor) {
+    return { title: "Store not found | LocalMart" };
+  }
+  const title = `${vendor.businessName} | LocalMart`;
+  const description = (vendor.storeDescription || `Shop from ${vendor.businessName} on LocalMart.`).slice(0, 160);
+  const ogImage = vendor.storeLogo || vendor.storeImages?.[0];
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+      type: "website",
+    },
+  };
+}
+
 export default async function StorePage({ params }: StorePageProps) {
   const { id } = await params;
 
@@ -91,6 +114,8 @@ export default async function StorePage({ params }: StorePageProps) {
         return <KiranaTheme vendor={vendorData} products={products || []} />;
       case "GROCERY":
         return <GroceryTheme vendor={vendorData} products={products || []} />;
+      case "FASHION":
+        return <FashionTheme vendor={vendorData} products={products || []} />;
       case "CLOTHING":
         return <ClothingTheme vendor={vendorData} products={products || []} />;
       case "SHOES":
@@ -107,6 +132,7 @@ export default async function StorePage({ params }: StorePageProps) {
       case "AUTOMOTIVE":
       case "BICYCLE":
       case "MEDICINE":
+        return <PlaceholderTheme vendor={vendorData} products={products || []} />;
       case "DEFAULT":
       case "OTHER":
       default:

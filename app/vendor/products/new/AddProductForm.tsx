@@ -997,6 +997,7 @@ export default function AddProductForm({
         console.log("Step 10: SUCCESS - Product created!");
         alert("Product added successfully!");
         router.push("/vendor/products");
+        router.refresh();
       } else {
         console.log("Step 10: FAILED - API returned error", { message: data.message });
         alert(data.message || "Failed to add product");
