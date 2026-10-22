@@ -4,6 +4,7 @@ import { AuthProvider } from "@/lib/supabase/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import { LocationProvider } from "@/context/LocationContext";
 import { StoreBrandingProvider } from "@/context/StoreBrandingContext";
+import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -45,6 +46,7 @@ export default function RootLayout({
           <AuthProvider>
             <LocationProvider>
               <StoreBrandingProvider>
+                <ConfirmDialogProvider>
                 <InstantNavigationProvider>
                   <NextTopLoader
                     color="#6B7FFF"
@@ -73,6 +75,7 @@ export default function RootLayout({
                     }}
                   />
                 </InstantNavigationProvider>
+                </ConfirmDialogProvider>
               </StoreBrandingProvider>
             </LocationProvider>
           </AuthProvider>

@@ -16,6 +16,7 @@ export async function middleware(request: NextRequest) {
     "/phone-signin",
     "/api/auth",
     "/auth/callback",
+    "/coming-soon",
   ];
 
   // Check if the route is public
@@ -74,7 +75,7 @@ export async function middleware(request: NextRequest) {
 
   // 🏠 HOME PAGE - Per-user (depends on the lm_loc cookie). Disable shared CDN
   // cache so users in different pincodes don't see each other's data.
-  if (pathname === '/') {
+  if (pathname === '/' || pathname === '/coming-soon') {
     response.headers.set(
       'Cache-Control',
       'private, no-cache, no-store, must-revalidate'

@@ -18,9 +18,17 @@ interface Product {
 interface AddToCartButtonProps {
   product: Product;
   vendorName: string;
+  label?: string;
+  // Idle-state colour classes; themes pass their own accent
+  className?: string;
 }
 
-export default function AddToCartButton({ product, vendorName }: AddToCartButtonProps) {
+export default function AddToCartButton({
+  product,
+  vendorName,
+  label = 'Buy Now',
+  className = 'bg-[#FF9933] text-white hover:bg-[#e8872b] active:scale-95',
+}: AddToCartButtonProps) {
   const dispatch = useAppDispatch();
   const [isAdding, setIsAdding] = useState(false);
 
@@ -64,12 +72,10 @@ export default function AddToCartButton({ product, vendorName }: AddToCartButton
     <button
       onClick={handleAddToCart}
       className={`w-full py-3 rounded-full font-semibold transition-all text-sm cursor-pointer ${
-        isAdding
-          ? 'bg-green-600 text-white'
-          : 'bg-[#FF9933] text-white hover:bg-[#e8872b] active:scale-95'
+        isAdding ? 'bg-green-600 text-white' : className
       }`}
     >
-      {isAdding ? '✓ Added' : 'Buy Now'}
+      {isAdding ? '✓ Added' : label}
     </button>
   );
 }

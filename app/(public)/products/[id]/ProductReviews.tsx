@@ -6,6 +6,8 @@ import { Star, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { useConfirm } from "@/hooks/useConfirm";
+import { toast } from "sonner";
 
 interface Review {
   id: string;
@@ -57,6 +59,7 @@ export default function ProductReviews({
 }: ProductReviewsProps) {
   const { user: supabaseUser } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [localReviews, setLocalReviews] = useState(reviews);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -111,13 +114,14 @@ export default function ProductReviews({
   };
 
   const handleDeleteReview = async (reviewId: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this review? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete this review?",
+      description: "Your review and any photos you added will be removed. This can't be undone.",
+      confirmLabel: "Delete review",
+      cancelLabel: "Keep review",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setDeletingId(reviewId);
     try {
@@ -140,12 +144,14 @@ export default function ProductReviews({
 
       // Remove from local state
       setLocalReviews(localReviews.filter((r) => r.id !== reviewId));
+      toast.success("Review deleted");
 
       // Refresh the page to update ratings
       router.refresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting review:", error);
-      alert(error.message || "Failed to delete review. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to delete review. Please try again.";
+      toast.error(message);
     } finally {
       setDeletingId(null);
     }

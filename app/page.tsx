@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import LandingPageClient from "./LandingPageClient";
+import type { Vendor } from "@/components/landing/StoresNearYouSection";
+import type { ProductCardProduct } from "@/components/landing/ProductCard";
 
 // Per-user content (depends on the lm_loc cookie) — render dynamically and
 // disable Next's static cache. The CDN cache header set in middleware.ts is
@@ -48,7 +50,15 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
   }
 }
 
-const emptyHomepage = {
+interface HomepageData {
+  vendors: Vendor[];
+  featuredProducts: ProductCardProduct[];
+  popularProducts: ProductCardProduct[];
+  categories: { id: string; name: string; slug: string }[];
+  meta: { locationApplied: boolean; serviceableVendorCount: number };
+}
+
+const emptyHomepage: HomepageData = {
   vendors: [],
   featuredProducts: [],
   popularProducts: [],
@@ -58,7 +68,7 @@ const emptyHomepage = {
 
 async function getHomepageData(
   loc: ParsedLocation | null,
-): Promise<{ data: typeof emptyHomepage; ok: boolean; status?: number }> {
+): Promise<{ data: HomepageData; ok: boolean; status?: number }> {
   const params = new URLSearchParams();
   if (loc?.pincode) params.set("pincode", loc.pincode);
   if (typeof loc?.lat === "number") params.set("lat", String(loc.lat));
@@ -103,7 +113,7 @@ const emptyExplore: {
   stats: { totalVendors: 0, totalCities: 0 },
 };
 
-async function getExploreData() {
+async function getExploreData(): Promise<{ data: typeof emptyExplore; ok: boolean }> {
   try {
     const [popular, cities, stats] = await Promise.all([
       fetchWithTimeout(`${API_BASE_URL}/public/popular-stores?limit=8`, { cache: "no-store" }),
@@ -111,10 +121,10 @@ async function getExploreData() {
       fetchWithTimeout(`${API_BASE_URL}/public/stats`, { cache: "no-store" }),
     ]);
 
-    const safeJson = async (r: Response) => {
+    const safeJson = async (r: Response): Promise<{ data?: unknown } | null> => {
       if (!r.ok) return null;
       try {
-        return await r.json();
+        return (await r.json()) as { data?: unknown };
       } catch {
         return null;
       }
@@ -124,9 +134,9 @@ async function getExploreData() {
 
     return {
       data: {
-        popularStores: pj?.data || [],
-        cities: cj?.data || [],
-        stats: sj?.data || emptyExplore.stats,
+        popularStores: (pj?.data as ExploreStore[] | undefined) ?? [],
+        cities: (cj?.data as Array<{ city: string; vendorCount: number }> | undefined) ?? [],
+        stats: (sj?.data as { totalVendors: number; totalCities: number } | undefined) ?? emptyExplore.stats,
       },
       ok: popular.ok && cities.ok && stats.ok,
     };
@@ -165,7 +175,7 @@ async function getUserFavorites(authToken: string) {
     });
     if (!response.ok) return [];
     const result = await response.json();
-    return result.data?.map((f: any) => f.vendorId) || [];
+    return (result.data as Array<{ vendorId: string }> | undefined)?.map((f) => f.vendorId) || [];
   } catch {
     return [];
   }
@@ -181,26 +191,30 @@ export default async function Home() {
   const hasLocation =
     !!loc && (!!loc.pincode || (typeof loc.lat === "number" && typeof loc.lng === "number"));
 
-  // Two parallel paths: personalized (location set) or explore (no location).
+  // Always fetch both: personalized data (vendors / products / categories)
+  // when a location is set, AND the global explore data (popular stores
+  // worldwide, serviced cities, platform stats). The landing page then
+  // always renders the same structural skeleton; personalized sections
+  // are only emitted when their underlying data is non-empty. This means
+  // every visitor — serviced area, unserviced area, or no location at
+  // all — sees the same full landing page experience.
   const [homepage, explore, user] = await Promise.all([
     hasLocation
       ? getHomepageData(loc)
       : Promise.resolve({ data: emptyHomepage, ok: true, status: undefined as number | undefined }),
-    hasLocation
-      ? Promise.resolve({ data: emptyExplore, ok: true })
-      : getExploreData(),
+    getExploreData(),
     getCurrentUser(authToken),
   ]);
 
   const favoriteVendorIds = user ? await getUserFavorites(authToken) : [];
 
   const { vendors, featuredProducts, popularProducts, categories } = homepage.data;
-  const vendorsWithFavorites = vendors.map((vendor: any) => ({
+  const vendorsWithFavorites: Vendor[] = vendors.map((vendor) => ({
     ...vendor,
     isFavorited: favoriteVendorIds.includes(vendor.id),
   }));
 
-  const popularStoresWithFavorites = explore.data.popularStores.map((vendor: any) => ({
+  const popularStoresWithFavorites = explore.data.popularStores.map((vendor) => ({
     ...vendor,
     isFavorited: favoriteVendorIds.includes(vendor.id),
   }));
@@ -208,7 +222,6 @@ export default async function Home() {
   return (
     <LandingPageClient
       user={user}
-      mode={hasLocation ? "personalized" : "explore"}
       vendors={vendorsWithFavorites}
       featuredProducts={featuredProducts}
       popularProducts={popularProducts || []}
@@ -216,7 +229,6 @@ export default async function Home() {
       popularStoresGlobal={popularStoresWithFavorites}
       cities={explore.data.cities}
       stats={explore.data.stats}
-      serviceableVendorCount={homepage.data.meta?.serviceableVendorCount ?? 0}
       backendStatus={{ ok: homepage.ok && explore.ok, status: homepage.status }}
     />
   );

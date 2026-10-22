@@ -6,6 +6,7 @@ import {
   Store,
   ShoppingCart,
   Shirt,
+  Gem,
   Footprints,
   Milk,
   Tv,
@@ -58,6 +59,14 @@ const THEME_OPTIONS: {
     description: "Apparel and fashion items",
     icon: <Shirt className="w-full h-full" />,
     color: "bg-purple-100 border-purple-300 hover:bg-purple-200",
+  },
+  {
+    value: "SAREE" as StoreTheme,
+    label: "साड़ी की दुकान",
+    englishLabel: "Saree Store",
+    description: "Sarees, silks and ethnic wear",
+    icon: <Gem className="w-full h-full" />,
+    color: "bg-rose-100 border-rose-300 hover:bg-rose-200",
   },
   {
     value: "SHOES" as StoreTheme,

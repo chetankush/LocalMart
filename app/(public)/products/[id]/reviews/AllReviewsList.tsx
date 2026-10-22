@@ -5,6 +5,8 @@ import Image from "next/image";
 import { Trash2, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { useConfirm } from "@/hooks/useConfirm";
+import { toast } from "sonner";
 
 interface Review {
   id: string;
@@ -42,6 +44,7 @@ export default function AllReviewsList({
 }: AllReviewsListProps) {
   const { user: supabaseUser } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
   const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
@@ -72,14 +75,19 @@ export default function AllReviewsList({
   }, [supabaseUser]);
 
   const handleDeleteReview = async (reviewId: string) => {
-    if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete this review?",
+      description: "Your review and any photos you added will be removed. This can't be undone.",
+      confirmLabel: "Delete review",
+      cancelLabel: "Keep review",
+      destructive: true,
+    });
+    if (!ok) return;
 
     setDeletingId(reviewId);
     try {
       const USE_BACKEND_API = process.env.NEXT_PUBLIC_USE_BACKEND_API === 'true';
-      
+
       if (USE_BACKEND_API) {
         const { apiClient } = await import("@/lib/api/client");
         await apiClient.deleteProductReview(reviewId);
@@ -96,12 +104,14 @@ export default function AllReviewsList({
 
       // Remove from local state
       setLocalReviews(localReviews.filter((r) => r.id !== reviewId));
-      
+      toast.success("Review deleted");
+
       // Refresh the page to update ratings
       router.refresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error deleting review:", error);
-      alert(error.message || "Failed to delete review. Please try again.");
+      const message = error instanceof Error ? error.message : "Failed to delete review. Please try again.";
+      toast.error(message);
     } finally {
       setDeletingId(null);
     }

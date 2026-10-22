@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, User, Mail, Phone, Calendar, Edit2, Plus, X, Star, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   getRecentlyViewedVisibility,
   setRecentlyViewedVisibility,
@@ -27,6 +28,7 @@ interface ProfileClientProps {
 }
 
 export default function ProfileClient({ user }: ProfileClientProps) {
+  const confirm = useConfirm();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user.fullName || "");
   const [additionalEmails, setAdditionalEmails] = useState<string[]>(user.additionalEmails || []);
@@ -137,13 +139,19 @@ export default function ProfileClient({ user }: ProfileClientProps) {
     setRecentlyViewedVisibility(newValue);
   };
 
-  const handleClearHistory = () => {
-    if (confirm("Are you sure you want to clear all recently viewed history? This action cannot be undone.")) {
-      clearAllRecentlyViewed();
-      setRecentlyViewedCount(0);
-      setMessage({ type: "success", text: "Recently viewed history cleared successfully!" });
-      setTimeout(() => setMessage(null), 3000);
-    }
+  const handleClearHistory = async () => {
+    const ok = await confirm({
+      title: "Clear recently viewed?",
+      description: "This removes every store and product you've recently viewed. This can't be undone.",
+      confirmLabel: "Clear history",
+      cancelLabel: "Keep history",
+      destructive: true,
+    });
+    if (!ok) return;
+    clearAllRecentlyViewed();
+    setRecentlyViewedCount(0);
+    setMessage({ type: "success", text: "Recently viewed history cleared successfully!" });
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const formatDate = (date: Date) => {

@@ -64,6 +64,7 @@ enum StoreTheme {
   KIRANA                  // Kirana stores
   GROCERY                 // Daily needs grocery and general stores
   CLOTHING                // Clothing stores
+  SAREE                   // Saree and ethnic wear stores
   SHOES                   // Shoe stores
   DAIRY                   // Milk and dairy stores
   ELECTRONICS             // Electronics stores
