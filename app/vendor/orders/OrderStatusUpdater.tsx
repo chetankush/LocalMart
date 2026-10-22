@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { OrderStatus } from "@/src/generated/prisma";
+import { apiClient } from "@/lib/api/client";
 
 interface OrderItem {
   id: string;
@@ -89,9 +92,10 @@ const statusOptions: {
   },
 ];
 
-const getNextStatuses = (currentStatus: OrderStatus): OrderStatus[] => {
+const getNextStatuses = (currentStatus: OrderStatus | string): OrderStatus[] => {
   switch (currentStatus) {
     case "PENDING":
+    case "PRE_ORDER":
       return ["ACCEPTED", "CANCELLED"];
     case "ACCEPTED":
       return ["PREPARING", "CANCELLED"];
@@ -119,45 +123,31 @@ export default function OrderStatusUpdater({
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | "">("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const availableStatuses = getNextStatuses(order.status);
 
   const handleUpdateStatus = async () => {
     if (!selectedStatus) {
-      alert("Please select a status");
+      toast.error("Please select a status");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/vendor/orders/${order.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: selectedStatus,
-          note: note.trim() || null,
-        }),
+      await apiClient.updateOrderStatus(order.id, {
+        status: selectedStatus,
+        note: note.trim() || undefined,
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert("Order status updated successfully!");
-        onClose();
-        // Refresh the page to show updated status
-        window.location.reload();
-      } else {
-        alert(data.error || "Failed to update order status");
-      }
+      toast.success("Order status updated");
+      onClose();
+      router.refresh();
     } catch (error) {
-      console.error("Status update error:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

@@ -8,16 +8,36 @@ import {
   incrementQuantity,
   decrementQuantity,
   clearCart,
+  syncFromQuote,
 } from '@/lib/redux/slices/cartSlice';
-import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { useEffect } from 'react';
+import { Plus, Minus, Trash2, ShoppingBag, ArrowLeft, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/hooks/useConfirm';
+import { useLocation } from '@/context/LocationContext';
+import { useCartQuote } from '@/hooks/useCartQuote';
 
 export default function CartPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const items = useAppSelector(selectCartItems);
   const total = useAppSelector(selectCartTotal);
+  const confirm = useConfirm();
+  const { location } = useLocation();
+  // Real delivery fees + coverage for the customer's chosen location
+  const { quote } = useCartQuote(items, {
+    pincode: location?.pincode,
+    latitude: location?.latitude,
+    longitude: location?.longitude,
+  });
+  // Show current prices/stock, not the ones saved when the item was added
+  useEffect(() => {
+    if (quote) dispatch(syncFromQuote(quote.stores.flatMap((s) => s.items)));
+  }, [quote, dispatch]);
+  const storeQuote = (vendorId: string) => quote?.stores.find((s) => s.vendorId === vendorId);
+  const knowsDelivery = !!quote && !!location?.pincode;
+  const deliveryTotal = quote ? quote.stores.reduce((sum, s) => sum + s.deliveryFee, 0) : 0;
 
   // Group items by vendor
   const itemsByVendor = items.reduce((acc, item) => {
@@ -31,10 +51,15 @@ export default function CartPage() {
     return acc;
   }, {} as Record<string, { vendorName: string; items: typeof items }>);
 
-  const handleClearCart = () => {
-    if (confirm('Are you sure you want to clear your cart?')) {
-      dispatch(clearCart());
-    }
+  const handleClearCart = async () => {
+    const ok = await confirm({
+      title: 'Clear your cart?',
+      description: 'This will remove all items. You can always add them back.',
+      confirmLabel: 'Clear cart',
+      cancelLabel: 'Keep items',
+      destructive: true,
+    });
+    if (ok) dispatch(clearCart());
   };
 
   return (
@@ -89,13 +114,33 @@ export default function CartPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-              {Object.entries(itemsByVendor).map(([vendorId, { vendorName, items: vendorItems }]) => (
+              {Object.keys(itemsByVendor).length > 1 && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4 text-sm text-blue-900">
+                  Your cart has items from <strong>{Object.keys(itemsByVendor).length} shops</strong>.
+                  Each shop delivers separately, so you will get {Object.keys(itemsByVendor).length} deliveries.
+                </div>
+              )}
+              {Object.entries(itemsByVendor).map(([vendorId, { vendorName, items: vendorItems }]) => {
+                const sq = storeQuote(vendorId);
+                return (
                 <div key={vendorId} className="bg-white rounded-lg shadow-md overflow-hidden">
                   {/* Vendor Header */}
                   <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-b">
                     <h2 className="font-bold text-sm sm:text-base text-gray-900">
                        {vendorName}
                     </h2>
+                    {sq && knowsDelivery && sq.serviceable === false && (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-red-700">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        Does not deliver to PIN {location?.pincode}
+                      </p>
+                    )}
+                    {sq && sq.serviceable !== false && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        Delivery: {sq.deliveryFee > 0 ? `₹${sq.deliveryFee}` : 'Free'}
+                        {sq.deliveryFee > 0 && sq.freeDeliveryAbove ? ` (free above ₹${sq.freeDeliveryAbove})` : ''}
+                      </p>
+                    )}
                   </div>
 
                   {/* Vendor Items */}
@@ -181,7 +226,8 @@ export default function CartPage() {
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Order Summary */}
@@ -198,17 +244,19 @@ export default function CartPage() {
                   </div>
                   <div className="flex items-center justify-between text-sm sm:text-base text-gray-600">
                     <span>Delivery Fee</span>
-                    <span className="font-semibold text-green-600">FREE</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm sm:text-base text-gray-600">
-                    <span>Tax (included)</span>
-                    <span className="font-semibold">₹0.00</span>
+                    {!knowsDelivery ? (
+                      <span className="text-sm text-gray-500">Shown at checkout</span>
+                    ) : deliveryTotal > 0 ? (
+                      <span className="font-semibold">₹{deliveryTotal.toFixed(2)}</span>
+                    ) : (
+                      <span className="font-semibold text-green-600">FREE</span>
+                    )}
                   </div>
 
                   <div className="border-t pt-3 sm:pt-4">
                     <div className="flex items-center justify-between text-base sm:text-lg font-bold text-gray-900">
                       <span>Total</span>
-                      <span>₹{total.toFixed(2)}</span>
+                      <span>₹{(knowsDelivery && quote ? quote.grandTotal : total).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -233,15 +281,11 @@ export default function CartPage() {
                 <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t space-y-2 sm:space-y-3">
                   <div className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
                     <span className="text-green-600">✓</span>
-                    <span>Free delivery on all orders</span>
+                    <span>No hidden charges — the total at checkout is final</span>
                   </div>
                   <div className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
                     <span className="text-green-600">✓</span>
-                    <span>Secure checkout</span>
-                  </div>
-                  <div className="flex items-start gap-2 sm:gap-3 text-xs sm:text-sm text-gray-600">
-                    <span className="text-green-600">✓</span>
-                    <span>Easy returns within 7 days</span>
+                    <span>Pay cash or UPI directly to the shop</span>
                   </div>
                 </div>
               </div>

@@ -55,6 +55,9 @@ export default function Page() {
     })),
     totalAmount: Number(order.totalAmount),
     placedAt: order.placedAt ?? order.createdAt,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    upiId: order.vendor?.upiId ?? null,
   };
 
   return (

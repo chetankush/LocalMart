@@ -5,6 +5,39 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
+export interface QuoteItem {
+  id: string;
+  name: string;
+  image: string | null;
+  unitPrice: number;
+  quantity: number;
+  stockQuantity: number;
+  lineTotal: number;
+  problem: null | "OUT_OF_STOCK" | "NOT_ENOUGH_STOCK";
+}
+
+export interface StoreQuote {
+  vendorId: string;
+  vendorName: string;
+  storeLogo: string | null;
+  contactPhone: string;
+  acceptingOrders: boolean;
+  serviceable: boolean | null; // null = location not known yet
+  upiAvailable: boolean;
+  items: QuoteItem[];
+  subtotal: number;
+  deliveryFee: number;
+  freeDeliveryAbove: number | null;
+  total: number;
+}
+
+export interface OrderQuote {
+  stores: StoreQuote[];
+  unavailableItemIds: string[];
+  grandTotal: number;
+  canOrder: boolean;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -101,6 +134,8 @@ class ApiClient {
         // Handle other errors
         const error = new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
         (error as any).status = response.status;
+        // Machine-readable reason, e.g. PRICE_CHANGED / NOT_SERVICEABLE
+        (error as any).code = errorData.error;
         throw error;
       }
 
@@ -511,7 +546,7 @@ class ApiClient {
     );
   }
 
-  async updateOrderStatus(orderId: string, data: { status: string }) {
+  async updateOrderStatus(orderId: string, data: { status: string; note?: string }) {
     return this.request<{ success: boolean; data: any; message: string }>(
       `/orders/${orderId}/status`,
       {
@@ -532,8 +567,40 @@ class ApiClient {
   }
 
   async getOrderStatus(orderId: string) {
-    return this.request<{ status: string; updatedAt: string }>(
-      `/orders/${orderId}/status`
+    return this.request<{
+      status: string;
+      paymentMethod: string | null;
+      paymentStatus: string;
+      updatedAt: string;
+    }>(`/orders/${orderId}/status`);
+  }
+
+  // Real prices, delivery fees and delivery coverage for the cart
+  async quoteOrder(data: {
+    items: { id: string; quantity: number }[];
+    pincode?: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
+    return this.request<{ success: boolean; data: OrderQuote }>("/orders/quote", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Customer: "I have paid" for a UPI order
+  async markUpiPaid(orderId: string) {
+    return this.request<{ success: boolean; data: { paymentStatus: string } }>(
+      `/orders/${orderId}/upi-paid`,
+      { method: "POST" }
+    );
+  }
+
+  // Vendor: money received (UPI or cash)
+  async confirmPaymentReceived(orderId: string) {
+    return this.request<{ success: boolean; data: { paymentStatus: string } }>(
+      `/orders/${orderId}/payment-received`,
+      { method: "PATCH" }
     );
   }
 

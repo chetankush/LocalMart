@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Phone } from "lucide-react";
 import { OrderStatus } from "@/src/generated/prisma";
 import OrderStatusUpdater from "@/app/vendor/orders/OrderStatusUpdater";
 import OrderDetails from "@/app/vendor/orders/OrderDetails";
+import { apiClient } from "@/lib/api/client";
 
 interface OrderItem {
   id: string;
@@ -47,13 +51,15 @@ interface Order {
   createdAt: Date;
   customer: Customer;
   items: OrderItem[];
+  paymentMethod: string | null;
+  paymentStatus: string;
 }
 
 interface OrderCardProps {
   order: Order;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   PENDING: "bg-yellow-100 text-yellow-800",
   ACCEPTED: "bg-blue-100 text-blue-800",
   PREPARING: "bg-orange-100 text-orange-800",
@@ -61,10 +67,12 @@ const statusColors = {
   OUT_FOR_DELIVERY: "bg-indigo-100 text-indigo-800",
   DELIVERED: "bg-green-100 text-green-800",
   CANCELLED: "bg-red-100 text-red-800",
+  REJECTED: "bg-red-100 text-red-800",
+  PRE_ORDER: "bg-blue-100 text-blue-800",
   REFUNDED: "bg-gray-100 text-gray-800",
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   PENDING: "Pending",
   ACCEPTED: "Accepted",
   PREPARING: "Preparing",
@@ -72,17 +80,43 @@ const statusLabels = {
   OUT_FOR_DELIVERY: "Out for Delivery",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+  REJECTED: "Rejected",
+  PRE_ORDER: "Pre-order",
   REFUNDED: "Refunded",
 };
+
+// Payment can be marked received once the order is accepted
+const PAYMENT_CONFIRMABLE = ["ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export default function OrderCard({ order }: OrderCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [showStatusUpdater, setShowStatusUpdater] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => setPaymentStatus(order.paymentStatus), [order.paymentStatus]);
+
+  const isUpi = order.paymentMethod === "UPI";
+
+  const handlePaymentReceived = async () => {
+    setConfirmingPayment(true);
+    try {
+      const res = await apiClient.confirmPaymentReceived(order.id);
+      setPaymentStatus(res.data.paymentStatus);
+      toast.success(isUpi ? "Payment marked as received" : "Cash marked as collected");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update payment");
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -122,10 +156,10 @@ export default function OrderCard({ order }: OrderCardProps) {
               </h3>
               <span
                 className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  statusColors[order.status]
+                  statusColors[order.status] ?? "bg-gray-100 text-gray-800"
                 }`}
               >
-                {statusLabels[order.status]}
+                {statusLabels[order.status] ?? order.status}
               </span>
             </div>
             <div className="text-sm text-gray-600">
@@ -139,6 +173,43 @@ export default function OrderCard({ order }: OrderCardProps) {
               <p>
                 <strong>Total:</strong> {formatCurrency(order.totalAmount)}
               </p>
+              <p>
+                <strong>Payment:</strong> {isUpi ? "UPI" : "Cash on Delivery"} —{" "}
+                {paymentStatus === "COMPLETED" ? (
+                  <span className="font-semibold text-green-700">Received ✓</span>
+                ) : paymentStatus === "PROCESSING" ? (
+                  <span className="font-semibold text-blue-700">
+                    Customer says paid — check your UPI app
+                  </span>
+                ) : (
+                  <span className="text-amber-700">Not received yet</span>
+                )}
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {order.customer.phone && (
+                <a
+                  href={`tel:${order.customer.phone}`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                >
+                  <Phone className="h-4 w-4" /> Call customer
+                </a>
+              )}
+              {PAYMENT_CONFIRMABLE.includes(order.status) &&
+                paymentStatus !== "COMPLETED" &&
+                paymentStatus !== "REFUNDED" && (
+                  <button
+                    onClick={handlePaymentReceived}
+                    disabled={confirmingPayment}
+                    className="inline-flex min-h-[44px] items-center rounded-lg bg-green-600 px-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 cursor-pointer"
+                  >
+                    {confirmingPayment
+                      ? "Saving…"
+                      : isUpi
+                        ? "✓ Payment received"
+                        : "✓ Cash collected"}
+                  </button>
+                )}
             </div>
           </div>
           <div className="flex gap-2 mt-4 sm:mt-0">

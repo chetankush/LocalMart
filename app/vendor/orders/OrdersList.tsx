@@ -47,6 +47,8 @@ interface Order {
   createdAt: Date;
   customer: Customer;
   items: OrderItem[];
+  paymentMethod: string | null;
+  paymentStatus: string;
 }
 
 interface OrdersListProps {

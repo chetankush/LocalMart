@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { UpiPayCard } from '@/components/payments/UpiPayCard';
 import { apiClient } from '@/lib/api/client';
 import { CountdownRing } from './CountdownRing';
 import { StatusCopyRotator } from './StatusCopyRotator';
@@ -12,6 +13,9 @@ interface OrderSummary {
   items: { name: string; quantity: number; totalPrice: number }[];
   totalAmount: number;
   placedAt: string;
+  paymentMethod?: string | null;
+  paymentStatus?: string;
+  upiId?: string | null;
 }
 
 type Status = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'PRE_ORDER' | 'OTHER';
@@ -41,7 +45,9 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
         const s = (res.status as Status) ?? 'OTHER';
         setStatus((prev) => (prev === s ? prev : s));
         if (s === 'ACCEPTED') {
-          setTimeout(() => router.push('/my-orders'), 2000);
+          // UPI orders stay here so the customer can pay the shop right away
+          const upiDue = order.paymentMethod === 'UPI' && res.paymentStatus === 'PENDING';
+          if (!upiDue) setTimeout(() => router.push('/my-orders'), 2000);
           return;
         }
         if (s === 'REJECTED' || s === 'PRE_ORDER') return;
@@ -57,6 +63,31 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
+
+  if (status === 'ACCEPTED' && order.paymentMethod === 'UPI') {
+    return (
+      <Card>
+        <div style={{ padding: 24 }}>
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <div style={{ fontSize: 48 }}>✅</div>
+            <h3 style={{ color: '#16A34A' }}>Confirmed by {order.storeName}</h3>
+            <p style={{ color: '#64748B' }}>Now pay the shop to complete your order</p>
+          </div>
+          <UpiPayCard
+            orderId={order.id}
+            orderNumber={order.orderNumber}
+            amount={order.totalAmount}
+            storeName={order.storeName}
+            upiId={order.upiId}
+            paymentStatus={order.paymentStatus ?? 'PENDING'}
+          />
+          <a href="/my-orders" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: '#64748B' }}>
+            Go to My Orders →
+          </a>
+        </div>
+      </Card>
+    );
+  }
 
   if (status === 'ACCEPTED') {
     return (

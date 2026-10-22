@@ -34,6 +34,7 @@ interface VendorSettingsFormProps {
     locality: string | null;
     pincode: string | null;
     whatsappNumber: string | null;
+    upiId?: string | null;
     telegramLink: string | null;
     instagramHandle: string | null;
     facebookPage: string | null;
@@ -65,6 +66,7 @@ export default function VendorSettingsForm({
     latitude: vendor.businessAddress?.coordinates?.lat || 0,
     longitude: vendor.businessAddress?.coordinates?.lng || 0,
     whatsappNumber: vendor.whatsappNumber || "",
+    upiId: vendor.upiId || "",
     telegramLink: vendor.telegramLink || "",
     instagramHandle: vendor.instagramHandle || "",
     facebookPage: vendor.facebookPage || "",
@@ -472,6 +474,35 @@ export default function VendorSettingsForm({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Payments */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-2">UPI Payments · UPI से पेमेंट</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Add your UPI ID so customers can pay you directly with GPay, PhonePe or Paytm.
+          The money comes straight to your account.
+        </p>
+        <label htmlFor="upiId" className="block text-sm font-medium text-gray-700 mb-1">
+          Your UPI ID
+        </label>
+        <input
+          id="upiId"
+          type="text"
+          name="upiId"
+          value={formData.upiId}
+          onChange={handleChange}
+          placeholder="e.g. radhesarees@okaxis"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Find it in your UPI app under your profile or QR code. A business UPI ID (PhonePe Business,
+          Paytm for Business, GPay for Business) works best for larger amounts. Leave empty to accept
+          cash only.
+        </p>
       </div>
 
       {/* Social Media & Links */}

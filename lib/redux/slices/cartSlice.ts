@@ -92,6 +92,20 @@ const cartSlice = createSlice({
     loadCart: (state, action: PayloadAction<CartItem[]>) => {
       state.items = action.payload;
     },
+
+    // Refresh prices and stock from a server quote (quantities are left alone;
+    // the cart shows stock problems and lets the customer decide)
+    syncFromQuote: (
+      state,
+      action: PayloadAction<{ id: string; unitPrice: number; stockQuantity: number }[]>
+    ) => {
+      for (const fresh of action.payload) {
+        const item = state.items.find((i) => i.id === fresh.id);
+        if (!item) continue;
+        if (item.price !== fresh.unitPrice) item.price = fresh.unitPrice;
+        if (item.stockQuantity !== fresh.stockQuantity) item.stockQuantity = fresh.stockQuantity;
+      }
+    },
   },
 });
 
@@ -106,6 +120,7 @@ export const {
   openCart,
   closeCart,
   loadCart,
+  syncFromQuote,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

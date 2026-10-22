@@ -61,6 +61,9 @@ function WaitingPageInner() {
               })),
               totalAmount: Number(o.totalAmount),
               placedAt: o.placedAt ?? o.createdAt,
+              paymentMethod: o.paymentMethod,
+              paymentStatus: o.paymentStatus,
+              upiId: o.vendor?.upiId ?? null,
             }}
           />
         ))}

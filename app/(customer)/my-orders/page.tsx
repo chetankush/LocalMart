@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter, usePathname } from 'next/navigation';
-import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft, Ban } from 'lucide-react';
+import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft, Ban, Phone } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/useConfirm';
+import { UpiPayCard } from '@/components/payments/UpiPayCard';
 
 // Loading Spinner Component
 const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
@@ -45,9 +47,27 @@ interface Order {
     city: string;
     state: string;
     storeLogo: string | null;
+    upiId?: string | null;
   };
   items: OrderItem[];
 }
+
+// Statuses after the shop has accepted — the customer can pay by UPI now
+const UPI_PAYABLE = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+
+const paymentMethodLabel = (m: string) =>
+  m === 'COD' ? 'Cash on Delivery' : m === 'UPI' ? 'UPI' : m;
+
+const paymentStatusLabel = (s: string) =>
+  s === 'COMPLETED'
+    ? 'Paid'
+    : s === 'PROCESSING'
+      ? 'Waiting for shop to confirm'
+      : s === 'REFUNDED'
+        ? 'Refunded'
+        : s === 'FAILED'
+          ? 'Failed'
+          : 'Not paid yet';
 
 const statusConfig = {
   PENDING: { label: 'Pending', icon: Clock, color: 'text-yellow-600 bg-yellow-100' },
@@ -57,6 +77,8 @@ const statusConfig = {
   OUT_FOR_DELIVERY: { label: 'Out for Delivery', icon: Truck, color: 'text-orange-600 bg-orange-100' },
   DELIVERED: { label: 'Delivered', icon: CheckCircle, color: 'text-green-600 bg-green-100' },
   CANCELLED: { label: 'Cancelled', icon: XCircle, color: 'text-red-600 bg-red-100' },
+  REJECTED: { label: 'Shop could not take it', icon: XCircle, color: 'text-red-600 bg-red-100' },
+  PRE_ORDER: { label: 'Pre-order', icon: Clock, color: 'text-blue-600 bg-blue-100' },
   REFUNDED: { label: 'Refunded', icon: XCircle, color: 'text-gray-600 bg-gray-100' },
 };
 
@@ -69,6 +91,7 @@ export default function MyOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingLink, setLoadingLink] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   // Optimized navigation handler for instant navigation
   const handleNavigation = (href: string, e?: React.MouseEvent) => {
@@ -143,7 +166,14 @@ export default function MyOrdersPage() {
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!confirm('Are you sure you want to cancel this order?')) return;
+    const ok = await confirm({
+      title: 'Cancel this order?',
+      description: 'The vendor will be notified and any pending charges will be voided.',
+      confirmLabel: 'Cancel order',
+      cancelLabel: 'Keep order',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       setCancellingOrderId(orderId);
@@ -332,9 +362,14 @@ export default function MyOrdersPage() {
                                 <p className="text-xs sm:text-sm text-gray-600">
                                   {order.vendor.city}, {order.vendor.state}
                                 </p>
-                                <p className="text-xs sm:text-sm text-gray-600">
-                                  {order.vendor.contactPhone}
-                                </p>
+                                {order.vendor.contactPhone && (
+                                  <a
+                                    href={`tel:${order.vendor.contactPhone}`}
+                                    className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                                  >
+                                    <Phone className="h-4 w-4" /> Call shop · {order.vendor.contactPhone}
+                                  </a>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -356,7 +391,7 @@ export default function MyOrdersPage() {
                             <div className="flex justify-between text-xs sm:text-sm">
                               <span className="text-gray-600">Payment Method</span>
                               <span className="font-medium text-gray-900">
-                                {order.paymentMethod}
+                                {paymentMethodLabel(order.paymentMethod)}
                               </span>
                             </div>
                             <div className="flex justify-between text-xs sm:text-sm">
@@ -366,10 +401,33 @@ export default function MyOrdersPage() {
                                 order.paymentStatus === 'FAILED' ? 'text-red-600' :
                                 'text-yellow-600'
                               }`}>
-                                {order.paymentStatus}
+                                {paymentStatusLabel(order.paymentStatus)}
                               </span>
                             </div>
                           </div>
+
+                          {order.paymentMethod === 'UPI' && order.status === 'PENDING' && (
+                            <p className="mb-3 text-xs sm:text-sm text-gray-600">
+                              You can pay by UPI once the shop confirms your order.
+                            </p>
+                          )}
+                          {order.paymentMethod === 'UPI' && UPI_PAYABLE.includes(order.status) && (
+                            <div className="mb-3">
+                              <UpiPayCard
+                                orderId={order.id}
+                                orderNumber={order.orderNumber}
+                                amount={Number(order.totalAmount)}
+                                storeName={order.vendor?.businessName ?? 'the shop'}
+                                upiId={order.vendor?.upiId}
+                                paymentStatus={order.paymentStatus}
+                                onStatusChange={(paymentStatus) =>
+                                  setOrders((prev) =>
+                                    prev.map((o) => (o.id === order.id ? { ...o, paymentStatus } : o))
+                                  )
+                                }
+                              />
+                            </div>
+                          )}
 
                           {/* Delivery Address */}
                           {order.deliveryAddress && (
