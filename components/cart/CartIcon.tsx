@@ -4,7 +4,7 @@ import { useAppSelector } from '@/lib/redux/hooks';
 import { selectCartItemsCount, selectCartItems } from '@/lib/redux/slices/cartSlice';
 import { ShoppingCart, X } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 export default function CartIcon() {
@@ -18,8 +18,20 @@ export default function CartIcon() {
     setMounted(true);
   }, []);
 
+  // The saved cart is restored from localStorage just after mount; that jump
+  // from 0 to N is not "an item was added", so don't pop the mini cart for it.
+  const restoring = useRef(true);
+  useEffect(() => {
+    const t = setTimeout(() => (restoring.current = false), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Show mini cart when items are added
   useEffect(() => {
+    if (restoring.current) {
+      setPrevItemsCount(itemsCount);
+      return;
+    }
     if (itemsCount > prevItemsCount && itemsCount > 0) {
       setShowMiniCart(true);
       // Auto hide after 5 seconds
