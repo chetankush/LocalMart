@@ -1,18 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useLocation } from "@/context/LocationContext";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { ArrowLeft, Loader2, LocateFixed, MapPin, Search, X } from "lucide-react";
+import { useLocation } from "@/context/LocationContext";
 import { searchAddresses, getPlaceDetails, type AddressSuggestion } from "@/lib/location/geolocation";
 import { apiClient } from "@/lib/api/client";
 
@@ -21,340 +12,325 @@ interface LocationSelectorModalProps {
   onClose: () => void;
 }
 
-type DetectionState = 'idle' | 'requesting' | 'detecting' | 'success' | 'error';
+type PincodeRow = {
+  code?: string;
+  pincode?: string;
+  area?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | { name?: string; state?: { name?: string } | string };
+  state?: string;
+};
 
-export default function LocationSelectorModal({
-  isOpen,
-  onClose,
-}: LocationSelectorModalProps) {
-  const { updateLocation, detectAndSetLocation, setLocationFromResult, validatePincode } = useLocation();
+/**
+ * "Where should we deliver?" — a bottom sheet on phones, a small card on
+ * desktop. One clear path: type your 6-digit PIN code (or use GPS, or
+ * search an area name). Saves the PIN *with* city and map position so
+ * distances and "Popular in Guna" work everywhere.
+ */
+export default function LocationSelectorModal({ isOpen, onClose }: LocationSelectorModalProps) {
+  const { detectAndSetLocation, setLocationFromResult, validatePincode } = useLocation();
   const router = useRouter();
   const pathname = usePathname();
-  // From the landing page we want to stay on `/` and re-render in personalized mode.
-  // From anywhere else, the existing "redirect to /stores" behaviour is preserved.
-  const goAfterPick = (pincode: string) => {
-    if (pathname === "/") {
-      router.refresh();
-    } else {
-      router.push(`/stores?pincode=${pincode}`);
-    }
-  };
+  const pinRef = useRef<HTMLInputElement>(null);
 
   const [pincode, setPincode] = useState("");
-  const [locality, setLocality] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [mode, setMode] = useState<"pin" | "search">("pin");
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
-  const [detectionState, setDetectionState] = useState<DetectionState>('idle');
+  const [busy, setBusy] = useState<null | "pin" | "gps" | "search">(null);
   const [error, setError] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
 
-  // Debounced address search — try DB first, fall back to Nominatim
+  // From the home page stay on `/` (it re-renders for the new area);
+  // elsewhere show the shops for that area
+  const goAfterPick = (pin: string) => {
+    if (pathname === "/") router.refresh();
+    else router.push(`/stores?pincode=${pin}`);
+  };
+
+  const reset = () => {
+    setPincode("");
+    setQuery("");
+    setSuggestions([]);
+    setBusy(null);
+    setError("");
+    setMode("pin");
+  };
+  const close = () => {
+    reset();
+    onClose();
+  };
+
+  // Escape closes; lock page scroll while open; focus the PIN field
   useEffect(() => {
-    if (searchQuery.length < 2) {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    const t = setTimeout(() => pinRef.current?.focus(), 150);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Area-name search: our own PIN list first, then OpenStreetMap
+  useEffect(() => {
+    if (mode !== "search" || query.trim().length < 2) {
       setSuggestions([]);
       return;
     }
-
-    const timer = setTimeout(async () => {
+    const t = setTimeout(async () => {
+      setBusy("search");
       try {
-        // Try our DB first for fast, validated results
-        const dbResults = await apiClient.searchLocations(searchQuery);
-        if (dbResults.success && dbResults.data.length > 0) {
-          const mapped: AddressSuggestion[] = dbResults.data.map((item) => ({
-            placeId: `db-${item.type}-${item.id}`,
-            mainText: item.type === 'city' ? item.name : `${item.pincode} - ${item.name}`,
-            secondaryText: [item.city, item.state].filter(Boolean).join(', '),
-          }));
-          setSuggestions(mapped);
+        const db = await apiClient.searchLocations(query.trim());
+        if (db.success && db.data.length > 0) {
+          setSuggestions(
+            db.data.map((item) => {
+              const mainText = item.type === "city" ? item.name : `${item.pincode} · ${item.name}`;
+              const secondaryText = [item.city, item.state].filter(Boolean).join(", ");
+              return { placeId: `db-${item.type}-${item.id}`, mainText, secondaryText, description: `${mainText}, ${secondaryText}` };
+            }),
+          );
           return;
         }
       } catch {
-        // DB search failed, fall through to Nominatim
+        // fall through
+      } finally {
+        setBusy(null);
       }
-
-      // Fall back to external search
-      if (searchQuery.length >= 3) {
-        const results = await searchAddresses(searchQuery);
-        setSuggestions(results);
-      }
+      if (query.trim().length >= 3) setSuggestions(await searchAddresses(query.trim()));
     }, 300);
+    return () => clearTimeout(t);
+  }, [query, mode]);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const savePin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError("");
-
-    // Validate pincode (6 digits for Indian pincode)
     if (!/^\d{6}$/.test(pincode)) {
-      setError("Please enter a valid 6-digit pincode");
+      setError("PIN code has 6 digits, like 473001.");
       return;
     }
-
-    if (!locality.trim()) {
-      setError("Please enter your locality/area");
-      return;
-    }
-
-    // Try DB validation first, then fall back to external API
+    setBusy("pin");
     try {
-      const dbResult = await apiClient.validatePincodeFromDB(pincode);
-      if (dbResult.success && dbResult.data) {
-        updateLocation(pincode, locality || dbResult.data.area || '');
-        onClose();
-        goAfterPick(pincode);
-        return;
+      // Our PIN list knows the area, city and map position
+      const db = await apiClient.validatePincodeFromDB(pincode).catch(() => null);
+      const row = (db?.success ? db.data : null) as PincodeRow | null;
+      if (row) {
+        const cityName = typeof row.city === "string" ? row.city : row.city?.name ?? "";
+        const stateName =
+          typeof row.city === "object" && row.city?.state
+            ? typeof row.city.state === "string"
+              ? row.city.state
+              : row.city.state.name ?? ""
+            : row.state ?? "";
+        setLocationFromResult({
+          pincode,
+          locality: row.area || cityName,
+          city: cityName,
+          state: stateName,
+          latitude: row.latitude ?? 0,
+          longitude: row.longitude ?? 0,
+          fullAddress: [row.area, cityName, stateName, pincode].filter(Boolean).join(", "),
+          accuracy: "medium",
+          source: "manual",
+        });
+      } else {
+        // Not in our list yet — ask India Post
+        const found = await validatePincode(pincode);
+        if (!found) {
+          setError(`We couldn't find PIN ${pincode}. Please check the number.`);
+          setBusy(null);
+          return;
+        }
+        setLocationFromResult(found);
       }
+      close();
+      goAfterPick(pincode);
     } catch {
-      // DB validation failed, try external
+      setError("Couldn't check this PIN code. Check your internet and try again.");
+      setBusy(null);
     }
-
-    // Fall back to external pincode validation
-    const result = await validatePincode(pincode);
-    if (result) {
-      updateLocation(pincode, locality);
-    } else {
-      updateLocation(pincode, locality);
-    }
-
-    onClose();
-    goAfterPick(pincode);
   };
 
-  const handleDetectLocation = async () => {
-    setDetectionState('requesting');
+  const useGps = async () => {
     setError("");
-
+    setBusy("gps");
     try {
-      // Show "requesting permission" state briefly
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setDetectionState('detecting');
-
       const result = await detectAndSetLocation();
-      setDetectionState('success');
-      
-      // Brief success state before closing
-      await new Promise(resolve => setTimeout(resolve, 800));
-      onClose();
+      close();
       goAfterPick(result.pincode);
-    } catch (err: any) {
-      setDetectionState('error');
-      setError(err.message || "Failed to detect location. Please enter manually.");
+    } catch (err) {
+      setBusy(null);
+      setError(
+        err instanceof Error && /denied|permission/i.test(err.message)
+          ? "Location is blocked for this site. Type your PIN code instead."
+          : "Couldn't find your location. Type your PIN code instead.",
+      );
     }
   };
 
-  const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
+  const pickSuggestion = async (s: AddressSuggestion) => {
+    setError("");
     try {
-      const result = await getPlaceDetails(suggestion.placeId);
+      const result = await getPlaceDetails(s.placeId);
       if (result) {
         setLocationFromResult(result);
-        onClose();
+        close();
         goAfterPick(result.pincode);
       }
-    } catch (err) {
-      setError("Failed to get location details");
+    } catch {
+      setError("Couldn't open that place. Try another or type your PIN code.");
     }
   };
 
-  const handleClose = () => {
-    setError("");
-    setPincode("");
-    setLocality("");
-    setSearchQuery("");
-    setSuggestions([]);
-    setDetectionState('idle');
-    setShowSearch(false);
-    onClose();
-  };
-
-  const getDetectionButtonContent = () => {
-    switch (detectionState) {
-      case 'requesting':
-        return (
-          <>
-            <div className="w-5 h-5 mr-2 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-            Requesting permission...
-          </>
-        );
-      case 'detecting':
-        return (
-          <>
-            <div className="w-5 h-5 mr-2 rounded-full border-2 border-black/20 border-t-black animate-spin" />
-            Detecting your location...
-          </>
-        );
-      case 'success':
-        return (
-          <>
-            <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Location detected!
-          </>
-        );
-      case 'error':
-        return (
-          <>
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Try again
-          </>
-        );
-      default:
-        return (
-          <>
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Use my current location
-          </>
-        );
-    }
-  };
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-white max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl text-gray-900">Choose your location</DialogTitle>
-          <DialogDescription className="text-gray-600">
-            Select your delivery location to see stores near you
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-6 py-4">
-          {/* Auto-detect location option */}
-          <div className="space-y-3">
-            <Button
-              onClick={handleDetectLocation}
-              disabled={detectionState === 'requesting' || detectionState === 'detecting'}
-              className={`w-full py-6 text-base transition-all ${
-                detectionState === 'success' 
-                  ? 'bg-green-100 hover:bg-green-100 text-green-700 border-green-300'
-                  : 'bg-[#FF9933] hover:bg-[#e8872b] text-white'
-              }`}
-              type="button"
-            >
-              {getDetectionButtonContent()}
-            </Button>
-            <p className="text-xs text-gray-500 text-center">
-              We'll access your location to find stores near you
-            </p>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="presentation">
+      <div className="absolute inset-0 bg-black/50" onClick={close} aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="loc-title"
+        className="relative w-full max-w-md rounded-t-3xl bg-card px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-3 shadow-2xl sm:rounded-3xl sm:pb-6"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-fill-strong sm:hidden" aria-hidden />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="loc-title" className="text-[22px] font-bold leading-tight text-label">
+              Where should we deliver?
+            </h2>
+            <p className="mt-0.5 text-[15px] text-label-2">डिलीवरी कहाँ चाहिए? We&apos;ll show shops near you.</p>
           </div>
-
-          {/* Error message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-2 text-gray-500">Or</span>
-            </div>
-          </div>
-
-          {/* Search for area (like Blinkit/Zepto) */}
-          {showSearch ? (
-            <div className="space-y-3">
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Search for area, street name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="text-base pl-10"
-                  autoFocus
-                />
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-
-              {/* Suggestions dropdown */}
-              {suggestions.length > 0 && (
-                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.placeId}
-                      onClick={() => handleSuggestionSelect(suggestion)}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <div className="font-medium text-gray-900">{suggestion.mainText}</div>
-                      <div className="text-sm text-gray-500">{suggestion.secondaryText}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={() => setShowSearch(false)}
-                className="text-sm text-blue-600 hover:underline cursor-pointer"
-              >
-                Enter pincode manually instead
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Manual entry form */}
-              <form onSubmit={handleManualSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input
-                    id="pincode"
-                    type="text"
-                    placeholder="Enter 6-digit pincode"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                    maxLength={6}
-                    className="text-base"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="locality">Locality / Area</Label>
-                  <Input
-                    id="locality"
-                    type="text"
-                    placeholder="e.g., Kotwali, Gandhi Nagar"
-                    value={locality}
-                    onChange={(e) => setLocality(e.target.value)}
-                    className="text-base"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white py-6 text-base"
-                >
-                  Save Location
-                </Button>
-              </form>
-
-              {/* Search option */}
-              <button
-                onClick={() => setShowSearch(true)}
-                className="w-full text-sm text-blue-600 hover:underline cursor-pointer"
-              >
-                Search for area, street name...
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={close}
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-label-2 hover:bg-fill cursor-pointer"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {mode === "pin" ? (
+          <>
+            <form onSubmit={savePin} className="mt-5">
+              <label htmlFor="pin" className="text-[14px] font-semibold text-label">
+                Your PIN code
+              </label>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  ref={pinRef}
+                  id="pin"
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="473001"
+                  value={pincode}
+                  onChange={(e) => {
+                    setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    setError("");
+                  }}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "loc-error" : undefined}
+                  className="h-12 min-w-0 flex-1 rounded-xl border border-hairline bg-fill px-4 text-[20px] font-semibold tracking-[0.15em] text-label placeholder:font-normal placeholder:tracking-[0.15em] placeholder:text-label-3 focus:border-label/40 focus:bg-card focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={pincode.length !== 6 || busy !== null}
+                  className="flex h-12 shrink-0 items-center justify-center rounded-xl bg-cta px-5 text-[16px] font-semibold text-white hover:bg-cta-hover disabled:bg-fill-strong disabled:text-label-3 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {busy === "pin" ? <Loader2 className="h-5 w-5 animate-spin" aria-label="Checking" /> : "Continue"}
+                </button>
+              </div>
+            </form>
+
+            {error && (
+              <p id="loc-error" role="alert" className="mt-2 text-[14px] font-medium text-bad">
+                {error}
+              </p>
+            )}
+
+            <div className="my-4 flex items-center gap-3 text-[13px] text-label-3" aria-hidden>
+              <span className="h-px flex-1 bg-hairline" /> or <span className="h-px flex-1 bg-hairline" />
+            </div>
+
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={useGps}
+                disabled={busy !== null}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-label/20 text-[16px] font-semibold text-label hover:bg-fill disabled:opacity-60 cursor-pointer"
+              >
+                {busy === "gps" ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <LocateFixed className="h-5 w-5" aria-hidden />}
+                {busy === "gps" ? "Finding you…" : "Use my current location"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("search");
+                  setError("");
+                }}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold text-label-2 hover:bg-fill cursor-pointer"
+              >
+                <Search className="h-4 w-4" aria-hidden /> Don&apos;t know the PIN? Search your area
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setMode("pin")}
+              className="-ml-2 flex h-10 items-center gap-1 rounded-lg px-2 text-[14px] font-semibold text-label-2 hover:bg-fill cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Type PIN code instead
+            </button>
+            <div className="relative mt-2">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3" aria-hidden />
+              <input
+                autoFocus
+                type="search"
+                placeholder="Area or city, e.g. Banskhedi, Guna"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-12 w-full rounded-xl border border-hairline bg-fill pl-11 pr-4 text-[16px] text-label placeholder:text-label-3 focus:border-label/40 focus:bg-card focus:outline-none"
+              />
+            </div>
+            {error && (
+              <p role="alert" className="mt-2 text-[14px] font-medium text-bad">
+                {error}
+              </p>
+            )}
+            <ul className="mt-2 max-h-[40vh] divide-y divide-hairline overflow-y-auto">
+              {busy === "search" && suggestions.length === 0 && (
+                <li className="flex items-center gap-2 py-3 text-[14px] text-label-2">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Searching…
+                </li>
+              )}
+              {suggestions.map((s) => (
+                <li key={s.placeId}>
+                  <button
+                    type="button"
+                    onClick={() => pickSuggestion(s)}
+                    className="flex w-full items-start gap-3 py-3 text-left hover:bg-fill cursor-pointer"
+                  >
+                    <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-label-2" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-semibold text-label">{s.mainText}</span>
+                      <span className="block truncate text-[13px] text-label-2">{s.secondaryText}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

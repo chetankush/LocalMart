@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import LandingPageClient from "./LandingPageClient";
+import { jsonLd, siteUrl } from "@/lib/seo";
 import type { Vendor } from "@/components/landing/StoresNearYouSection";
 import type { ProductCardProduct } from "@/components/landing/ProductCard";
 
@@ -199,16 +200,29 @@ export default async function Home() {
   // every visitor — serviced area, unserviced area, or no location at
   // all — sees the same full landing page experience.
   const [homepage, explore, user] = await Promise.all([
-    hasLocation
-      ? getHomepageData(loc)
-      : Promise.resolve({ data: emptyHomepage, ok: true, status: undefined as number | undefined }),
+    // No area yet (first visit, or Google): still load shops and products
+    // so the page has real, linkable content
+    getHomepageData(hasLocation ? loc : null),
     getExploreData(),
     getCurrentUser(authToken),
   ]);
 
   const favoriteVendorIds = user ? await getUserFavorites(authToken) : [];
 
-  const { vendors, featuredProducts, popularProducts, categories } = homepage.data;
+  // Area chosen but no shop delivers there yet: still show a full store
+  // (like Amazon does) — the shops and products where LocalMart is live —
+  // with a clear note at the top instead of an empty page
+  let home = homepage.data;
+  let outOfArea = false;
+  if (hasLocation && homepage.ok && home.vendors.length === 0) {
+    const everywhere = await getHomepageData(null);
+    if (everywhere.ok && everywhere.data.vendors.length > 0) {
+      home = everywhere.data;
+      outOfArea = true;
+    }
+  }
+
+  const { vendors, featuredProducts, popularProducts, categories } = home;
   const vendorsWithFavorites: Vendor[] = vendors.map((vendor) => ({
     ...vendor,
     isFavorited: favoriteVendorIds.includes(vendor.id),
@@ -219,8 +233,31 @@ export default async function Home() {
     isFavorited: favoriteVendorIds.includes(vendor.id),
   }));
 
+  // Google: the site and its search box
+  const site = siteUrl("/");
+  const structured = site
+    ? [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "LocalMart",
+          url: site,
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${siteUrl("/search")}?q={search_term_string}`,
+            "query-input": "required name=search_term_string",
+          },
+        },
+        { "@context": "https://schema.org", "@type": "Organization", name: "LocalMart", url: site },
+      ]
+    : null;
+
   return (
+    <>
+    {structured && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />}
     <LandingPageClient
+      serverHasLocation={hasLocation}
+      outOfArea={outOfArea}
       user={user}
       vendors={vendorsWithFavorites}
       featuredProducts={featuredProducts}
@@ -231,5 +268,6 @@ export default async function Home() {
       stats={explore.data.stats}
       backendStatus={{ ok: homepage.ok && explore.ok, status: homepage.status }}
     />
+    </>
   );
 }

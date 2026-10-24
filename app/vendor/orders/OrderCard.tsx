@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Phone } from "lucide-react";
 import { OrderStatus } from "@/src/generated/prisma";
 import { apiClient } from "@/lib/api/client";
+import { orderRecipient } from "@/lib/orders/recipient";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Button, Pill, Thumb, formatIST, rupees, type Tone } from "@/components/app/ui";
 
@@ -99,6 +100,8 @@ export default function OrderCard({ order }: OrderCardProps) {
   const next = NEXT[order.status];
   const total = Number(order.totalAmount);
   const address = order.deliveryAddress ?? {};
+  // The name/number typed for this delivery, not the account's
+  const recipient = orderRecipient(order);
 
   const paymentLine =
     paymentStatus === "COMPLETED" ? (
@@ -161,7 +164,7 @@ export default function OrderCard({ order }: OrderCardProps) {
       {/* Who + when + status */}
       <div className="flex items-start gap-3 px-4 pt-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-semibold text-label">{order.customer?.fullName}</p>
+          <p className="truncate text-[17px] font-semibold text-label">{recipient.name}</p>
           <p className="text-[14px] text-label-2">
             {formatIST(order.placedAt)}
             {address.city ? ` · ${address.street ? `${address.street}, ` : ""}${address.city}` : ""}
@@ -196,7 +199,7 @@ export default function OrderCard({ order }: OrderCardProps) {
       </div>
 
       {/* Actions */}
-      {(next || canConfirmPayment || order.customer?.phone) && (
+      {(next || canConfirmPayment || recipient.phone) && (
         <div className="space-y-3 border-t border-hairline p-4">
           {next && (
             <Button full onClick={() => updateStatus(next.to, "next")} loading={busy === "next"}>
@@ -204,8 +207,8 @@ export default function OrderCard({ order }: OrderCardProps) {
             </Button>
           )}
           <div className="flex gap-3">
-            {order.customer?.phone && (
-              <Button href={`tel:${order.customer.phone}`} variant="secondary" size="md" className="flex-1">
+            {recipient.phone && (
+              <Button href={`tel:${recipient.phone}`} variant="secondary" size="md" className="flex-1">
                 <Phone className="h-[18px] w-[18px]" aria-hidden />
                 Call customer
               </Button>

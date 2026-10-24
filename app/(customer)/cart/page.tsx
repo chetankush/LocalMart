@@ -15,6 +15,7 @@ import { AlertTriangle, Minus, Plus, ShoppingBag, Store, Trash2 } from 'lucide-r
 import { useConfirm } from '@/hooks/useConfirm';
 import { useLocation } from '@/context/LocationContext';
 import { useCartQuote } from '@/hooks/useCartQuote';
+import { useMounted } from '@/hooks/useMounted';
 import {
   Button,
   EmptyState,
@@ -34,6 +35,7 @@ export default function CartPage() {
   const items = useAppSelector(selectCartItems);
   const total = useAppSelector(selectCartTotal);
   const confirm = useConfirm();
+  const mounted = useMounted();
   const { location } = useLocation();
 
   // Real delivery fees + coverage for the customer's chosen location
@@ -50,11 +52,20 @@ export default function CartPage() {
 
   const storeQuote = (vendorId: string) => quote?.stores.find((s) => s.vendorId === vendorId);
   const knowsDelivery = !!quote && !!location?.pincode;
-  const deliveryTotal = quote ? quote.stores.reduce((sum, s) => sum + s.deliveryFee, 0) : 0;
-  const grandTotal = knowsDelivery && quote ? quote.grandTotal : total;
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const itemsByVendor = items.reduce((acc, item) => {
+  // Items the shop no longer sells (deleted or switched off) — never count them
+  const unavailableIds = new Set(quote?.unavailableItemIds ?? []);
+  const gone = items.filter((i) => unavailableIds.has(i.id));
+  const buyable = items.filter((i) => !unavailableIds.has(i.id));
+
+  const itemsTotal = quote
+    ? quote.stores.reduce((sum, s) => sum + s.subtotal, 0)
+    : total;
+  const deliveryTotal = quote ? quote.stores.reduce((sum, s) => sum + s.deliveryFee, 0) : 0;
+  const grandTotal = knowsDelivery && quote ? quote.grandTotal : itemsTotal;
+  const itemCount = buyable.reduce((sum, item) => sum + item.quantity, 0);
+
+  const itemsByVendor = buyable.reduce((acc, item) => {
     if (!acc[item.vendorId]) acc[item.vendorId] = { vendorName: item.vendorName, items: [] };
     acc[item.vendorId].items.push(item);
     return acc;
@@ -71,6 +82,20 @@ export default function CartPage() {
     });
     if (ok) dispatch(clearCart());
   };
+
+  // The cart lives on this phone (localStorage); draw it only once the page
+  // is running in the browser so server and browser HTML match.
+  if (!mounted) {
+    return (
+      <Page>
+        <LargeTitle title="Cart" />
+        <div className="space-y-3" aria-hidden>
+          <div className="h-24 animate-pulse rounded-2xl bg-card" />
+          <div className="h-24 animate-pulse rounded-2xl bg-card" />
+        </div>
+      </Page>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -101,6 +126,28 @@ export default function CartPage() {
             </button>
           }
         />
+
+        {gone.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-bad/30 bg-bad-soft p-4">
+            <p className="flex items-center gap-2 text-[16px] font-semibold text-bad">
+              <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
+              {gone.length === 1 ? "This item is no longer sold" : `${gone.length} items are no longer sold`}
+            </p>
+            <ul className="mt-2 space-y-1 text-[15px] text-label">
+              {gone.map((i) => (
+                <li key={i.id} className="truncate">{i.name}</li>
+              ))}
+            </ul>
+            <Button
+              variant="secondary"
+              size="md"
+              className="mt-3"
+              onClick={() => gone.forEach((i) => dispatch(removeFromCart(i.id)))}
+            >
+              {gone.length === 1 ? "Remove it" : "Remove them"}
+            </Button>
+          </div>
+        )}
 
         {shopCount > 1 && (
           <div className="mb-6">
@@ -177,7 +224,7 @@ export default function CartPage() {
         })}
 
         <Section title="Summary" footer="The total you see at checkout is the final price. No extra charges.">
-          <Row title="Items" trailing={<span className="tabular-nums text-label">{rupees(total)}</span>} />
+          <Row title="Items" trailing={<span className="tabular-nums text-label">{rupees(itemsTotal)}</span>} />
           <Row
             title="Delivery"
             trailing={
@@ -203,9 +250,15 @@ export default function CartPage() {
           <p className="text-[13px] text-label-2">Total</p>
           <p className="text-[20px] font-bold tabular-nums text-label">{rupees(grandTotal)}</p>
         </div>
-        <Button href="/checkout" className="flex-1">
-          Checkout
-        </Button>
+        {gone.length > 0 ? (
+          <Button className="flex-1" disabled>
+            Remove unavailable item first
+          </Button>
+        ) : (
+          <Button href="/checkout" className="flex-1">
+            Checkout
+          </Button>
+        )}
       </StickyBar>
     </>
   );

@@ -19,65 +19,36 @@ export default function ShopByCategorySection({ sections, locationLabel }: Props
   if (sections.length === 0) return null;
 
   return (
-    <section className="bg-cream">
-      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <h2 className="font-heading text-ink text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">
-              Shop by category
-            </h2>
-            <p className="text-ink-2 text-sm mt-1">
-              {locationLabel ? `Best deals in ${locationLabel}` : "Best deals from local stores"}
-            </p>
+    <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-4 px-4 pt-7 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+      {sections.slice(0, 4).map((section) => (
+        <Link
+          key={section.businessType}
+          href={`/stores?category=${section.businessType}`}
+          className="group rounded-2xl bg-fill p-4"
+        >
+          <h3 className="mb-3 text-[18px] font-bold leading-tight text-label">{section.title}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {section.products.slice(0, 4).map((p) => {
+              const image = Array.isArray(p.images) && p.images.length > 0 ? (p.images[0] as string) : null;
+              return (
+                <div key={p.id} className="min-w-0">
+                  <div className="relative aspect-square overflow-hidden rounded-xl bg-white">
+                    {image ? (
+                      <Image src={image} alt={p.name} fill sizes="(max-width: 768px) 45vw, 160px" className="object-contain" />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-[12px] text-label-3">No photo</span>
+                    )}
+                  </div>
+                  <p className="mt-1 truncate text-[13px] text-label">{p.name}</p>
+                </div>
+              );
+            })}
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {sections.slice(0, 6).map((section) => (
-            <Link
-              key={section.businessType}
-              href={`/stores?category=${section.businessType}`}
-              className="group bg-white rounded-2xl border border-sand p-4 sm:p-5 hover:shadow-lg transition-all"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-heading text-ink text-base sm:text-lg font-semibold">
-                  {section.title}
-                </h3>
-                <span className="text-sm font-semibold text-primary-dark group-hover:translate-x-0.5 transition-transform">
-                  Shop all →
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                {section.products.slice(0, 4).map((p) => {
-                  const image =
-                    Array.isArray(p.images) && p.images.length > 0
-                      ? (p.images[0] as string)
-                      : null;
-                  return (
-                    <div
-                      key={p.id}
-                      className="aspect-square bg-gradient-to-br from-cream to-sand/40 rounded-xl overflow-hidden flex items-center justify-center relative"
-                    >
-                      {image ? (
-                        <Image
-                          src={image}
-                          alt={p.name}
-                          fill
-                          sizes="(max-width: 768px) 50vw, 200px"
-                          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <span className="text-[10px] text-ink-3">No image</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
+          <span className="mt-3 inline-block text-[14px] text-label underline underline-offset-2 group-hover:text-link">
+            {locationLabel ? `See more in ${locationLabel}` : "See more"}
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }

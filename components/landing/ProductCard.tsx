@@ -2,12 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { ShoppingCart, Check, Star } from "lucide-react";
-import { useAppDispatch } from "@/lib/redux/hooks";
-import { addToCart, openCart } from "@/lib/redux/slices/cartSlice";
-import type { CartItem } from "@/lib/redux/slices/cartSlice";
-import Button from "@/components/ui/button";
+import { ShoppingCart, Star } from "lucide-react";
+import AddStepper from "@/components/cart/AddStepper";
+import { formatDistance } from "@/lib/landing/distance";
 
 export interface ProductCardProduct {
   id: string;
@@ -35,159 +32,79 @@ interface Props {
   isOpen?: boolean;
 }
 
-export default function ProductCard({ product, showStoreBadge = true, size = "md", distanceKm, isOpen }: Props) {
-  const dispatch = useAppDispatch();
-  const [adding, setAdding] = useState(false);
-
+export default function ProductCard({ product, showStoreBadge = true, distanceKm, isOpen }: Props) {
   const price = Number(product.price);
   const compareAt = product.compareAtPrice ? Number(product.compareAtPrice) : null;
   const hasDiscount = compareAt !== null && compareAt > price;
-  const discountPercent = hasDiscount && compareAt
-    ? Math.round(((compareAt - price) / compareAt) * 100)
-    : 0;
+  const discountPercent = hasDiscount && compareAt ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
   const image =
-    Array.isArray(product.images) && product.images.length > 0
-      ? (product.images[0] as string)
-      : null;
-
-  const handleAdd = () => {
-    if (product.stockQuantity <= 0) return;
-    const item: CartItem = {
-      id: product.id,
-      name: product.name,
-      price,
-      image: image || undefined,
-      quantity: 1,
-      stockQuantity: product.stockQuantity,
-      vendorId: product.vendor.id,
-      vendorName: product.vendor.businessName,
-    };
-    setAdding(true);
-    dispatch(addToCart(item));
-    dispatch(openCart());
-    setTimeout(() => setAdding(false), 600);
-  };
-
-  const padding = size === "sm" ? "p-2.5" : "p-3";
-  const titleSize = size === "sm" ? "text-xs" : "text-sm";
-  const priceSize = size === "sm" ? "text-sm" : "text-base";
+    Array.isArray(product.images) && product.images.length > 0 ? (product.images[0] as string) : null;
+  const out = product.stockQuantity <= 0;
+  const rating = Number(product.averageRating) || 0;
+  const inr = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  const away =
+    distanceKm === undefined ? "" : formatDistance(distanceKm);
 
   return (
-    <div className="bg-white rounded-2xl border border-sand overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col h-full">
-      <Link href={`/products/${product.id}`} className="flex flex-col flex-1">
-        <div className="relative aspect-square bg-gradient-to-br from-cream to-sand/40 overflow-hidden">
+    <div className="group flex h-full flex-col">
+      <div className="relative">
+        <Link href={`/products/${product.id}`} className="relative block aspect-square overflow-hidden rounded-xl bg-fill">
           {image ? (
             <Image
               src={image}
               alt={product.name}
               fill
-              className="object-contain p-3 group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 640px) 40vw, 200px"
+              className="object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-ink-3">
-              <ShoppingCart className="w-8 h-8" />
-            </div>
+            <span className="flex h-full w-full items-center justify-center text-label-3">
+              <ShoppingCart className="h-8 w-8" aria-hidden />
+            </span>
           )}
           {hasDiscount && (
-            <div className="absolute top-2 left-2 bg-laal text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+            <span className="absolute left-0 top-0 rounded-br-lg rounded-tl-xl bg-deal px-2 py-1 text-[11px] font-bold leading-none text-white">
               {discountPercent}% OFF
-            </div>
+            </span>
           )}
-          {product.stockQuantity <= 0 && (
-            <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-              <span className="text-xs font-semibold text-ink">Out of stock</span>
-            </div>
-          )}
+          {out && <span className="absolute inset-0 bg-white/60" aria-hidden />}
+        </Link>
+        <div className="absolute bottom-2 right-2">
+          <AddStepper
+            disabled={out}
+            item={{
+              id: product.id,
+              name: product.name,
+              price,
+              image: image || undefined,
+              stockQuantity: product.stockQuantity,
+              vendorId: product.vendor.id,
+              vendorName: product.vendor.businessName,
+            }}
+          />
         </div>
-
-        <div className={`${padding} flex flex-col flex-1`}>
-          {showStoreBadge && (
-            <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
-              {product.vendor.storeLogo ? (
-                <Image
-                  src={product.vendor.storeLogo}
-                  alt={product.vendor.businessName}
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 rounded-full object-cover ring-1 ring-sand shrink-0"
-                />
-              ) : (
-                <span className="w-4 h-4 rounded-full bg-accent-light shrink-0" />
-              )}
-              <span className="text-[10px] text-ink-3 font-medium truncate">
-                {product.vendor.businessName}
-              </span>
-            </div>
-          )}
-
-          {(distanceKm !== undefined || isOpen !== undefined) && (
-            <div className="flex items-center gap-2 text-[10px] text-ink-3 mb-1.5">
-              {distanceKm !== undefined && (
-                <span>
-                  {distanceKm < 1
-                    ? `${Math.round(distanceKm * 1000)}m`
-                    : `${distanceKm.toFixed(1)}km`}
-                </span>
-              )}
-              {isOpen !== undefined && (
-                <span className={isOpen ? "text-green-600 font-medium" : "text-ink-3"}>
-                  {isOpen ? "Open now" : "Closed"}
-                </span>
-              )}
-            </div>
-          )}
-
-          <h3 className={`${titleSize} font-semibold text-ink leading-snug line-clamp-2 mb-2 min-h-[2rem]`}>
-            {product.name}
-          </h3>
-
-          {product.averageRating && Number(product.averageRating) > 0 && (
-            <div className="flex items-center gap-1 mb-1.5">
-              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-              <span className="text-[10px] font-medium text-ink-2">
-                {Number(product.averageRating).toFixed(1)}
-              </span>
-              {product.reviewCount ? (
-                <span className="text-[10px] text-ink-3">({product.reviewCount})</span>
-              ) : null}
-            </div>
-          )}
-
-          <div className="flex items-baseline gap-1.5 mt-auto">
-            <span className={`${priceSize} font-bold text-ink`}>₹{price.toFixed(0)}</span>
-            {hasDiscount && compareAt && (
-              <span className="text-[10px] text-ink-3 line-through">₹{compareAt.toFixed(0)}</span>
-            )}
-          </div>
-        </div>
-      </Link>
-
-      <div className={`${padding === "p-2.5" ? "px-2.5" : "px-3"} pb-3`}>
-        <Button
-          variant="primary"
-          size="sm"
-          fullWidth
-          loading={adding}
-          disabled={product.stockQuantity <= 0}
-          onClick={handleAdd}
-          aria-label={
-            product.stockQuantity <= 0
-              ? "Out of stock"
-              : adding
-              ? "Added to cart"
-              : `Add ${product.name} to cart`
-          }
-          leadingIcon={
-            adding ? (
-              <Check className="w-3.5 h-3.5" />
-            ) : product.stockQuantity > 0 ? (
-              <ShoppingCart className="w-3.5 h-3.5" />
-            ) : undefined
-          }
-        >
-          {product.stockQuantity <= 0 ? "Out of Stock" : adding ? "Added" : "Add to Cart"}
-        </Button>
       </div>
+
+      <Link href={`/products/${product.id}`} className="flex flex-1 flex-col pt-2">
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-[16px] font-bold text-label">₹{inr(price)}</span>
+          {hasDiscount && compareAt && <span className="text-[12px] text-label-3 line-through">₹{inr(compareAt)}</span>}
+        </span>
+        <h3 className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-label">{product.name}</h3>
+        {rating > 0 && (
+          <span className="mt-0.5 flex items-center gap-0.5 text-[12px] text-label-2">
+            <Star className="h-3 w-3 fill-label text-label" aria-hidden />
+            {rating.toFixed(1)} ({product.reviewCount ?? 0})
+          </span>
+        )}
+        {showStoreBadge && (
+          <span className="mt-0.5 truncate text-[12px] text-label-2">
+            {product.vendor.businessName}
+            {away && ` · ${away}`}
+          </span>
+        )}
+        {isOpen === false && <span className="text-[12px] font-medium text-warn">Shop closed now</span>}
+      </Link>
     </div>
   );
 }

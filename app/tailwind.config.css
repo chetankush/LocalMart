@@ -1,27 +1,44 @@
 @theme {
-  /* ─── App UI (Apple-style) ─────────────────────────────────────
-     One calm system for customer + shop screens: grey canvas, white
-     grouped sections, near-black text and primary buttons, saffron
-     only as the brand accent. Text colours meet WCAG AA on white. */
-  --color-canvas: #F5F5F7;
+  /* ─── LocalMart brand UI ────────────────────────────────────────
+     Crimson brand on a white, neutral page (Pinterest-like restraint):
+     crimson only for the main action (ADD, cart bar, primary buttons,
+     active tab, logo); everything else ink and grey. Discounts are green
+     so red never reads as an error. Solid fills only, no gradients.
+     Token roles: cta/tint/link = crimson · navy* = ink (dark surfaces)
+     saffron = warm amber accent · deal = discount green.
+     Every text colour meets WCAG AA on white. */
+  --color-canvas: #F6F6F7;
   --color-card: #FFFFFF;
-  --color-label: #1D1D1F;
-  --color-label-2: #6E6E73;
-  --color-label-3: #8E8E93;
-  --color-hairline: #E3E3E8;
-  --color-fill: #EDEDF0;
-  --color-fill-strong: #E2E2E7;
-  --color-tint: #C2410C;
-  --color-saffron: #FF8A1F;
-  --color-saffron-soft: #FFF1E3;
-  --color-ok: #1A7F37;
-  --color-ok-soft: #E7F4EA;
-  --color-bad: #C5221F;
-  --color-bad-soft: #FDECEA;
-  --color-warn: #8A5300;
-  --color-warn-soft: #FFF3DC;
-  --color-info: #0B57D0;
-  --color-info-soft: #E8F0FE;
+  --color-label: #111111;
+  --color-label-2: #4B5058;
+  --color-label-3: #6B7078;
+  --color-hairline: #E6E6E8;
+  --color-fill: #F3F3F5;
+  --color-fill-strong: #E6E6E9;
+  --color-tint: #D61F45;
+  --color-tint-soft: #FDECEF;
+  --color-link: #111111;
+  --color-link-hover: #D61F45;
+  --color-navy: #1D1D1F;
+  --color-navy-2: #2C2C30;
+  --color-navy-3: #111111;
+  --color-cta: #D61F45;
+  --color-cta-hover: #B3163A;
+  --color-buy: #D61F45;
+  --color-buy-hover: #B3163A;
+  --color-deal: #067647;
+  --color-deal-soft: #ECFDF3;
+  --color-saffron: #F59E0B;
+  --color-saffron-soft: #FFF4DE;
+  --color-coral: #D61F45;
+  --color-ok: #067647;
+  --color-ok-soft: #ECFDF3;
+  --color-bad: #B42318;
+  --color-bad-soft: #FEF3F2;
+  --color-warn: #B54708;
+  --color-warn-soft: #FFFAEB;
+  --color-info: #175CD3;
+  --color-info-soft: #EFF8FF;
 
   /* Font families — all the device's system UI font (see globals.css) */
   --font-family-sans: var(--font-system);

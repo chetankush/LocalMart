@@ -1,27 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useRouter, usePathname } from "next/navigation";
 import CartIcon from "@/components/cart/CartIcon";
+import CartBar from "@/components/cart/CartBar";
 import { useLocation } from "@/context/LocationContext";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
 import NotificationBell from "@/components/NotificationBell";
-import { useStoreBranding } from "@/context/StoreBrandingContext";
+import SearchOverlay from "@/components/search/SearchOverlay";
 import { preloadCriticalRoutes } from "@/lib/utils/navigation";
 import {
   Bell,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Clock,
   Heart,
   HelpCircle,
   Home,
+  Lock,
   LogOut,
   MapPin,
+  Mic,
   Package,
   Search,
   Store,
@@ -29,15 +30,46 @@ import {
   X,
 } from "lucide-react";
 
-// Screens that are a focused task (or have their own navigation): no tab bar
+// Screens that are a focused task (or have their own navigation)
 const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth"];
-// Screens where search is the natural next step
-const SHOW_SEARCH = (p: string) => p === "/" || p === "/stores" || p.startsWith("/search");
+const FOCUSED = ["/checkout", "/orders/waiting"];
 
-function locationText(location: { locality?: string; city?: string; pincode?: string } | null) {
-  if (!location) return "Choose your area";
-  const place = location.locality || location.city || "Your area";
-  return location.pincode ? `${place} · ${location.pincode}` : place;
+// Desktop category strip → shop list filtered by category
+const CATEGORIES = [
+  { label: "All shops", href: "/stores" },
+  { label: "Sarees & Fashion", href: "/stores?category=clothing" },
+  { label: "Groceries", href: "/stores?category=grocery" },
+  { label: "Pharmacy", href: "/stores?category=medical" },
+  { label: "Electronics", href: "/stores?category=electronics" },
+  { label: "Home & Kitchen", href: "/stores?category=home-kitchen" },
+];
+
+const SEARCH_HINTS = ["saree", "doodh", "atta", "medicine", "kurti", "mobile cover", "chawal"];
+
+function placeText(location: { locality?: string; city?: string; pincode?: string } | null) {
+  if (!location) return null;
+  const place = location.locality || location.city || "your area";
+  return location.pincode ? `${place} ${location.pincode}` : place;
+}
+
+/** LocalMart wordmark — always takes you home */
+function Logo({ onHome }: { onHome: () => void }) {
+  return (
+    <Link
+      href="/"
+      onClick={onHome}
+      aria-label="LocalMart home"
+      className="flex shrink-0 items-baseline rounded-md py-1 text-[22px] font-extrabold leading-none tracking-[-0.03em] text-label focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint"
+    >
+      Local<span className="text-coral">Mart</span>
+    </Link>
+  );
+}
+
+function hasVoice() {
+  if (typeof window === "undefined") return false;
+  const w = window as Window & { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown };
+  return !!(w.SpeechRecognition || w.webkitSpeechRecognition);
 }
 
 const Navbar = () => {
@@ -46,19 +78,42 @@ const Navbar = () => {
   const [isApprovedVendor, setIsApprovedVendor] = useState(false);
   const [vendorStatus, setVendorStatus] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any>(null);
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [search, setSearch] = useState<{ open: boolean; voice: boolean }>({ open: false, voice: false });
+  const [voiceOk, setVoiceOk] = useState(false);
   const { location } = useLocation();
-  const { branding } = useStoreBranding();
   const router = useRouter();
   const pathname = usePathname();
 
   const showTabBar = !NO_TAB_BAR.some((p) => pathname.startsWith(p));
-  const showSearch = SHOW_SEARCH(pathname);
+  const focused = FOCUSED.some((p) => pathname.startsWith(p));
   // Shop-owner and admin screens: no shopping chrome (area, search, cart)
-  const sellerArea = pathname.startsWith("/vendor") || pathname.startsWith("/admin");
+  const adminArea = pathname.startsWith("/admin");
+  const sellerArea = pathname.startsWith("/vendor") || adminArea;
+  const authPage = ["/sign-in", "/sign-up", "/phone-signin"].some((p) => pathname.startsWith(p));
+  const shopping = !sellerArea && !focused && !authPage;
+  const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0];
+
+  useEffect(() => setVoiceOk(hasVoice()), []);
+
+  // Publish the header's height (--header-h) so bars like a shop's filter
+  // chips can stick right under it on any screen size
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--header-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Rotating search hint, like the big grocery apps — shows what you can type
+  const [hint, setHint] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setHint((i) => (i + 1) % SEARCH_HINTS.length), 2800);
+    return () => clearInterval(t);
+  }, []);
 
   // Is this user an approved vendor, or waiting for approval?
   useEffect(() => {
@@ -104,7 +159,7 @@ const Navbar = () => {
 
   useEffect(() => {
     setShowAccount(false);
-    setShowSearchResults(false);
+    setSearch({ open: false, voice: false });
   }, [pathname]);
 
   useEffect(() => {
@@ -113,45 +168,23 @@ const Navbar = () => {
     preloadCriticalRoutes(router, criticalRoutes);
   }, [router]);
 
-  // Live search (debounced)
+  // "/" opens search on desktop, like most shops
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      setShowSearchResults(false);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const { apiClient } = await import("@/lib/api/client");
-        const { data } = await apiClient.search(searchQuery, {
-          city: location?.city,
-          pincode: location?.pincode,
-          lat: location?.latitude,
-          lng: location?.longitude,
-        });
-        setSearchResults(data);
-        setShowSearchResults(true);
-      } catch {
-        setSearchResults(null);
-      } finally {
-        setIsSearching(false);
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) && !t.isContentEditable) {
+        e.preventDefault();
+        setSearch({ open: true, voice: false });
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, location?.city, location?.pincode, location?.latitude, location?.longitude]);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(".search-container")) setShowSearchResults(false);
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // Lock page scroll while the account sheet is open
   useEffect(() => {
-    document.body.style.overflow = showAccount ? "hidden" : "";
+    if (!showAccount) return;
+    document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = "";
     };
@@ -163,10 +196,9 @@ const Navbar = () => {
     router.push("/");
   };
 
-  const goto = (href: string) => {
-    setShowSearchResults(false);
-    setSearchQuery("");
-    router.push(href);
+  // Tapping the logo on the home page takes you back to the top
+  const onHome = () => {
+    if (pathname === "/") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const sellerLink = isApprovedVendor
@@ -175,93 +207,46 @@ const Navbar = () => {
       ? { href: "/become-vendor", label: "Seller application", note: "Waiting for approval", icon: Clock }
       : { href: "/become-vendor", label: "Sell on LocalMart", icon: Store };
 
-  const searchBox = (id: string) => (
-    <div className="search-container relative w-full">
-      <label htmlFor={id} className="sr-only">
-        Search shops and products
-      </label>
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-label-2" aria-hidden />
-      <input
-        id={id}
-        type="search"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onFocus={() => searchQuery && setShowSearchResults(true)}
-        placeholder="Search shops and products"
-        autoComplete="off"
-        className="h-11 w-full rounded-xl bg-fill pl-10 pr-10 text-[16px] text-label placeholder:text-label-2 outline-none focus:bg-white focus:ring-2 focus:ring-tint/40"
-      />
-      {isSearching && (
-        <span className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-label-3 border-t-transparent" />
-      )}
+  const openSearch = (voice = false) => setSearch({ open: true, voice });
 
-      {showSearchResults && searchResults && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-hairline bg-card shadow-xl">
-          {searchResults.stores?.length > 0 && (
-            <div className="py-2">
-              <p className="px-4 pb-1 pt-1 text-[13px] font-semibold uppercase tracking-[0.05em] text-label-2">Shops</p>
-              {searchResults.stores.map((store: any) => (
-                <button
-                  key={store.id}
-                  onClick={() => goto(`/stores/${store.id}`)}
-                  className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left active:bg-fill hover:bg-canvas"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-saffron-soft">
-                    <Store className="h-5 w-5 text-tint" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] text-label">{store.businessName}</span>
-                    <span className="block truncate text-[14px] text-label-2">{store.city}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {searchResults.products?.length > 0 && (
-            <div className="border-t border-hairline py-2">
-              <p className="px-4 pb-1 pt-1 text-[13px] font-semibold uppercase tracking-[0.05em] text-label-2">Products</p>
-              {searchResults.products.map((product: any) => (
-                <button
-                  key={product.id}
-                  onClick={() => goto(`/products/${product.id}`)}
-                  className="flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left active:bg-fill hover:bg-canvas"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-fill">
-                    <Package className="h-5 w-5 text-label-2" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] text-label">{product.name}</span>
-                    <span className="block truncate text-[14px] text-label-2">
-                      ₹{product.price} · {product.vendor?.businessName}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {!searchResults.stores?.length && !searchResults.products?.length && (
-            <div className="px-6 py-8 text-center text-[15px] text-label-2">
-              Nothing found for “{searchQuery}”
-            </div>
-          )}
-        </div>
+  const searchTrigger = (desktop: boolean) => (
+    <div className={`relative flex w-full items-center ${desktop ? "h-11" : "h-11"}`}>
+      <button
+        type="button"
+        onClick={() => openSearch(false)}
+        className="flex h-full min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-hairline bg-fill pl-3.5 pr-12 text-left text-[15px] text-label-3 cursor-text hover:border-label/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-tint"
+        aria-label="Search shops and products"
+      >
+        <Search className="h-5 w-5 shrink-0 text-label-2" aria-hidden />
+        <span className="truncate">
+          Search for <span key={hint} className="animate-[hintIn_300ms_ease-out] text-label-2 motion-reduce:animate-none">&ldquo;{SEARCH_HINTS[hint]}&rdquo;</span>
+        </span>
+      </button>
+      {voiceOk && (
+        <button
+          type="button"
+          onClick={() => openSearch(true)}
+          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-label hover:bg-fill-strong cursor-pointer"
+          aria-label="Search by voice"
+        >
+          <Mic className="h-5 w-5" />
+        </button>
       )}
     </div>
   );
 
+  const place = placeText(location);
+
   const locationButton = (
     <button
       onClick={() => setShowLocationModal(true)}
-      className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-xl px-1 text-left active:opacity-60 cursor-pointer"
-      aria-label={`Delivery area: ${locationText(location)}. Change`}
+      className="flex min-w-0 flex-1 flex-col items-start border-l border-hairline pl-3 text-left cursor-pointer lg:w-full lg:border-l-0 lg:pl-0"
+      aria-label={place ? `Delivering to ${place}. Change area` : "Choose your area"}
     >
-      <MapPin className="h-5 w-5 shrink-0 text-tint" aria-hidden />
-      <span className="min-w-0">
-        <span className="block text-[12px] leading-tight text-label-2">{location ? "Delivering to" : "Where should we deliver?"}</span>
-        <span className="flex items-center gap-0.5 text-[15px] font-semibold leading-tight text-label">
-          <span className="truncate">{locationText(location)}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-label-2" aria-hidden />
-        </span>
+      <span className="text-[12px] leading-tight text-label-2">{place ? "Deliver to" : "Shops near you"}</span>
+      <span className="flex max-w-full items-center gap-0.5 text-[15px] font-bold leading-tight text-label">
+        <span className="truncate">{place ?? "Choose your area"}</span>
+        <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
       </span>
     </button>
   );
@@ -275,107 +260,103 @@ const Navbar = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-hairline bg-white/90 backdrop-blur-xl">
-        {/* ── Phone header ── */}
+      <header ref={headerRef} className="sticky top-0 z-50 border-b border-hairline bg-white">
+        {/* ── Phone header: logo + delivery area, then search ── */}
         <div className="lg:hidden">
-          <div className="flex h-14 items-center justify-between gap-2 px-3">
-            {sellerArea ? (
-              <Link href="/vendor/dashboard" className="flex min-h-[44px] items-center gap-2 text-[18px] font-bold tracking-[-0.02em] text-label">
-                <span className="h-2.5 w-2.5 rounded-full bg-saffron" aria-hidden />
-                LocalMart
-                <span className="rounded-md bg-fill px-1.5 py-0.5 text-[12px] font-semibold text-label-2">Seller</span>
-              </Link>
-            ) : branding ? (
-              <div className="flex min-w-0 items-center gap-1">
-                <Link
-                  href="/stores"
-                  aria-label="Back to shops"
-                  className="-ml-1 flex h-11 w-11 items-center justify-center rounded-full text-tint active:bg-fill"
-                >
-                  <ChevronLeft className="h-6 w-6" strokeWidth={2.2} />
-                </Link>
-                <Link href={`/stores/${branding.storeId}`} className="flex min-w-0 items-center gap-2">
-                  {branding.storeLogo && (
-                    <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-fill">
-                      <Image src={branding.storeLogo} alt="" fill className="object-cover" />
-                    </span>
-                  )}
-                  <span className="truncate text-[17px] font-semibold text-label">{branding.storeName}</span>
-                </Link>
-              </div>
-            ) : (
+          <div className="flex h-14 items-center gap-3 px-4">
+            <Logo onHome={onHome} />
+            {shopping ? (
               locationButton
+            ) : (
+              <div className="flex min-w-0 flex-1 items-center">
+                {sellerArea && <span className="rounded-md bg-tint-soft px-2 py-0.5 text-[13px] font-semibold text-tint">{adminArea ? "Admin" : "Seller"}</span>}
+                {focused && (
+                  <span className="flex items-center gap-1 text-[14px] font-semibold text-label-2">
+                    <Lock className="h-4 w-4" aria-hidden /> Secure checkout
+                  </span>
+                )}
+              </div>
             )}
             <div className="flex shrink-0 items-center">
-              {sellerArea ? (
+              {!focused && (
                 <button
-                  onClick={() => setShowAccount(true)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-label active:bg-fill cursor-pointer"
-                  aria-label="Account"
+                  onClick={() => (user || loading ? setShowAccount(true) : router.push("/sign-in"))}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-label hover:bg-fill cursor-pointer"
+                  aria-label={user ? "Account" : "Sign in"}
                 >
-                  <User className="h-6 w-6" strokeWidth={1.9} />
+                  <User className="h-6 w-6" strokeWidth={1.9} aria-hidden />
                 </button>
-              ) : (
-                <CartIcon />
               )}
+              {!sellerArea && !focused && <CartIcon />}
             </div>
           </div>
-          {showSearch && !branding && !sellerArea && <div className="px-3 pb-3">{searchBox("search-phone")}</div>}
+          {shopping && <div className="px-4 pb-3">{searchTrigger(false)}</div>}
         </div>
 
         {/* ── Desktop header ── */}
-        <div className="mx-auto hidden h-16 max-w-7xl items-center gap-5 px-6 lg:flex">
-          <Link href="/" className="flex shrink-0 items-center gap-2 text-[20px] font-bold tracking-[-0.02em] text-label">
-            <span className="h-3 w-3 rounded-full bg-saffron" aria-hidden />
-            LocalMart
-          </Link>
-          {sellerArea ? (
-            <span className="rounded-md bg-fill px-2 py-0.5 text-[13px] font-semibold text-label-2">Seller</span>
-          ) : branding ? (
-            <Link href={`/stores/${branding.storeId}`} className="flex min-w-0 items-center gap-2 border-l border-hairline pl-5">
-              {branding.storeLogo && (
-                <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-fill">
-                  <Image src={branding.storeLogo} alt="" fill className="object-cover" />
-                </span>
-              )}
-              <span className="truncate text-[16px] font-semibold text-label">{branding.storeName}</span>
-            </Link>
-          ) : (
-            <div className="max-w-[240px] shrink-0">{locationButton}</div>
-          )}
-          <div className="mx-auto w-full max-w-md">{!sellerArea && searchBox("search-desktop")}</div>
-          <nav className="flex shrink-0 items-center gap-1 text-[15px] font-medium">
-            <Link href="/stores" className="rounded-lg px-3 py-2 text-label hover:bg-fill">Shops</Link>
-            <Link href="/my-orders" className="rounded-lg px-3 py-2 text-label hover:bg-fill">Orders</Link>
-            <Link href="/favorite-stores" className="rounded-lg px-3 py-2 text-label hover:bg-fill">Favourites</Link>
+        <div className="mx-auto hidden h-[72px] max-w-[1400px] items-center gap-6 px-8 lg:flex">
+          <Logo onHome={onHome} />
+          {sellerArea && <span className="rounded-md bg-tint-soft px-2 py-0.5 text-[13px] font-semibold text-tint">{adminArea ? "Admin" : "Seller"}</span>}
+          {shopping && <div className="w-[220px] shrink-0">{locationButton}</div>}
+          <div className="flex-1">{shopping && searchTrigger(true)}</div>
+          <nav className="flex shrink-0 items-center gap-1 text-label">
             {user && <NotificationBell />}
-            <CartIcon />
             {loading ? (
-              <span className="ml-1 h-9 w-9 animate-pulse rounded-full bg-fill" />
-            ) : !user ? (
-              <Link href="/sign-in" className="ml-1 rounded-xl bg-label px-4 py-2 text-white hover:bg-[#3a3a3c]">
-                Sign in
-              </Link>
+              <span className="h-10 w-24 animate-pulse rounded-lg bg-fill" />
             ) : (
               <button
-                onClick={() => setShowAccount(true)}
-                className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-saffron-soft text-[15px] font-semibold text-tint cursor-pointer"
-                aria-label="Account"
+                onClick={() => (user ? setShowAccount(true) : router.push("/sign-in"))}
+                className="flex h-11 items-center gap-2 rounded-lg px-3 text-[15px] font-medium hover:bg-fill cursor-pointer"
               >
-                {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
+                <User className="h-5 w-5" aria-hidden />
+                {user ? firstName ?? "Account" : "Sign in"}
               </button>
             )}
+            {!sellerArea && (
+              <Link href="/my-orders" className="flex h-11 items-center gap-2 rounded-lg px-3 text-[15px] font-medium hover:bg-fill">
+                <Package className="h-5 w-5" aria-hidden /> Orders
+              </Link>
+            )}
+            {!sellerArea && <CartIcon showLabel />}
           </nav>
         </div>
 
+        {/* ── Desktop category strip ── */}
+        {shopping && (
+          <nav aria-label="Categories" className="hidden border-t border-hairline lg:block">
+            <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-1 overflow-x-auto px-6 text-[14px] scrollbar-hide">
+              {CATEGORIES.map((c) => (
+                <Link key={c.href} href={c.href} className="whitespace-nowrap rounded-lg px-3 py-1.5 font-medium text-label-2 hover:bg-fill hover:text-label">
+                  {c.label}
+                </Link>
+              ))}
+              <Link href={sellerLink.href} className="ml-auto whitespace-nowrap rounded-lg px-3 py-1.5 font-semibold text-tint hover:bg-tint-soft">
+                {sellerLink.label}
+              </Link>
+            </div>
+          </nav>
+        )}
+
         <LocationSelectorModal isOpen={showLocationModal} onClose={() => setShowLocationModal(false)} />
       </header>
+
+      <SearchOverlay
+        open={search.open}
+        startWithVoice={search.voice}
+        onClose={() => setSearch({ open: false, voice: false })}
+      />
+
+      {/* Product pages have their own buy bar */}
+      <CartBar
+        visible={shopping && !["/cart", "/products/", "/become-vendor"].some((p) => pathname.startsWith(p))}
+        aboveTabBar={showTabBar}
+      />
 
       {/* ── Phone tab bar ── */}
       {showTabBar && (
         <nav
           aria-label="Main"
-          className="fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-white/90 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_8px_rgba(15,17,17,0.06)] lg:hidden"
         >
           <div className="mx-auto grid h-14 max-w-md grid-cols-4">
             {tabs.map(({ href, label, icon: Icon, active }) => (
@@ -383,18 +364,24 @@ const Navbar = () => {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium ${active ? "text-tint" : "text-label-2"}`}
+                className={`relative flex flex-col items-center justify-center gap-0.5 text-[12px] ${
+                  active ? "font-bold text-tint" : "font-medium text-label-2"
+                }`}
               >
+                {active && <span className="absolute top-0 h-[3px] w-10 rounded-b bg-tint" aria-hidden />}
                 <Icon className="h-6 w-6" strokeWidth={active ? 2.3 : 1.8} aria-hidden />
                 {label}
               </Link>
             ))}
             <button
-              onClick={() => setShowAccount(true)}
-              className={`flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium cursor-pointer ${accountActive ? "text-tint" : "text-label-2"}`}
+              onClick={() => (user || loading ? setShowAccount(true) : router.push("/sign-in"))}
+              className={`relative flex flex-col items-center justify-center gap-0.5 text-[12px] cursor-pointer ${
+                accountActive ? "font-bold text-tint" : "font-medium text-label-2"
+              }`}
             >
+              {accountActive && <span className="absolute top-0 h-[3px] w-10 rounded-b bg-tint" aria-hidden />}
               <User className="h-6 w-6" strokeWidth={accountActive ? 2.3 : 1.8} aria-hidden />
-              Account
+              {user ? "Account" : "Sign in"}
             </button>
           </div>
         </nav>
@@ -402,7 +389,7 @@ const Navbar = () => {
 
       {/* ── Account sheet (phone: slides up; desktop: panel) ── */}
       <div
-        className={`fixed inset-0 z-[60] bg-black/40 transition-opacity duration-200 ${showAccount ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        className={`fixed inset-0 z-[60] bg-black/50 transition-opacity duration-200 ${showAccount ? "opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => setShowAccount(false)}
         aria-hidden
       />
@@ -410,40 +397,30 @@ const Navbar = () => {
         role="dialog"
         aria-modal="true"
         aria-label="Account"
-        className={`fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto rounded-t-3xl bg-canvas pb-[calc(16px+env(safe-area-inset-bottom,0px))] shadow-2xl transition-transform duration-300 ease-out lg:inset-x-auto lg:right-6 lg:top-20 lg:bottom-auto lg:w-[380px] lg:rounded-3xl ${
+        className={`fixed inset-x-0 bottom-0 z-[70] max-h-[88vh] overflow-y-auto rounded-t-2xl bg-canvas pb-[calc(16px+env(safe-area-inset-bottom,0px))] shadow-2xl transition-transform duration-300 ease-out lg:inset-x-auto lg:right-6 lg:top-[68px] lg:bottom-auto lg:w-[380px] lg:rounded-2xl ${
           showAccount ? "translate-y-0 lg:visible" : "translate-y-full lg:invisible lg:translate-y-0"
         }`}
       >
-        <div className="sticky top-0 flex items-center justify-between bg-canvas/95 px-4 pb-2 pt-3 backdrop-blur">
-          <span className="mx-auto h-1.5 w-10 rounded-full bg-fill-strong lg:hidden" aria-hidden />
+        <div className="flex items-center justify-between rounded-t-2xl bg-navy px-4 py-4 text-white">
+          <div className="min-w-0">
+            <p className="text-[13px] text-white/70">{user ? "Signed in as" : "Welcome to LocalMart"}</p>
+            <p className="truncate text-[18px] font-bold">{user ? user.email || user.phone : "Shop from shops near you"}</p>
+          </div>
           <button
             onClick={() => setShowAccount(false)}
-            className="absolute right-3 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-fill text-label-2 cursor-pointer"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-2 text-white cursor-pointer"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="px-4">
-          <h2 className="pb-4 text-[28px] font-bold tracking-[-0.02em] text-label">Account</h2>
-
-          {user ? (
-            <div className="mb-6 flex items-center gap-3 rounded-2xl bg-card p-4">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-saffron-soft text-[20px] font-semibold text-tint">
-                {user.email?.[0]?.toUpperCase() || user.phone?.[0] || "U"}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[17px] font-semibold text-label">{user.email || user.phone}</span>
-                <Link href="/profile" className="text-[15px] text-tint">View profile</Link>
-              </span>
-            </div>
-          ) : (
-            <div className="mb-6 rounded-2xl bg-card p-4">
-              <p className="mb-3 text-[16px] text-label-2">Sign in to order and track your deliveries.</p>
+        <div className="px-4 pt-4">
+          {!user && (
+            <div className="mb-5 rounded-xl bg-card p-4">
               <Link
                 href="/sign-in"
-                className="flex h-[52px] w-full items-center justify-center rounded-xl bg-label text-[17px] font-semibold text-white"
+                className="flex h-12 w-full items-center justify-center rounded-full bg-cta text-[16px] font-semibold text-white hover:bg-cta-hover"
               >
                 Sign in or create account
               </Link>
@@ -451,10 +428,11 @@ const Navbar = () => {
           )}
 
           <SheetGroup>
-            <SheetRow icon={MapPin} label="Delivery area" value={locationText(location)} onClick={() => { setShowAccount(false); setShowLocationModal(true); }} />
-            {user && <SheetRow icon={Package} label="My orders" href="/my-orders" />}
+            <SheetRow icon={MapPin} label="Delivery area" value={place ?? "Choose your area"} onClick={() => { setShowAccount(false); setShowLocationModal(true); }} />
+            {user && <SheetRow icon={Package} label="Your orders" href="/my-orders" />}
             {user && <SheetRow icon={Heart} label="Favourite shops" href="/favorite-stores" />}
             {user && <SheetRow icon={Bell} label="Notifications" href="/notifications" />}
+            {user && <SheetRow icon={User} label="Your profile" href="/profile" />}
           </SheetGroup>
 
           {user && (
@@ -485,7 +463,7 @@ const Navbar = () => {
 };
 
 function SheetGroup({ children }: { children: React.ReactNode }) {
-  return <div className="mb-5 overflow-hidden rounded-2xl bg-card divide-y divide-hairline">{children}</div>;
+  return <div className="mb-4 overflow-hidden rounded-xl border border-hairline bg-card divide-y divide-hairline">{children}</div>;
 }
 
 function SheetRow({
@@ -503,9 +481,7 @@ function SheetRow({
 }) {
   const inner = (
     <>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill">
-        <Icon className="h-[18px] w-[18px] text-label" aria-hidden />
-      </span>
+      <Icon className="h-5 w-5 shrink-0 text-label-2" aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block text-[16px] text-label">{label}</span>
         {value && <span className="block truncate text-[14px] text-label-2">{value}</span>}
@@ -513,7 +489,7 @@ function SheetRow({
       <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
     </>
   );
-  const cls = "flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left active:bg-fill cursor-pointer";
+  const cls = "flex min-h-[52px] w-full items-center gap-3 px-4 py-2 text-left active:bg-fill hover:bg-fill cursor-pointer";
   return href ? (
     <Link href={href} className={cls}>
       {inner}

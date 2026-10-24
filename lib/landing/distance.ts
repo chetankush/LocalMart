@@ -50,3 +50,13 @@ export function calculateDistanceKm(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
+/**
+ * Distance text for shoppers. Areas often come from a PIN code (its centre,
+ * not the house), so never show false precision like "0 m" or "202 m".
+ */
+export function formatDistance(km: number): string {
+  if (km < 1) return "Under 1 km";
+  if (km < 10) return `${km.toFixed(1)} km`;
+  return `${Math.round(km)} km`;
+}

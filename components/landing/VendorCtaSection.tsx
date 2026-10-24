@@ -1,66 +1,41 @@
 "use client";
 
+import Link from "next/link";
+import { Bell, IndianRupee, Store } from "lucide-react";
 import { useLocation } from "@/context/LocationContext";
-import Button from "@/components/ui/button";
+
+const points = [
+  { icon: Store, text: "Your shop online in minutes" },
+  { icon: Bell, text: "New orders on your phone and Telegram" },
+  { icon: IndianRupee, text: "Customers pay you directly — UPI or cash" },
+];
 
 export default function VendorCtaSection() {
   const { location } = useLocation();
 
   return (
-    <section className="relative bg-ink overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
-        <svg width="100%" height="100%" preserveAspectRatio="none">
-          <defs>
-            <pattern id="cta-dots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
-              <circle cx="1.5" cy="1.5" r="1.25" fill="white" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#cta-dots)" />
-        </svg>
-      </div>
-
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16 lg:py-20 text-center">
-        <div className="flex items-center justify-center gap-3 mb-5">
-          <span className="h-px w-8 bg-accent" aria-hidden />
-          <span className="font-heading text-[10px] sm:text-[11px] font-semibold text-accent tracking-[0.22em] uppercase">
-            For Local Businesses
-          </span>
-          <span className="h-px w-8 bg-accent" aria-hidden />
+    <section className="mx-auto w-full max-w-[1400px] px-4 pt-8 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-4 rounded-2xl bg-navy-3 px-5 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold uppercase tracking-wide text-saffron">For shop owners</p>
+          <h2 className="mt-1 text-[22px] font-bold leading-tight sm:text-[26px]">
+            Sell to customers in {location?.city || "your city"}
+          </h2>
+          <ul className="mt-3 space-y-1.5">
+            {points.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-2 text-[15px] text-white/85">
+                <Icon className="h-4 w-4 shrink-0 text-saffron" aria-hidden />
+                {text}
+              </li>
+            ))}
+          </ul>
         </div>
-
-        <h2 className="font-heading text-[30px] sm:text-[38px] lg:text-[46px] font-semibold text-white leading-[1.08] tracking-tight mb-4">
-          Already selling? Put your shop <span className="text-accent">online</span>.
-        </h2>
-
-        <p className="text-sm sm:text-base lg:text-lg text-white/70 mb-8 max-w-xl mx-auto leading-relaxed">
-          Join kirana, fashion and electronics shops from {location?.city || "across India"} reaching
-          customers in their own neighbourhood. Set up in 5 minutes, no technical skills needed.
-        </p>
-
-        <Button
+        <Link
           href="/become-vendor"
-          variant="primary"
-          size="lg"
-          trailingIcon={
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-            </svg>
-          }
+          className="inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-white px-6 text-[16px] font-semibold text-navy-3 hover:bg-tint-soft"
         >
-          Open your store — free
-        </Button>
-
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[11px] sm:text-xs text-white/50 tracking-wide">
-          <span className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-accent" /> No listing fees
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-accent" /> 5-minute setup
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-1 h-1 rounded-full bg-accent" /> Payouts to your bank
-          </span>
-        </div>
+          Open your shop
+        </Link>
       </div>
     </section>
   );

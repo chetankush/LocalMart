@@ -31,6 +31,45 @@ export interface StoreQuote {
   total: number;
 }
 
+export interface SearchProductHit {
+  id: string;
+  name: string;
+  images: string[];
+  price: number;
+  compareAtPrice: number | null;
+  stockQuantity: number;
+  averageRating: number;
+  reviewCount: number;
+  vendorId: string;
+  vendorName: string;
+  category: string | null;
+}
+
+export interface SearchStoreHit {
+  id: string;
+  businessName: string;
+  storeLogo: string | null;
+  locality: string | null;
+  city: string;
+  businessType: string;
+  averageRating: number;
+  reviewCount: number;
+  storeDescription: string | null;
+}
+
+export interface SearchResponse {
+  stores: SearchStoreHit[];
+  products: SearchProductHit[];
+  suggestions: { id: string; text: string; type: string; image?: string }[];
+  totalStores: number;
+  totalProducts: number;
+  query: string;
+  /** What was searched for when it differs from what was typed */
+  interpreted?: string;
+  /** Matches from shops that don't deliver to the shopper's area */
+  outsideArea?: { stores: number; products: number };
+}
+
 export interface OrderQuote {
   stores: StoreQuote[];
   unavailableItemIds: string[];
@@ -800,6 +839,48 @@ class ApiClient {
       success: boolean;
       data: { stores: any[]; products: any[] };
     }>(`/search?${params.toString()}`);
+  }
+
+  /**
+   * Shopper search (public, no sign-in needed): Hindi/Hinglish aware, typo
+   * tolerant, limited to shops delivering to the given area.
+   */
+  async searchShop(
+    query: string,
+    options: {
+      limit?: number;
+      offset?: number;
+      type?: "all" | "stores" | "products";
+      pincode?: string;
+      lat?: number;
+      lng?: number;
+      signal?: AbortSignal;
+    } = {},
+  ): Promise<SearchResponse> {
+    const params = new URLSearchParams({ q: query });
+    if (options.limit) params.set("limit", String(options.limit));
+    if (options.offset) params.set("offset", String(options.offset));
+    if (options.type && options.type !== "all") params.set("type", options.type);
+    if (options.pincode) params.set("pincode", options.pincode);
+    if (typeof options.lat === "number") params.set("lat", String(options.lat));
+    if (typeof options.lng === "number") params.set("lng", String(options.lng));
+    const response = await fetch(`${this.baseUrl}/search/advanced?${params.toString()}`, {
+      signal: options.signal,
+    });
+    if (!response.ok) throw new Error("Search failed");
+    const body = await response.json();
+    return body.data as SearchResponse;
+  }
+
+  async popularSearches(limit = 8): Promise<string[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/search/popular?limit=${limit}`);
+      if (!response.ok) return [];
+      const body = await response.json();
+      return Array.isArray(body.data) ? body.data : [];
+    } catch {
+      return [];
+    }
   }
 
   // Advanced Search with abort signal support

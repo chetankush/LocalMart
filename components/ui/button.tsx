@@ -14,6 +14,8 @@ interface BaseProps {
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
   children: ReactNode;
+  /** Extra classes (spacing etc.), merged after the variant styles */
+  className?: string;
 }
 
 interface ButtonAsButton extends BaseProps, Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
@@ -32,11 +34,11 @@ type Props = ButtonAsButton | ButtonAsLink;
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-label text-white hover:bg-[#3a3a3c] disabled:bg-fill disabled:text-label-3",
+    "bg-cta text-white hover:bg-cta-hover disabled:bg-fill disabled:text-label-3",
   secondary:
-    "bg-fill text-label hover:bg-fill-strong disabled:text-label-3",
+    "bg-card text-label border border-label/25 hover:border-label/50 hover:bg-fill disabled:text-label-3",
   ghost:
-    "bg-transparent text-tint hover:bg-saffron-soft disabled:text-label-3",
+    "bg-transparent text-link hover:bg-fill disabled:text-label-3",
   destructive:
     "bg-bad-soft text-bad hover:bg-bad-soft/80 disabled:text-label-3",
 };
@@ -61,13 +63,14 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(props, ref) 
     leadingIcon,
     trailingIcon,
     children,
+    className: extra = "",
     ...rest
   } = props;
 
   const className =
-    `font-semibold rounded-xl transition-[background-color,transform] duration-150 active:scale-[0.98] inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint ${
+    `font-semibold rounded-full transition-[background-color,transform] duration-150 active:scale-[0.98] inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint ${
       variantClasses[variant]
-    } ${sizeClasses[size]} ${fullWidth ? "w-full" : ""}`;
+    } ${sizeClasses[size]} ${fullWidth ? "w-full" : ""} ${extra}`;
 
   const inner = (
     <>

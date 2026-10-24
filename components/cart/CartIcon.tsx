@@ -4,44 +4,29 @@ import { useAppSelector } from '@/lib/redux/hooks';
 import { selectCartItemsCount, selectCartItems } from '@/lib/redux/slices/cartSlice';
 import { ShoppingCart, X } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
-export default function CartIcon() {
+export default function CartIcon({
+  tone = "light",
+  showLabel = false,
+}: {
+  /** "dark" = on the navy header */
+  tone?: "light" | "dark";
+  showLabel?: boolean;
+} = {}) {
   const itemsCount = useAppSelector(selectCartItemsCount);
   const cartItems = useAppSelector(selectCartItems);
   const [showMiniCart, setShowMiniCart] = useState(false);
-  const [prevItemsCount, setPrevItemsCount] = useState(0);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // The saved cart is restored from localStorage just after mount; that jump
-  // from 0 to N is not "an item was added", so don't pop the mini cart for it.
-  const restoring = useRef(true);
-  useEffect(() => {
-    const t = setTimeout(() => (restoring.current = false), 1000);
-    return () => clearTimeout(t);
-  }, []);
-
-  // Show mini cart when items are added
-  useEffect(() => {
-    if (restoring.current) {
-      setPrevItemsCount(itemsCount);
-      return;
-    }
-    if (itemsCount > prevItemsCount && itemsCount > 0) {
-      setShowMiniCart(true);
-      // Auto hide after 5 seconds
-      const timer = setTimeout(() => {
-        setShowMiniCart(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-    setPrevItemsCount(itemsCount);
-  }, [itemsCount, prevItemsCount]);
+  // Desktop only: hovering the cart previews it. Adding an item never pops
+  // anything open — the − 1 + counter and the cart bar already confirm it.
+  const canHover = () => typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
 
   // Get last 3 items for preview
   const recentItems = cartItems.slice(-3).reverse();
@@ -49,20 +34,25 @@ export default function CartIcon() {
   return (
     <div
       className="relative"
-      onMouseEnter={() => itemsCount > 0 && setShowMiniCart(true)}
+      onMouseEnter={() => itemsCount > 0 && canHover() && setShowMiniCart(true)}
       onMouseLeave={() => setShowMiniCart(false)}
     >
       <Link
         href="/cart"
-        className="relative flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-fill active:bg-fill"
+        className={`relative flex h-11 items-center gap-1 rounded-md px-2 transition-colors ${
+          tone === "dark" ? "text-white hover:outline hover:outline-1 hover:outline-white/60" : "text-label hover:bg-fill"
+        }`}
         aria-label={`Cart${mounted && itemsCount ? `, ${itemsCount} item${itemsCount === 1 ? '' : 's'}` : ''}`}
       >
-        <ShoppingCart className="h-6 w-6 text-label" strokeWidth={1.9} />
-        {mounted && itemsCount > 0 && (
-          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-tint px-1 text-[11px] font-bold leading-none text-white">
-            {itemsCount > 99 ? '99+' : itemsCount}
-          </span>
-        )}
+        <span className="relative">
+          <ShoppingCart className="h-7 w-7" strokeWidth={1.9} />
+          {mounted && itemsCount > 0 && (
+            <span className="absolute -right-2 -top-1.5 flex h-[19px] min-w-[19px] items-center justify-center rounded-full bg-cta px-1 text-[12px] font-bold leading-none text-white">
+              {itemsCount > 99 ? '99+' : itemsCount}
+            </span>
+          )}
+        </span>
+        {showLabel && <span className="ml-1 text-[14px] font-bold">Cart</span>}
       </Link>
 
       {/* Mini Cart Popup */}
@@ -148,7 +138,7 @@ export default function CartIcon() {
             </div>
             <Link
               href="/cart"
-              className="block w-full py-2.5 bg-[#FF9933] text-white text-center rounded-lg font-semibold hover:bg-[#e8872b] transition-colors cursor-pointer"
+              className="block w-full rounded-full bg-cta py-2.5 text-center font-semibold text-white transition-colors hover:bg-cta-hover cursor-pointer"
               onClick={() => setShowMiniCart(false)}
             >
               View Cart

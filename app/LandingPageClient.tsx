@@ -5,18 +5,21 @@ import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 
 import { useLocation } from "@/context/LocationContext";
-import HeroBanner from "@/components/landing/HeroBanner";
+import ShopSpotlight from "@/components/landing/ShopSpotlight";
+import NotInYourArea from "@/components/landing/NotInYourArea";
+import OutOfAreaStrip from "@/components/landing/OutOfAreaStrip";
+import FirstVisitIntro from "@/components/landing/FirstVisitIntro";
+import CategoryGrid from "@/components/landing/CategoryGrid";
+import ProductCard from "@/components/landing/ProductCard";
+import { HomeSection, ProductRow } from "@/components/app/commerce";
 import HowItWorksHorizontal from "@/components/landing/HowItWorksHorizontal";
-import CategoryTiles from "@/components/CategoryTiles";
 import FlashDealsSection from "@/components/landing/FlashDealsSection";
 import StoresNearYouSection, { type Vendor } from "@/components/landing/StoresNearYouSection";
 import PopularProductsRail from "@/components/landing/PopularProductsRail";
-import ShopByCategorySection from "@/components/landing/ShopByCategorySection";
 import FaqAccordion from "@/components/landing/FaqAccordion";
 import VendorCtaSection from "@/components/landing/VendorCtaSection";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
-import CitiesAvailable from "@/components/landing/CitiesAvailable";
-import PopularStoresGlobal, { type PopularStore } from "@/components/landing/PopularStoresGlobal";
+import type { PopularStore } from "@/components/landing/PopularStoresGlobal";
 import type { ProductCardProduct } from "@/components/landing/ProductCard";
 import { isStoreOpen, calculateDistanceKm } from "@/lib/landing/distance";
 
@@ -30,14 +33,18 @@ interface Props {
   cities: { city: string; vendorCount: number }[];
   stats: { totalVendors: number; totalCities: number };
   backendStatus?: { ok: boolean; status?: number };
+  /** The server saw a saved area (cookie) — avoids a flash of the first-visit intro */
+  serverHasLocation?: boolean;
+  /** No shop delivers to the chosen area; showing live towns' shops instead */
+  outOfArea?: boolean;
 }
 
 const CATEGORY_TITLES: Record<string, string> = {
-  GROCERY: "Best of Kirana",
-  RESTAURANT: "Food & Restaurants",
-  PHARMACY: "Pharmacy & Health",
-  ELECTRONICS: "Electronics",
-  FASHION: "Fashion & Clothing",
+  GROCERY: "Kirana & daily needs",
+  RESTAURANT: "Food & sweets",
+  PHARMACY: "Medicines & health",
+  ELECTRONICS: "Mobiles & electronics",
+  FASHION: "Sarees & fashion",
   HOME_SERVICES: "Home & Kitchen",
   COSMETICS: "Beauty & Cosmetics",
   DAIRY: "Milk & Dairy",
@@ -52,11 +59,10 @@ export default function LandingPageClient({
   vendors,
   featuredProducts,
   popularProducts,
-  categories,
-  popularStoresGlobal,
   cities,
-  stats,
   backendStatus,
+  serverHasLocation = false,
+  outOfArea = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -158,7 +164,7 @@ export default function LandingPageClient({
   }, {} as Record<string, Map<string, ProductCardProduct>>);
 
   const categoryDealSections = Object.entries(productsByCategory)
-    .filter(([, m]) => m.size >= 2)
+    .filter(([, m]) => m.size >= 3)
     .map(([bt, m]) => ({
       businessType: bt,
       title: CATEGORY_TITLES[bt] || CATEGORY_TITLES.OTHER,
@@ -167,41 +173,88 @@ export default function LandingPageClient({
     .sort((a, b) => b.products.length - a.products.length);
 
   const locationLabel = location?.locality || location?.city || undefined;
+  const locationSet = location ? true : locationLoading ? serverHasLocation : false;
+  // Towns whose shops are shown when the chosen area isn't served yet
+  const liveTowns = [...new Set(vendors.map((v) => v.city).filter(Boolean))];
 
   const hasNearbyVendors = vendors.length > 0;
   const hasDeals = enrichedDeals.length > 0;
   const hasPopularProducts = enrichedPopular.length > 0;
-  const hasCategoryDeals = categoryDealSections.length > 0;
-  const hasCategoryTiles = categories.length > 0;
 
   // Shoppers with shops nearby get straight to shopping; the explainer
   // sections are for first-time visitors and sit lower down otherwise.
   if (hasNearbyVendors) {
     return (
-      <div className="min-h-screen bg-canvas">
-        <StoresNearYouSection
+      <div className="min-h-screen bg-card pb-10">
+        {outOfArea ? (
+          <>
+            <h1 className="sr-only">Shops on LocalMart</h1>
+            <OutOfAreaStrip
+              place={location?.locality || location?.city}
+              pincode={location?.pincode}
+              liveIn={liveTowns}
+              isAuthenticated={!!user}
+              onChangeArea={() => setShowLocationModal(true)}
+            />
+          </>
+        ) : locationSet ? (
+          <h1 className="sr-only">Shops delivering to {locationLabel}</h1>
+        ) : (
+          <FirstVisitIntro onChoose={() => setShowLocationModal(true)} />
+        )}
+
+        <ShopSpotlight
           vendors={vendors}
-          userLat={location?.latitude}
-          userLng={location?.longitude}
-          locationLabel={locationLabel}
-          onNavigate={(id) => handleNavigate(`/stores/${id}`)}
-          loadingLink={loadingLink}
+          userLat={outOfArea ? undefined : location?.latitude}
+          userLng={outOfArea ? undefined : location?.longitude}
+          onOpen={(id) => handleNavigate(`/stores/${id}`)}
+          title={outOfArea ? `Shops in ${liveTowns.join(", ") || "LocalMart"}` : undefined}
         />
 
-        {hasCategoryTiles && <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />}
-
-        {hasPopularProducts && (
-          <PopularProductsRail products={enrichedPopular} locationLabel={locationLabel} />
-        )}
+        <CategoryGrid shopTypes={vendors.map((v) => v.businessType)} />
 
         {hasDeals && <FlashDealsSection products={enrichedDeals} />}
 
-        {hasCategoryDeals && (
-          <ShopByCategorySection sections={categoryDealSections} locationLabel={locationLabel} />
+        {hasPopularProducts && (
+          <PopularProductsRail
+            products={enrichedPopular}
+            locationLabel={locationLabel}
+            title={outOfArea ? `Popular in ${liveTowns[0] ?? "LocalMart"}` : locationSet ? undefined : "Popular on LocalMart"}
+          />
         )}
 
-        <VendorCtaSection />
-        <FaqAccordion />
+        {categoryDealSections.map((section) => (
+          <HomeSection
+            key={section.businessType}
+            title={section.title}
+            href={`/stores?category=${section.businessType}`}
+          >
+            <ProductRow>
+              {section.products.slice(0, 12).map((p) => {
+                const e = enrich(p);
+                return <ProductCard key={p.id} product={e} distanceKm={e.distanceKm} isOpen={e.isOpen} />;
+              })}
+            </ProductRow>
+          </HomeSection>
+        ))}
+
+        {vendors.length > 10 && (
+          <StoresNearYouSection
+            vendors={vendors}
+            userLat={location?.latitude}
+            userLng={location?.longitude}
+            onNavigate={(id) => handleNavigate(`/stores/${id}`)}
+            loadingLink={loadingLink}
+          />
+        )}
+
+        {(!locationSet || outOfArea) && (
+          <>
+            <HowItWorksHorizontal />
+            <VendorCtaSection />
+            <FaqAccordion />
+          </>
+        )}
 
         <LocationSelectorModal
           isOpen={showLocationModal}
@@ -211,32 +264,18 @@ export default function LandingPageClient({
     );
   }
 
+  // No shop serves this area (or none chosen and the platform is empty):
+  // say so plainly and offer clear next steps — no marketing promises
   return (
-    <div className="min-h-screen bg-canvas">
-      <HeroBanner />
-      <HowItWorksHorizontal authenticated={!!user} />
-
-      {hasCategoryTiles && (
-        <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />
-      )}
-
-      {hasDeals && <FlashDealsSection products={enrichedDeals} />}
-
-      <PopularStoresGlobal stores={popularStoresGlobal} />
-
-      {hasPopularProducts && (
-        <PopularProductsRail products={enrichedPopular} locationLabel={locationLabel} />
-      )}
-
-      {hasCategoryDeals && (
-        <ShopByCategorySection sections={categoryDealSections} locationLabel={locationLabel} />
-      )}
-
-      <CitiesAvailable
-        cities={cities}
-        onNotifyMe={() => setShowLocationModal(true)}
+    <div className="min-h-screen bg-card pb-10">
+      <NotInYourArea
+        place={location?.locality || location?.city}
+        pincode={location?.pincode}
+        liveCities={cities}
+        isAuthenticated={!!user}
+        onChangeArea={() => setShowLocationModal(true)}
       />
-
+      <HowItWorksHorizontal />
       <VendorCtaSection />
       <FaqAccordion />
 

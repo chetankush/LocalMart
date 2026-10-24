@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CountdownRing } from '@/components/ui/CountdownRing';
 import { apiClient } from '@/lib/api/client';
+import { orderRecipient } from '@/lib/orders/recipient';
 import { useApprovals, type ApprovalOrder } from '../../_approvals/ApprovalsPollerContext';
 
 interface Props {
@@ -30,11 +31,8 @@ export function ApprovalCard({ order }: Props) {
   const isCod = method === 'COD';
   // UPI is paid to the shop only after it approves — never show it as paid here
   const paymentLabel = isCod ? 'Cash on delivery' : method === 'UPI' ? 'UPI · paid after you approve' : method;
-  const phone = order.customer.phone || (order.deliveryAddress?.phone ?? '');
-  const street = order.deliveryAddress?.street ?? '';
-  const city = order.deliveryAddress?.city ?? '';
-  const zipCode = order.deliveryAddress?.zipCode ?? '';
-  const addr = [street, city, zipCode].filter(Boolean).join(', ');
+  // The name/number typed for this delivery, not the account's
+  const { name, phone, address: addr } = orderRecipient(order);
 
   const handleAction = async (action: 'approve' | 'reject') => {
     setState(action === 'approve' ? 'submitting-approve' : 'submitting-reject');
@@ -114,7 +112,7 @@ export function ApprovalCard({ order }: Props) {
 
           <div className="text-sm">
             <div className="font-semibold text-ink">
-              {order.customer.fullName}
+              {name}
               {phone && (
                 <a
                   href={`tel:${phone}`}

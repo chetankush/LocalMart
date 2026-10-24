@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
-import { Thumb } from "@/components/app/ui";
+import { ChevronRight, MapPin } from "lucide-react";
+import ShopCover from "./ShopCover";
+import { Button } from "@/components/ui/button";
+import { HomeSection } from "@/components/app/commerce";
 import StoreCardSkeleton from "./StoreCardSkeleton";
 import {
   isStoreOpen,
@@ -29,6 +30,8 @@ export interface Vendor {
   businessHours?: BusinessHours | null;
   businessAddress?: BusinessAddress | null;
   canDeliver?: boolean;
+  storeImages?: unknown;
+  products?: { images: unknown }[] | null;
 }
 
 type FilterKey = null | "open" | "rating" | "fast" | "nearby";
@@ -38,7 +41,6 @@ interface Props {
   loading?: boolean;
   userLat?: number;
   userLng?: number;
-  locationLabel?: string;
   onNavigate: (storeId: string) => void;
   loadingLink?: string | null;
 }
@@ -65,7 +67,6 @@ export default function StoresNearYouSection({
   loading = false,
   userLat,
   userLng,
-  locationLabel,
   onNavigate,
   loadingLink,
 }: Props) {
@@ -100,32 +101,24 @@ export default function StoresNearYouSection({
       return 0;
     });
 
-  return (
-    <section className="mx-auto w-full max-w-2xl px-4 pt-5 lg:max-w-4xl">
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[24px] font-bold leading-tight tracking-[-0.02em] text-label">
-            Shops near you
-          </h2>
-          <p className="mt-0.5 text-[15px] text-label-2">
-            {locationLabel ? `Delivering to ${locationLabel}` : "Set your area to see shops nearby"}
-          </p>
-        </div>
-        <Link href="/stores" className="shrink-0 rounded-lg px-1 py-2 text-[16px] text-tint">
-          See all
-        </Link>
-      </div>
+  const chips = [{ key: null, label: "All" } as const, ...filters];
 
-      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filter shops">
-        {[{ key: null, label: "All" } as const, ...filters].map((f) => {
+  return (
+    <HomeSection
+      title="All shops near you"
+      href="/stores"
+    >
+      {vendors.length > 6 && (
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:px-0" role="group" aria-label="Filter shops">
+        {chips.map((f) => {
           const on = active === f.key;
           return (
             <button
               key={f.label}
               onClick={() => setActive(f.key === null ? null : on ? null : f.key)}
               aria-pressed={on}
-              className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[15px] font-medium transition-colors cursor-pointer ${
-                on ? "bg-label text-white" : "bg-card text-label"
+              className={`h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-[14px] font-medium transition-colors cursor-pointer ${
+                on ? "border-label bg-label text-white" : "border-hairline bg-card text-label hover:border-label/40"
               }`}
             >
               {f.label}
@@ -133,62 +126,69 @@ export default function StoresNearYouSection({
           );
         })}
       </div>
+      )}
 
       {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => <StoreCardSkeleton key={i} />)}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => <StoreCardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl bg-card px-6 py-10 text-center">
+        <div className="rounded-lg border border-hairline px-6 py-10 text-center">
           <p className="text-[17px] font-semibold text-label">No shops match this filter</p>
-          <button
-            onClick={() => setActive(null)}
-            className="mt-3 h-11 rounded-xl bg-fill px-5 text-[15px] font-semibold text-label cursor-pointer"
-          >
+          <Button variant="secondary" size="md" className="mt-3" onClick={() => setActive(null)}>
             Show all shops
-          </button>
+          </Button>
         </div>
       ) : (
-        <ul className="overflow-hidden rounded-2xl bg-card divide-y divide-hairline">
-          {filtered.slice(0, 8).map((v) => {
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.slice(0, 9).map((v) => {
             const open = isStoreOpen(v.businessHours);
             const c = v.businessAddress?.coordinates;
             const km =
               hasUserCoords && c ? Math.round(calculateDistanceKm(userLat!, userLng!, c.lat, c.lng) * 10) / 10 : null;
             const rating = Number(v.averageRating) || 0;
             const busy = loadingLink === `/stores/${v.id}`;
+            const place = [v.businessAddress?.street, v.locality, v.city]
+              .filter(Boolean)
+              .filter((x, i, a) => !a.slice(0, i).some((y) => String(y).includes(String(x))))
+              .join(", ");
             return (
               <li key={v.id}>
                 <button
                   onClick={() => onNavigate(v.id)}
-                  className="flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-fill cursor-pointer"
+                  className="group flex h-full w-full items-start gap-3 rounded-2xl border border-hairline p-3 text-left transition-colors hover:border-label/30 active:bg-fill cursor-pointer"
                 >
-                  <Thumb src={v.storeLogo} alt={v.businessName} size={56} />
+                  <ShopCover shop={v} className="h-16 w-16 shrink-0 rounded-xl" sizes="64px" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[17px] font-semibold leading-snug text-label">{v.businessName}</span>
-                    <span className="block truncate text-[14px] text-label-2">
-                      {CATEGORY[v.businessType] ?? "Shop"} · {v.locality || v.city}
+                    <span className="block text-[16px] font-bold leading-snug text-label group-hover:underline">
+                      {v.businessName}
                     </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[14px]">
-                      <span className={open ? "font-medium text-ok" : "text-label-2"}>{open ? "Open now" : "Closed"}</span>
+                    <span className="mt-0.5 flex items-start gap-1 text-[13px] text-label-2">
+                      <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span className="line-clamp-2">{place || v.city}</span>
+                    </span>
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
+                      <span className="rounded bg-fill px-1.5 py-0.5 font-medium text-label-2">
+                        {CATEGORY[v.businessType] ?? "Shop"}
+                      </span>
                       {v.reviewCount > 0 ? (
-                        <>
-                          <span className="text-label-3" aria-hidden>·</span>
-                          <span className="text-label-2">★ {rating.toFixed(1)} ({v.reviewCount})</span>
-                        </>
-                      ) : null}
-                      {km !== null && (
-                        <>
-                          <span className="text-label-3" aria-hidden>·</span>
-                          <span className="text-label-2">{km} km</span>
-                        </>
+                        <span className="text-label">
+                          <span aria-hidden>★</span> {rating.toFixed(1)}{" "}
+                          <span className="text-label-2">({v.reviewCount})</span>
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-ok">New shop</span>
                       )}
+                      {km !== null && <span className="text-label-2">{km} km away</span>}
+                    </span>
+                    <span className={`mt-1 block text-[13px] font-semibold ${open ? "text-ok" : "text-bad"}`}>
+                      {open ? (v.canDeliver ? "Open now · Home delivery" : "Open now") : "Closed now"}
                     </span>
                   </span>
                   {busy ? (
-                    <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-label-3 border-t-transparent" aria-label="Opening" />
+                    <span className="mt-1 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-label-3 border-t-transparent" aria-label="Opening" />
                   ) : (
-                    <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
+                    <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-label-3" aria-hidden />
                   )}
                 </button>
               </li>
@@ -196,6 +196,6 @@ export default function StoresNearYouSection({
           })}
         </ul>
       )}
-    </section>
+    </HomeSection>
   );
 }

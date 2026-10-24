@@ -1,28 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { ChevronDown } from "lucide-react";
+import { HomeSection } from "@/components/app/commerce";
+import { jsonLd } from "@/lib/seo";
 
 const faqs = [
   {
-    q: "How fast is local delivery?",
-    a: "Most orders from kirana and pharmacy shops arrive in 20 to 45 minutes. Each store shows its live delivery estimate at checkout.",
+    q: "Who delivers my order?",
+    a: "The shop itself. After the shopkeeper confirms your order they pack it and deliver it, usually the same day. Each shop shows its delivery charge before you order.",
   },
   {
-    q: "Are products authentic?",
-    a: "Yes. Every vendor is a verified physical shop. We sort by distance from your pincode so you buy from the shopkeeper around the corner.",
+    q: "How do I pay?",
+    a: "Cash on delivery, or UPI (PhonePe, Google Pay, Paytm) straight to the shop. You only pay after the shop confirms the price and stock.",
+  },
+  {
+    q: "Are the shops real?",
+    a: "Yes. Every shop is a physical store in your area. You can see its address and call the shop from its page.",
   },
   {
     q: "How do I track my order?",
-    a: "Each order page has live status from the moment the shopkeeper accepts it. You can also chat with the vendor directly inside the app.",
+    a: "Open Orders at the bottom of the screen. You'll see when the shop confirms, packs and sends out your order.",
   },
   {
-    q: "What is the return policy?",
-    a: "Returns happen directly with the shopkeeper. Most categories allow returns within 7 days. Groceries are handled case by case from the order page.",
-  },
-  {
-    q: "Which payment methods are supported?",
-    a: "UPI (PhonePe, GPay, Paytm), all major debit and credit cards, netbanking, and cash on delivery. Refunds go back to the original method in 3 to 5 working days.",
+    q: "Can I return something?",
+    a: "Returns and exchanges are handled by the shopkeeper. Call the shop from your order page — most shops accept returns of unused items within a few days.",
   },
 ];
 
@@ -30,64 +32,45 @@ export default function FaqAccordion() {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <section className="bg-white border-y border-sand">
-      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="text-center mb-8">
-          <p className="font-heading text-[10px] sm:text-[11px] font-semibold text-accent tracking-[0.22em] uppercase mb-2">
-            Frequently Asked
-          </p>
-          <h2 className="font-heading text-ink text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">
-            Questions, answered
-          </h2>
-        </div>
-
-        <ul className="divide-y divide-sand border-y border-sand">
-          {faqs.map((faq, i) => {
-            const isOpen = open === i;
-            return (
-              <li key={i}>
-                <button
-                  onClick={() => setOpen(isOpen ? null : i)}
-                  aria-expanded={isOpen}
-                  className="w-full text-left py-4 sm:py-5 flex items-center gap-4 group cursor-pointer"
-                >
-                  <span className="flex-1 font-heading text-ink text-sm sm:text-base font-semibold">
-                    {faq.q}
-                  </span>
-                  <span
-                    aria-hidden
-                    className={`shrink-0 text-ink text-2xl font-light leading-none transition-transform duration-300 ${
-                      isOpen ? "rotate-45" : "rotate-0"
-                    }`}
-                  >
-                    +
-                  </span>
-                </button>
-                <div
-                  className={`grid transition-all duration-300 ease-in-out ${
-                    isOpen ? "grid-rows-[1fr] opacity-100 pb-5" : "grid-rows-[0fr] opacity-0"
-                  }`}
-                >
-                  <div className="overflow-hidden">
-                    <p className="text-ink-2 text-sm sm:text-[15px] leading-relaxed pr-8">
-                      {faq.a}
-                    </p>
-                  </div>
+    <HomeSection title="Questions? Answers" href="/faq" linkLabel="All FAQs">
+      {/* Lets Google show these answers in search results */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLd({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faqs.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        })}
+      />
+      <ul className="divide-y divide-hairline border-y border-hairline">
+        {faqs.map((faq, i) => {
+          const isOpen = open === i;
+          return (
+            <li key={faq.q}>
+              <button
+                onClick={() => setOpen(isOpen ? null : i)}
+                aria-expanded={isOpen}
+                className="flex min-h-[52px] w-full items-center gap-4 py-3 text-left cursor-pointer"
+              >
+                <span className="flex-1 text-[16px] font-semibold text-label">{faq.q}</span>
+                <ChevronDown
+                  aria-hidden
+                  className={`h-5 w-5 shrink-0 text-label-2 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              <div className={`grid transition-all duration-200 ${isOpen ? "grid-rows-[1fr] pb-4" : "grid-rows-[0fr]"}`}>
+                <div className="overflow-hidden">
+                  <p className="pr-6 text-[15px] leading-relaxed text-label-2">{faq.a}</p>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-
-        <div className="text-center mt-6">
-          <Link
-            href="/faq"
-            className="inline-flex items-center gap-1 text-sm font-semibold text-primary-dark hover:text-ink transition-colors"
-          >
-            See all FAQs →
-          </Link>
-        </div>
-      </div>
-    </section>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </HomeSection>
   );
 }

@@ -69,7 +69,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Load location from localStorage on mount
   useEffect(() => {
@@ -83,52 +82,12 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to parse stored location:", err);
     }
     setIsLoading(false);
-    setHasInitialized(true);
   }, []);
 
-  // Auto-detect location on first visit (if no location saved)
-  useEffect(() => {
-    if (!hasInitialized) return;
-
-    // Skip if location already exists
-    if (location) return;
-
-    // Check if we've already attempted auto-detection
-    const alreadyAttempted = localStorage.getItem(AUTO_DETECT_ATTEMPTED_KEY);
-    if (alreadyAttempted) return;
-
-    // Mark that we've attempted auto-detection
-    localStorage.setItem(AUTO_DETECT_ATTEMPTED_KEY, "true");
-
-    // Auto-detect location silently
-    const autoDetect = async () => {
-      try {
-        setIsLoading(true);
-        const result = await detectLocation();
-
-        if (result?.pincode) {
-          setLocation({
-            pincode: result.pincode,
-            locality: result.locality,
-            city: result.city,
-            state: result.state,
-            fullAddress: result.fullAddress,
-            latitude: result.latitude,
-            longitude: result.longitude,
-            accuracy: result.accuracy,
-            source: result.source,
-          });
-        }
-      } catch (err) {
-        // Silently fail - user can manually set location
-        console.log("Auto-detect location failed:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    autoDetect();
-  }, [hasInitialized, location]);
+  // No silent auto-detect: a guess from the internet connection is often
+  // the wrong town (and raced with what the shopper typed). First-time
+  // visitors get the "Where should we deliver?" sheet; GPS runs only when
+  // they tap "Use my current location".
 
   // Save location to localStorage and cookie whenever it changes
   useEffect(() => {
@@ -142,18 +101,30 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location]);
 
+  // Save straight away (not only in the effect) so a router.refresh()
+  // right after choosing an area already sends the new area to the server
+  const choose = useCallback((next: LocationData) => {
+    try {
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // storage can be blocked; the cookie still works
+    }
+    writeLocationCookie(next);
+    setLocation(next);
+    setError(null);
+  }, []);
+
   const updateLocation = useCallback((pincode: string, locality: string) => {
-    setLocation({
+    choose({
       pincode,
       locality,
       source: 'manual',
       accuracy: 'low',
     });
-    setError(null);
-  }, []);
+  }, [choose]);
 
   const setLocationFromResult = useCallback((result: LocationResult) => {
-    setLocation({
+    choose({
       pincode: result.pincode,
       locality: result.locality,
       city: result.city,
@@ -164,8 +135,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       accuracy: result.accuracy,
       source: result.source,
     });
-    setError(null);
-  }, []);
+  }, [choose]);
 
   const clearLocation = useCallback(() => {
     setLocation(null);
@@ -186,15 +156,20 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const result = await detectLocation();
-      
+
+      // A guess from the internet connection is often the wrong town —
+      // only accept a real GPS fix here
+      if (result.source === 'ip') {
+        throw new Error("Couldn't get your exact location. Please type your PIN code.");
+      }
       if (!result.pincode) {
         throw new Error("Could not determine pincode. Please enter manually.");
       }
 
       setLocationFromResult(result);
       return result;
-    } catch (err: any) {
-      const errorMessage = getLocationErrorMessage(err);
+    } catch (err) {
+      const errorMessage = getLocationErrorMessage(err as { code?: number; message?: string });
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
@@ -217,7 +192,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       }
       
       return result;
-    } catch (err: any) {
+    } catch {
       setError("Failed to validate pincode");
       return null;
     } finally {
@@ -254,7 +229,7 @@ export function useLocation() {
 /**
  * Convert geolocation errors to user-friendly messages
  */
-function getLocationErrorMessage(error: any): string {
+function getLocationErrorMessage(error: { code?: number; message?: string } | null | undefined): string {
   // Handle GeolocationPositionError
   if (error?.code) {
     switch (error.code) {

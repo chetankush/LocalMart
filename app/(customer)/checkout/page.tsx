@@ -8,12 +8,13 @@ import {
   updateQuantity,
   syncFromQuote,
 } from '@/lib/redux/slices/cartSlice';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, Check, Loader2, Phone, ShoppingBag, Smartphone, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useLocation } from '@/context/LocationContext';
 import { useCartQuote } from '@/hooks/useCartQuote';
+import { useMounted } from '@/hooks/useMounted';
 import { INDIAN_STATES } from '@/constants/indianStates';
 import { toast } from 'sonner';
 import {
@@ -50,18 +51,39 @@ export default function CheckoutPage() {
   const { user } = useAuth();
   const { location } = useLocation();
   const items = useAppSelector(selectCartItems);
+  const mounted = useMounted();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [isProcessing, setIsProcessing] = useState(false);
   const [address, setAddress] = useState<DeliveryAddress>({
-    fullName: (user as any)?.fullName || (user as any)?.user_metadata?.full_name || '',
-    phone: (user as any)?.phone || '',
+    fullName: '',
+    phone: '',
     street: '',
     landmark: '',
     city: location?.city || '',
     state: location?.state || 'Madhya Pradesh',
     zipCode: location?.pincode || '',
   });
+
+  // Problems to show next to each field (not just a passing toast)
+  type FieldKey = 'zipCode' | 'fullName' | 'phone' | 'street' | 'city';
+  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
+
+  // The account loads after the page — fill name and phone then, but never
+  // into a field the shopper is already in or has typed in (that would
+  // glue the account name onto what they're typing)
+  const touched = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!user) return;
+    const u = user as { phone?: string; user_metadata?: { full_name?: string; phone?: string } };
+    const busy = (field: string) =>
+      touched.current.has(field) || (document.activeElement as HTMLInputElement | null)?.name === field;
+    setAddress((a) => ({
+      ...a,
+      fullName: a.fullName || busy('fullName') ? a.fullName : u.user_metadata?.full_name || '',
+      phone: a.phone || busy('phone') ? a.phone : u.phone || u.user_metadata?.phone || '',
+    }));
+  }, [user]);
 
   // Fill PIN / city from the location the customer already picked
   useEffect(() => {
@@ -96,6 +118,18 @@ export default function CheckoutPage() {
     if (paymentMethod === 'upi' && quote && !upiAvailableEverywhere) setPaymentMethod('cod');
   }, [paymentMethod, quote, upiAvailableEverywhere]);
 
+  if (!mounted) {
+    return (
+      <Page>
+        <LargeTitle title="Checkout" />
+        <div className="space-y-3" aria-hidden>
+          <div className="h-40 animate-pulse rounded-2xl bg-card" />
+          <div className="h-24 animate-pulse rounded-2xl bg-card" />
+        </div>
+      </Page>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <Page>
@@ -113,9 +147,11 @@ export default function CheckoutPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name } = e.target;
     let { value } = e.target;
+    touched.current.add(name);
     if (name === 'zipCode') value = value.replace(/\D/g, '').slice(0, 6);
     if (name === 'phone') value = value.replace(/[^\d+]/g, '').slice(0, 13);
     setAddress({ ...address, [name]: value });
+    if (errors[name as FieldKey]) setErrors((e) => ({ ...e, [name]: undefined }));
   };
 
   const removeStoreItems = (vendorId: string) => {
@@ -124,12 +160,21 @@ export default function CheckoutPage() {
   };
 
   const validateForm = () => {
-    if (!address.fullName || !address.phone || !address.street || !address.city || !pinComplete) {
-      toast.error('Please fill in your name, phone, address and 6-digit PIN code');
-      return false;
-    }
-    if (address.phone.replace(/\D/g, '').length < 10) {
-      toast.error('Please enter a valid 10-digit phone number');
+    const e: Partial<Record<FieldKey, string>> = {};
+    if (!/^\d{6}$/.test(address.zipCode)) e.zipCode = 'Enter your 6-digit PIN code';
+    if (!address.fullName.trim()) e.fullName = 'Enter your name so the shop knows who it’s for';
+    const digits = address.phone.replace(/\D/g, '');
+    if (digits.length < 10)
+      e.phone = address.phone ? 'Mobile number has 10 digits' : 'Enter your mobile number — the shop calls before delivery';
+    if (!address.street.trim()) e.street = 'Enter your house number and street';
+    if (!address.city.trim()) e.city = 'Enter your town';
+    setErrors(e);
+
+    const first = (['zipCode', 'fullName', 'phone', 'street', 'city'] as FieldKey[]).find((k) => e[k]);
+    if (first) {
+      const el = document.querySelector<HTMLInputElement>(`[name="${first}"]`);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.focus({ preventScroll: true });
       return false;
     }
     return true;
@@ -173,7 +218,7 @@ export default function CheckoutPage() {
       if (data.orders.length === 1) {
         router.push(`/orders/waiting/${data.orders[0].id}`);
       } else {
-        const ids = data.orders.map((o: any) => o.id).join(',');
+        const ids = data.orders.map((o: { id: string }) => o.id).join(',');
         router.push(`/orders/waiting?ids=${ids}`);
       }
     } catch (error) {
@@ -192,7 +237,7 @@ export default function CheckoutPage() {
 
         {/* ── Address ── */}
         <Section title="Deliver to">
-          <label className="block px-4 py-3 focus-within:bg-canvas/60">
+          <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.zipCode ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">PIN code</span>
             <input
               type="text"
@@ -202,12 +247,16 @@ export default function CheckoutPage() {
               value={address.zipCode}
               onChange={handleInputChange}
               className={fieldInput}
+              aria-invalid={!!errors.zipCode}
               placeholder="6-digit PIN code"
               maxLength={6}
               required
             />
+            {errors.zipCode && (
+              <span role="alert" className="mt-1 block text-[13px] font-medium text-bad">{errors.zipCode}</span>
+            )}
           </label>
-          <label className="block px-4 py-3 focus-within:bg-canvas/60">
+          <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.fullName ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">Your name</span>
             <input
               type="text"
@@ -216,11 +265,15 @@ export default function CheckoutPage() {
               value={address.fullName}
               onChange={handleInputChange}
               className={fieldInput}
+              aria-invalid={!!errors.fullName}
               placeholder="Full name"
               required
             />
+            {errors.fullName && (
+              <span role="alert" className="mt-1 block text-[13px] font-medium text-bad">{errors.fullName}</span>
+            )}
           </label>
-          <label className="block px-4 py-3 focus-within:bg-canvas/60">
+          <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.phone ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">Mobile number</span>
             <input
               type="tel"
@@ -230,11 +283,15 @@ export default function CheckoutPage() {
               value={address.phone}
               onChange={handleInputChange}
               className={fieldInput}
+              aria-invalid={!!errors.phone}
               placeholder="10-digit mobile number"
               required
             />
+            {errors.phone && (
+              <span role="alert" className="mt-1 block text-[13px] font-medium text-bad">{errors.phone}</span>
+            )}
           </label>
-          <label className="block px-4 py-3 focus-within:bg-canvas/60">
+          <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.street ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">House / street</span>
             <input
               type="text"
@@ -243,11 +300,15 @@ export default function CheckoutPage() {
               value={address.street}
               onChange={handleInputChange}
               className={fieldInput}
+              aria-invalid={!!errors.street}
               placeholder="House no., building, street"
               required
             />
+            {errors.street && (
+              <span role="alert" className="mt-1 block text-[13px] font-medium text-bad">{errors.street}</span>
+            )}
           </label>
-          <label className="block px-4 py-3 focus-within:bg-canvas/60">
+          <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.city ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">Landmark (optional)</span>
             <input
               type="text"
@@ -255,6 +316,7 @@ export default function CheckoutPage() {
               value={address.landmark}
               onChange={handleInputChange}
               className={fieldInput}
+              aria-invalid={!!errors.city}
               placeholder="e.g. Near Hanuman Mandir"
             />
           </label>
@@ -271,6 +333,9 @@ export default function CheckoutPage() {
                 placeholder="City"
                 required
               />
+            {errors.city && (
+              <span role="alert" className="mt-1 block text-[13px] font-medium text-bad">{errors.city}</span>
+            )}
             </label>
             <label className="block px-4 py-3 focus-within:bg-canvas/60">
               <span className="block text-[13px] font-medium text-label-2">State</span>

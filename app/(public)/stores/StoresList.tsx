@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { BusinessType } from "@/src/generated/prisma";
 import { MapPin, Bell, Store } from "lucide-react";
-import { Button, EmptyState, LargeTitle, Page, Row, Section, Thumb } from "@/components/app/ui";
-import StoreFilter from "./StoreFilter";
-import CitySelector from "./CitySelector";
+import { Button, EmptyState, LargeTitle, Page, Row, Section } from "@/components/app/ui";
+import ShopCard from "@/components/landing/ShopCard";
+import { useMounted } from "@/hooks/useMounted";
+import { calculateDistanceKm, isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import FavoriteButton from "@/components/FavoriteButton";
 import { useLocation } from "@/context/LocationContext";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
@@ -22,10 +22,14 @@ interface Vendor {
   city: string;
   locality: string | null;
   favoriteCount: number;
-  averageRating: any;
+  averageRating: number | string | null;
   reviewCount: number;
   isFavorited: boolean;
   createdAt: Date;
+  businessHours?: BusinessHours | null;
+  businessAddress?: { street?: string; coordinates?: { lat: number; lng: number } } | null;
+  storeImages?: unknown;
+  products?: { images: unknown }[] | null;
 }
 
 interface StoresListProps {
@@ -75,6 +79,7 @@ export default function StoresList({
   const router = useRouter();
   const categoryFromUrl = searchParams.get("category");
   const { location } = useLocation();
+  const mounted = useMounted();
 
   const [selectedCategory, setSelectedCategory] = useState<
     BusinessType | "ALL"
@@ -139,9 +144,9 @@ export default function StoresList({
           setSubscribeMessage("Failed to subscribe");
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error toggling area subscription:", error);
-      setSubscribeMessage(error.message || "Something went wrong. Please try again.");
+      setSubscribeMessage(error instanceof Error && error.message ? error.message : "Something went wrong. Please try again.");
     } finally {
       setIsSubscribing(false);
       // Clear message after 3 seconds
@@ -152,7 +157,9 @@ export default function StoresList({
   // Set category from URL parameter on mount
   useEffect(() => {
     if (categoryFromUrl) {
-      const mappedCategory = categoryMapping[categoryFromUrl] || "ALL";
+      const upper = categoryFromUrl.toUpperCase();
+      const isType = ["GROCERY", "RESTAURANT", "PHARMACY", "ELECTRONICS", "FASHION", "HOME_SERVICES", "OTHER"].includes(upper);
+      const mappedCategory = isType ? (upper as BusinessType) : categoryMapping[categoryFromUrl] || "ALL";
       setSelectedCategory(mappedCategory);
     }
   }, [categoryFromUrl]);
@@ -184,18 +191,27 @@ export default function StoresList({
     return vendor.businessType === selectedCategory;
   });
 
-  // Get category statistics
-  const categoryStats = {
-    total: vendors.length,
-    grocery: vendors.filter((v) => v.businessType === "GROCERY").length,
-    restaurant: vendors.filter((v) => v.businessType === "RESTAURANT").length,
-    pharmacy: vendors.filter((v) => v.businessType === "PHARMACY").length,
-    electronics: vendors.filter((v) => v.businessType === "ELECTRONICS").length,
-    fashion: vendors.filter((v) => v.businessType === "FASHION").length,
-    homeServices: vendors.filter((v) => v.businessType === "HOME_SERVICES")
-      .length,
-    other: vendors.filter((v) => v.businessType === "OTHER").length,
-  };
+
+  // Kinds of shop present here, for the filter chips
+  const typeCounts = Object.entries(
+    vendors.reduce<Record<string, number>>((acc, v) => ({ ...acc, [v.businessType]: (acc[v.businessType] || 0) + 1 }), {}),
+  )
+    .map(([type, count]) => ({ type: type as BusinessType, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Nearest first when we know where the shopper is
+  const hasCoords = typeof location?.latitude === "number" && typeof location?.longitude === "number" && location.latitude !== 0;
+  const sortedVendors = hasCoords
+    ? [...filteredVendors].sort((a, b) => {
+        const ca = a.businessAddress?.coordinates;
+        const cb = b.businessAddress?.coordinates;
+        if (!ca || !cb) return ca ? -1 : cb ? 1 : 0;
+        return (
+          calculateDistanceKm(location!.latitude!, location!.longitude!, ca.lat, ca.lng) -
+          calculateDistanceKm(location!.latitude!, location!.longitude!, cb.lat, cb.lng)
+        );
+      })
+    : filteredVendors;
 
   const areaPincode = selectedPincode || location?.pincode;
   const areaName = location?.locality || location?.city;
@@ -216,41 +232,49 @@ export default function StoresList({
         }
       />
 
-      <div className="-mx-4 mb-4 overflow-x-auto px-4 scrollbar-hide">
-        <StoreFilter selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
-      </div>
-
-      <div className="mb-4 flex items-center justify-end">
-        <CitySelector selectedCity={selectedCity} />
-      </div>
+      {/* Only the kinds of shop that exist here, with counts */}
+      {typeCounts.length > 1 && (
+        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filter shops">
+          {[{ type: "ALL" as const, count: vendors.length }, ...typeCounts].map(({ type, count }) => {
+            const on = selectedCategory === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setSelectedCategory(type)}
+                aria-pressed={on}
+                className={`h-9 shrink-0 whitespace-nowrap rounded-full border px-4 text-[14px] font-medium cursor-pointer ${
+                  on ? "border-label bg-label text-white" : "border-hairline bg-card text-label hover:border-label/40"
+                }`}
+              >
+                {type === "ALL" ? "All" : CATEGORY_LABEL[type] ?? "Other"} <span className={on ? "text-white/70" : "text-label-3"}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {filteredVendors.length > 0 ? (
-        <ul className="mb-6 overflow-hidden rounded-2xl bg-card divide-y divide-hairline">
-          {filteredVendors.map((vendor) => {
-            const rating = Number(vendor.averageRating) || 0;
+        <ul className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sortedVendors.map((vendor) => {
+            const c = vendor.businessAddress?.coordinates;
+            const km = hasCoords && c ? calculateDistanceKm(location!.latitude!, location!.longitude!, c.lat, c.lng) : null;
+            const open = mounted && vendor.businessHours ? isStoreOpen(vendor.businessHours) : null;
             return (
-              <li key={vendor.id} className="flex items-center gap-1 pr-2">
-                <Link
-                  href={`/stores/${vendor.id}`}
-                  className="flex min-h-[76px] min-w-0 flex-1 items-center gap-3 px-4 py-3 active:bg-fill"
-                >
-                  <Thumb src={vendor.storeLogo} alt={vendor.businessName} size={56} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[17px] font-semibold leading-snug text-label">{vendor.businessName}</span>
-                    <span className="block truncate text-[14px] text-label-2">
-                      {CATEGORY_LABEL[vendor.businessType] ?? "Shop"} · {vendor.locality || vendor.city}
-                    </span>
-                    <span className="block text-[14px] text-label-2">
-                      {vendor.reviewCount > 0 ? `★ ${rating.toFixed(1)} (${vendor.reviewCount})` : "New on LocalMart"}
-                    </span>
-                  </span>
-                </Link>
-                <FavoriteButton
-                  vendorId={vendor.id}
-                  initialIsFavorited={vendor.isFavorited}
-                  initialFavoriteCount={vendor.favoriteCount}
-                  size="lg"
-                  showCount={false}
+              <li key={vendor.id}>
+                <ShopCard
+                  shop={vendor}
+                  km={km}
+                  open={open}
+                  action={
+                    <FavoriteButton
+                      vendorId={vendor.id}
+                      initialIsFavorited={vendor.isFavorited}
+                      initialFavoriteCount={vendor.favoriteCount}
+                      size="md"
+                      showCount={false}
+                    />
+                  }
                 />
               </li>
             );

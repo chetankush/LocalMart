@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { jsonLd, siteUrl } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import KiranaTheme from "./themes/KiranaTheme";
 import GroceryTheme from "./themes/GroceryTheme";
@@ -68,23 +69,58 @@ async function getVendorDetails(id: string) {
   }
 }
 
+const SCHEMA_TYPE: Record<string, string> = {
+  FASHION: "ClothingStore",
+  GROCERY: "GroceryStore",
+  PHARMACY: "Pharmacy",
+  ELECTRONICS: "ElectronicsStore",
+  RESTAURANT: "Restaurant",
+};
+const KIND: Record<string, string> = {
+  FASHION: "Saree & clothing shop",
+  GROCERY: "Grocery store",
+  PHARMACY: "Medical store",
+  ELECTRONICS: "Electronics shop",
+  RESTAURANT: "Restaurant",
+};
+
+type Addr = { street?: string; landmark?: string; zip?: string; coordinates?: { lat: number; lng: number } } | null;
+
+function placeLine(v: { locality?: string | null; city?: string; businessAddress?: Addr }) {
+  const parts: string[] = [];
+  for (const p of [v.businessAddress?.street, v.locality, v.city]) {
+    if (p && !parts.join(", ").toLowerCase().includes(p.toLowerCase())) parts.push(p);
+  }
+  return parts.join(", ");
+}
+
 export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
   const { id } = await params;
   const vendor = await getVendorDetails(id);
   if (!vendor) {
-    return { title: "Store not found | LocalMart" };
+    return { title: "Shop not found | LocalMart" };
   }
-  const title = `${vendor.businessName} | LocalMart`;
-  const description = (vendor.storeDescription || `Shop from ${vendor.businessName} on LocalMart.`).slice(0, 160);
+  const kind = KIND[vendor.businessType] ?? "Shop";
+  const where = [vendor.locality, vendor.city].filter(Boolean).join(", ");
+  const title = `${vendor.businessName} – ${kind} in ${where || vendor.city} | Order online on LocalMart`;
+  const place = placeLine(vendor);
+  const description = (
+    `${vendor.businessName}${place ? `, ${place}` : ""}. ` +
+    (vendor.storeDescription ? `${vendor.storeDescription}. ` : "") +
+    "Order online — home delivery by the shop, cash on delivery or UPI."
+  ).slice(0, 300);
   const ogImage = vendor.storeLogo || vendor.storeImages?.[0];
+  const canonical = siteUrl(`/stores/${vendor.id}`);
   return {
     title,
     description,
+    alternates: canonical ? { canonical } : undefined,
     openGraph: {
       title,
       description,
       images: ogImage ? [ogImage] : undefined,
       type: "website",
+      url: canonical,
     },
   };
 }
@@ -140,8 +176,42 @@ export default async function StorePage({ params }: StorePageProps) {
     }
   };
 
+  // Google: the shop as a local business (name, landmark address, map pin, phone)
+  const addr = vendorData.businessAddress as Addr;
+  const localBusiness = {
+    "@context": "https://schema.org",
+    "@type": SCHEMA_TYPE[vendorData.businessType] ?? "Store",
+    name: vendorData.businessName,
+    description: vendorData.storeDescription || undefined,
+    url: siteUrl(`/stores/${vendorData.id}`),
+    image: vendorData.storeLogo || vendorData.storeImages?.[0] || undefined,
+    telephone: vendorData.contactPhone || undefined,
+    priceRange: "₹₹",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: [addr?.street, addr?.landmark && `Near ${addr.landmark}`].filter(Boolean).join(", ") || vendorData.locality || undefined,
+      addressLocality: vendorData.city,
+      addressRegion: vendorData.state || undefined,
+      postalCode: vendorData.pincode || addr?.zip || undefined,
+      addressCountry: "IN",
+    },
+    ...(addr?.coordinates?.lat && addr?.coordinates?.lng
+      ? { geo: { "@type": "GeoCoordinates", latitude: addr.coordinates.lat, longitude: addr.coordinates.lng } }
+      : {}),
+    ...(Number(vendorData.reviewCount) > 0 && vendorData.averageRating
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(vendorData.averageRating).toFixed(1),
+            reviewCount: vendorData.reviewCount,
+          },
+        }
+      : {}),
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(localBusiness)} />
       {/* Track store view */}
       <TrackStoreView
         store={{

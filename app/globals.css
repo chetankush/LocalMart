@@ -216,3 +216,22 @@ input[type="reset"],
   min-height: 28px;
   min-width: 28px;
 }
+
+/* Rotating search hint in the header */
+@keyframes hintIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Extra room when the floating "View cart" bar is showing (phones) */
+@media (max-width: 1023px) {
+  body.has-cartbar .pb-tabbar {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Shop hero carousel: progress line for the slide that's showing */
+@keyframes heroProgress {
+  from { width: 0%; }
+  to { width: 100%; }
+}

@@ -19,12 +19,28 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#F5F5F7",
+  themeColor: "#FFFFFF",
 };
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL;
+
 export const metadata: Metadata = {
-  title: "LocalMart - Local Delivery Platform",
-  description: "Order from local vendors and get it delivered to your doorstep",
+  ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
+  title: {
+    default: "LocalMart – Shop from local shops near you | Home delivery",
+    template: "%s",
+  },
+  description:
+    "Order sarees, groceries, medicines and more from real shops in your town. Delivered by the shop itself — pay cash on delivery or UPI.",
+  applicationName: "LocalMart",
+  openGraph: {
+    type: "website",
+    siteName: "LocalMart",
+    locale: "en_IN",
+    title: "LocalMart – Shop from local shops near you",
+    description: "Order from real shops in your town. Delivered by the shop — cash on delivery or UPI.",
+  },
+  twitter: { card: "summary" },
 };
 
 export default function RootLayout({

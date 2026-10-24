@@ -26,6 +26,12 @@ export function formatIST(d: Date | string) {
   return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]}, ${h % 12 || 12}:${m} ${h < 12 ? "am" : "pm"}`;
 }
 
+/** "12 Oct 2026" in India time — same text on server and phone */
+export function formatDateIST(d: Date | string) {
+  const t = new Date(new Date(d).getTime() + 330 * 60_000);
+  return `${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]} ${t.getUTCFullYear()}`;
+}
+
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
 /* ─── Page + title ──────────────────────────────────────────────── */
@@ -155,23 +161,26 @@ export function Row({
 
 /* ─── Buttons ───────────────────────────────────────────────────── */
 
-type Variant = "primary" | "secondary" | "plain" | "danger";
+type Variant = "primary" | "buy" | "secondary" | "plain" | "danger" | "dark";
 type Size = "lg" | "md";
 
+// Clean pills: blue = the one main action on a screen, outline = everything else
 const variants: Record<Variant, string> = {
-  primary: "bg-label text-white hover:bg-[#3a3a3c]",
-  secondary: "bg-fill text-label hover:bg-fill-strong",
-  plain: "text-tint hover:bg-saffron-soft",
+  primary: "bg-cta text-white hover:bg-cta-hover",
+  buy: "bg-navy-3 text-white hover:bg-navy-2",
+  secondary: "bg-card text-label border border-label/25 hover:border-label/50 hover:bg-fill",
+  plain: "text-link hover:bg-fill",
   danger: "text-bad hover:bg-bad-soft",
+  dark: "bg-navy-3 text-white hover:bg-navy-2",
 };
 const sizes: Record<Size, string> = {
-  lg: "h-[52px] px-6 text-[17px]",
-  md: "h-11 px-4 text-[15px]",
+  lg: "h-12 px-6 text-[16px]",
+  md: "h-10 px-4 text-[15px]",
 };
 
 export function buttonClass(variant: Variant = "primary", size: Size = "lg", full = false) {
   return cx(
-    "inline-flex select-none items-center justify-center gap-2 rounded-xl font-semibold",
+    "inline-flex select-none items-center justify-center gap-2 rounded-full font-semibold",
     "transition-[background-color,transform,opacity] duration-150 active:scale-[0.98]",
     "disabled:pointer-events-none disabled:opacity-40",
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint",
@@ -234,7 +243,7 @@ const toneClass: Record<Tone, string> = {
   bad: "bg-bad-soft text-bad",
   warn: "bg-warn-soft text-warn",
   info: "bg-info-soft text-info",
-  brand: "bg-saffron-soft text-tint",
+  brand: "bg-tint-soft text-tint",
 };
 
 export function Pill({ tone = "neutral", icon, children }: { tone?: Tone; icon?: ReactNode; children: ReactNode }) {

@@ -6,17 +6,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Cormorant_Garamond } from "next/font/google";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
-import AddToCartButton from "../AddToCartButton";
+import AddStepper from "@/components/cart/AddStepper";
+import StoreHeroCarousel, { type HeroSlide } from "./StoreHeroCarousel";
 import {
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
   Clock,
+  IndianRupee,
   MapPin,
   MessageCircle,
   Navigation,
   Package,
   Phone,
+  PhoneCall,
   Search,
   SlidersHorizontal,
   Sparkles,
@@ -171,7 +172,6 @@ const SORT_OPTIONS = [
 const NEW_ARRIVAL_DAYS = 30;
 const RAIL_SIZE = 8;
 // Below this many products the rails would just repeat the catalog
-const MIN_PRODUCTS_FOR_RAILS = 8;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -222,14 +222,6 @@ function matchesCollection(text: string, c: Collection): boolean {
 function isNewArrival(createdAt: Date | string): boolean {
   const age = Date.now() - new Date(createdAt).getTime();
   return age >= 0 && age < NEW_ARRIVAL_DAYS * 24 * 60 * 60 * 1000;
-}
-
-function getSeasonEyebrow(): string {
-  const month = new Date().getMonth();
-  if (month === 9 || month === 10) return "Festive Season Collection";
-  if (month === 11 || month <= 1) return "Wedding Season Collection";
-  if (month >= 2 && month <= 5) return "Summer Collection";
-  return "Monsoon Collection";
 }
 
 function getAddressLine(vendor: SareeVendor): string {
@@ -349,7 +341,8 @@ function SareeCard({
     : null;
 
   return (
-    <div className="group flex flex-col h-full bg-white rounded-xl overflow-hidden border border-[#EADBC8] hover:border-[#B8862B]/60 hover:shadow-[0_8px_30px_rgba(110,20,35,0.12)] transition-all duration-300">
+    <div className="group flex flex-col h-full bg-white rounded-xl overflow-hidden border border-[#EADBC8] hover:border-[#B8862B]/60 transition-colors">
+      <div className="relative">
       <Link
         href={`/products/${product.id}`}
         className="relative block overflow-hidden bg-[#F4EBDD]"
@@ -410,47 +403,53 @@ function SareeCard({
           </div>
         )}
       </Link>
+        <div className="absolute bottom-2 right-2">
+          <AddStepper
+            disabled={isOutOfStock}
+            item={{
+              id: product.id,
+              name: product.name,
+              price,
+              image: images[0],
+              stockQuantity: product.stockQuantity,
+              vendorId: product.vendorId,
+              vendorName,
+            }}
+          />
+        </div>
+      </div>
 
-      <div className="p-3 sm:p-4 flex-1 flex flex-col">
+      <div className="p-3 flex-1 flex flex-col">
         {fabricLabel && (
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#B8862B] mb-1">
             {fabricLabel}
           </p>
         )}
         <Link href={`/products/${product.id}`} className="flex-1">
-          <h3 className="text-sm font-medium text-gray-800 leading-snug line-clamp-2 mb-2 group-hover:text-[#6E1423] transition-colors">
+          <h3 className="text-sm font-medium text-gray-800 leading-snug line-clamp-2 mb-1 group-hover:text-[#6E1423] transition-colors">
             {product.name}
           </h3>
         </Link>
 
-        <div className="flex items-baseline gap-2 flex-wrap mb-3">
+        <div className="flex items-baseline gap-2 flex-wrap mb-1">
           <span className="text-base font-bold text-[#4A0D18]">{formatINR(price)}</span>
           {discount > 0 && compareAt && (
             <span className="text-xs text-gray-400 line-through">{formatINR(compareAt)}</span>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <AddToCartButton
-              product={product}
-              vendorName={vendorName}
-              label="Add to Cart"
-              className="bg-[#6E1423] text-white hover:bg-[#4A0D18] active:scale-95"
-            />
-          </div>
-          {whatsappHref && (
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Ask about ${product.name} on WhatsApp`}
-              className="flex-shrink-0 w-11 h-11 rounded-full border border-green-600/40 text-green-700 flex items-center justify-center hover:bg-green-50 transition-colors"
-            >
-              <MessageCircle className="w-5 h-5" />
-            </a>
-          )}
-        </div>
+        {whatsappHref && (
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Ask about ${product.name} on WhatsApp`}
+            className="mt-auto inline-flex items-center gap-1.5 self-start py-1 text-[13px] font-semibold text-green-700 hover:underline"
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden />
+            Ask on WhatsApp
+          </a>
+        )}
       </div>
     </div>
   );
@@ -472,10 +471,6 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const [sortBy, setSortBy] = useState("newest");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Hero carousel + announcement rotation
-  const [slide, setSlide] = useState(0);
-  const [announcementIdx, setAnnouncementIdx] = useState(0);
-
   // Time-dependent values are computed after mount so server (UTC) and
   // browser (IST) renders match during hydration
   const [openNow, setOpenNow] = useState<boolean | null>(null);
@@ -490,6 +485,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     return () => setBranding(null);
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
 
+  // Only claim "open"/"closed" when the owner has set opening hours
   useEffect(() => {
     if (vendor.businessHours) {
       setOpenNow(isStoreOpen(vendor.businessHours));
@@ -504,29 +500,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const phone = vendor.contactPhone || vendor.whatsappNumber || null;
   const addressLine = getAddressLine(vendor);
 
-  useEffect(() => {
-    if (storeImages.length < 2) return;
-    const timer = setInterval(() => setSlide((s) => (s + 1) % storeImages.length), 5000);
-    return () => clearInterval(timer);
-  }, [storeImages.length]);
 
-  const announcements = useMemo(() => {
-    if (config.announcement && config.announcement.length > 0) return config.announcement;
-    return [
-      "Cash on Delivery available",
-      vendor.city ? `Shop online from our store in ${vendor.city}` : "Shop online from our store",
-      whatsappDigits ? "Questions? Chat with us on WhatsApp" : null,
-    ].filter(Boolean) as string[];
-  }, [config.announcement, vendor.city, whatsappDigits]);
-
-  useEffect(() => {
-    if (announcements.length < 2) return;
-    const timer = setInterval(
-      () => setAnnouncementIdx((i) => (i + 1) % announcements.length),
-      3500
-    );
-    return () => clearInterval(timer);
-  }, [announcements.length]);
+  // The owner's own offer line (set in shop settings), shown in the shop card
+  const ownerNote = config.announcement?.find((a) => a && a.trim()) ?? null;
 
   // Pre-compute searchable text once per product
   const searchText = useMemo(() => {
@@ -596,15 +572,41 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     [products]
   );
 
-  const topPicks = useMemo(() => {
-    const featured = products.filter((p) => p.isFeatured);
-    const rated = products
-      .filter((p) => !p.isFeatured && Number(p.averageRating || 0) > 0)
-      .sort((a, b) => Number(b.averageRating || 0) - Number(a.averageRating || 0));
-    return [...featured, ...rated].slice(0, RAIL_SIZE);
-  }, [products]);
 
-  const showRails = products.length >= MIN_PRODUCTS_FOR_RAILS;
+
+  // Hero: the owner's own banners first, then featured and newest products.
+  // A new product shows up here by itself — nothing extra for the owner to do.
+  const heroSlides = useMemo<HeroSlide[]>(() => {
+    const banners: HeroSlide[] = storeImages.slice(0, 3).map((src, i) => ({
+      key: `banner-${i}`,
+      image: src,
+      kind: "banner",
+      title: vendor.businessName,
+      cta: "Shop now",
+      onClick: () => document.getElementById("saree-catalog")?.scrollIntoView({ behavior: "smooth" }),
+    }));
+    const newest = [...products].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const picks = [...newest.filter((p) => p.isFeatured), ...newest.filter((p) => !p.isFeatured)]
+      .filter((p) => p.stockQuantity > 0 && toImageList(p.images).length > 0)
+      .slice(0, Math.max(0, 5 - banners.length));
+    const productSlides: HeroSlide[] = picks.map((p) => {
+      const price = Number(p.price);
+      const off = calcDiscount(price, p.compareAtPrice ? Number(p.compareAtPrice) : undefined);
+      return {
+        key: p.id,
+        image: toImageList(p.images)[0],
+        kind: "product",
+        eyebrow: p.isFeatured ? "Featured" : "New arrival",
+        title: p.name,
+        price: off > 0 ? `${formatINR(price)} · ${off}% off` : formatINR(price),
+        cta: "Shop now",
+        href: `/products/${p.id}`,
+      };
+    });
+    return [...banners, ...productSlides];
+  }, [storeImages, products, vendor.businessName]);
 
   const activeFilterCount =
     selectedOccasions.length + (selectedPrice ? 1 : 0) + (minDiscount !== null ? 1 : 0);
@@ -710,30 +712,26 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     return result;
   }, [products, searchText, activeFabric, selectedOccasions, selectedPrice, minDiscount, sortBy]);
 
-  const heroEyebrow = config.hero?.eyebrow || getSeasonEyebrow();
-  const heroTitle =
-    config.hero?.title ||
-    (fabricCollections.length >= 2
-      ? `${[...fabricCollections]
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 3)
-          .map((f) => f.label)
-          .join(", ")
-          .replace(/, ([^,]*)$/, " & $1")} Sarees`
-      : "Sarees for Every Occasion");
-  const heroSubtitle =
-    config.hero?.subtitle ||
-    vendor.storeDescription ||
-    `Shop online from ${vendor.businessName}${vendor.city ? `, ${vendor.city}` : ""}`;
+  // Sudathi-style collection grid: occasions first, then fabrics
+  const bento = [
+    ...occasionTiles.map((t) => ({ key: `o-${t.key}`, label: t.label, count: t.count, cover: t.cover, open: () => openTile(t) })),
+    ...fabricCollections.map((f) => ({ key: `f-${f.key}`, label: f.label, count: f.count, cover: f.cover, open: () => openFabric(f.key) })),
+  ]
+    .filter((t) => t.cover)
+    .slice(0, 4);
 
-  const heroProductImages = useMemo(
-    () =>
-      products
-        .map((p) => toImageList(p.images)[0])
-        .filter(Boolean)
-        .slice(0, 3) as string[],
-    [products]
-  );
+  const budget = products.filter((p) => p.stockQuantity > 0 && Number(p.price) < 1000);
+
+  // Best-rated, then featured, then newest — for "Loved by our customers"
+  const loved = [...products]
+    .filter((p) => p.stockQuantity > 0 && toImageList(p.images).length > 0)
+    .sort(
+      (a, b) =>
+        Number(b.averageRating || 0) - Number(a.averageRating || 0) ||
+        Number(!!b.isFeatured) - Number(!!a.isFeatured) ||
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+    .slice(0, 6);
 
   const renderCard = (product: Product) => (
     <SareeCard
@@ -854,283 +852,130 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   return (
     <div className="min-h-screen bg-[#FBF6EE] text-gray-800">
       {/* ============================================================== */}
-      {/* 1. Announcement bar                                            */}
+      {/* 1. Hero: carousel of the shop's banners + newest products,     */}
+      {/*    then the shop's key details in one card                     */}
       {/* ============================================================== */}
-      {announcements.length > 0 && (
-        <div className="bg-[#4A0D18] text-[#E9C979] text-xs sm:text-[13px] tracking-wide">
-          <div className="max-w-7xl mx-auto px-4 py-2 text-center">
-            <p className="sm:hidden truncate">{announcements[announcementIdx % announcements.length]}</p>
-            <p className="hidden sm:flex items-center justify-center gap-4 flex-wrap">
-              {announcements.map((a, i) => (
-                <span key={a} className="flex items-center gap-4">
-                  {i > 0 && <span aria-hidden="true">&#10022;</span>}
-                  {a}
-                </span>
-              ))}
-            </p>
-          </div>
-        </div>
-      )}
+      <StoreHeroCarousel
+        slides={heroSlides}
+        titleClassName={serif.className}
+        palette={{ band: "#4A0D18", bandText: "#FFFFFF", eyebrow: "#E9C979", button: "#E9C979", buttonText: "#2E0710" }}
+      />
 
-      {/* ============================================================== */}
-      {/* 2. Store identity header                                       */}
-      {/* ============================================================== */}
-      <header className="bg-[#FFFDF8] border-b border-[#EADBC8]">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 text-center">
-          <div className="flex justify-center mb-3">
+      <header className={`relative z-10 mx-auto max-w-7xl px-4 ${heroSlides.length > 0 ? "-mt-5 sm:mt-4" : "pt-4"}`}>
+        <div className="rounded-2xl border border-[#EADBC8] bg-white p-4 shadow-[0_8px_24px_rgba(74,13,24,0.10)] sm:flex sm:items-center sm:gap-6 sm:p-6">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
             {vendor.storeLogo ? (
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-2 ring-[#B8862B] ring-offset-2 ring-offset-[#FFFDF8]">
-                <Image src={vendor.storeLogo} alt={vendor.businessName} fill className="object-cover" />
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full ring-2 ring-[#B8862B]">
+                <Image src={vendor.storeLogo} alt="" fill className="object-cover" />
               </div>
             ) : (
-              <div
-                className={`${serif.className} w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[#6E1423] text-[#E9C979] text-3xl sm:text-4xl font-semibold flex items-center justify-center ring-2 ring-[#B8862B] ring-offset-2 ring-offset-[#FFFDF8]`}
-              >
+              <div className={`${serif.className} flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#6E1423] text-2xl font-semibold text-[#E9C979] ring-2 ring-[#B8862B]`}>
                 {vendor.businessName?.charAt(0)}
               </div>
             )}
-          </div>
-          <h1 className={`${serif.className} text-3xl sm:text-5xl font-semibold text-[#4A0D18] leading-tight`}>
-            {vendor.businessName}
-          </h1>
-          <p className="mt-1.5 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#B8862B] font-medium">
-            Sarees &amp; Ethnic Wear
-          </p>
-
-          <div className="mt-4 flex items-center justify-center gap-2 sm:gap-3 flex-wrap text-xs sm:text-sm">
-            {(vendor.locality || vendor.city) && (
-              <span className="inline-flex items-center gap-1 text-gray-600">
-                <MapPin className="w-3.5 h-3.5 text-[#B8862B]" />
-                {[vendor.locality, vendor.city].filter(Boolean).join(", ")}
-              </span>
-            )}
-            {vendor.averageRating && (vendor.reviewCount ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1 bg-[#6E1423]/5 border border-[#6E1423]/15 text-[#6E1423] px-2.5 py-1 rounded-full font-semibold">
-                <Star className="w-3.5 h-3.5 fill-[#B8862B] text-[#B8862B]" />
-                {Number(vendor.averageRating).toFixed(1)}
-                <span className="font-normal text-gray-500">({vendor.reviewCount} reviews)</span>
-              </span>
-            )}
-            {openNow !== null && (
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold ${
-                  openNow ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${openNow ? "bg-green-500" : "bg-gray-400"}`} />
-                {openNow ? "Open now" : "Closed now"}
-              </span>
-            )}
+            <div className="min-w-0">
+              <h1 className={`${serif.className} text-[26px] font-semibold leading-tight text-[#4A0D18] sm:text-4xl`}>
+                {vendor.businessName}
+              </h1>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#B8862B]">Sarees &amp; ethnic wear</p>
+              {addressLine && (
+                <p className="mt-1.5 flex items-start gap-1 text-[14px] leading-snug text-gray-700">
+                  <MapPin className="mt-[3px] h-4 w-4 shrink-0 text-[#B8862B]" aria-hidden />
+                  {addressLine}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[13px] font-semibold">
+                {openNow !== null && (
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 ${openNow ? "bg-green-50 text-green-800" : "bg-gray-100 text-gray-700"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${openNow ? "bg-green-600" : "bg-gray-500"}`} aria-hidden />
+                    {openNow ? "Open now" : "Closed now"}
+                    {todayHours && <span className="font-normal">· {todayHours}</span>}
+                  </span>
+                )}
+                <span className="rounded-full bg-[#F4EBDD] px-2.5 py-1 text-[#4A0D18]">Cash on delivery</span>
+                {vendor.averageRating && (vendor.reviewCount ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F4EBDD] px-2.5 py-1 text-[#4A0D18]">
+                    <Star className="h-3.5 w-3.5 fill-[#B8862B] text-[#B8862B]" aria-hidden />
+                    {Number(vendor.averageRating).toFixed(1)} ({vendor.reviewCount})
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-5 flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
-            {whatsappDigits && (
-              <a
-                href={`https://wa.me/${whatsappDigits}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors"
-              >
-                <MessageCircle className="w-4 h-4" />
-                WhatsApp
-              </a>
-            )}
+          {ownerNote && (
+            <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-[#FFF6E0] px-3 py-2 text-[14px] font-medium text-[#4A0D18] sm:hidden">
+              <Sparkles className="mt-[2px] h-4 w-4 shrink-0 text-[#B8862B]" aria-hidden />
+              {ownerNote}
+            </p>
+          )}
+          <div className={`mt-4 grid gap-2 sm:mt-0 sm:w-[360px] sm:shrink-0 ${[phone, true, whatsappDigits].filter(Boolean).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
             {phone && (
-              <a
-                href={`tel:${phone}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-[#6E1423]/30 text-[#6E1423] text-sm font-semibold hover:bg-[#6E1423]/5 transition-colors"
-              >
-                <Phone className="w-4 h-4" />
-                Call
+              <a href={`tel:${phone}`} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-[#6E1423]/30 text-[14px] font-semibold text-[#6E1423] hover:bg-[#6E1423]/5">
+                <Phone className="h-4 w-4" aria-hidden /> Call
               </a>
             )}
             <a
               href={getDirectionsUrl(vendor)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-[#6E1423]/30 text-[#6E1423] text-sm font-semibold hover:bg-[#6E1423]/5 transition-colors"
+              className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-[#6E1423]/30 text-[14px] font-semibold text-[#6E1423] hover:bg-[#6E1423]/5"
             >
-              <Navigation className="w-4 h-4" />
-              Directions
+              <Navigation className="h-4 w-4" aria-hidden /> Directions
             </a>
+            {whatsappDigits && (
+              <a
+                href={`https://wa.me/${whatsappDigits}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-green-700 text-[14px] font-semibold text-white hover:bg-green-800"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
+              </a>
+            )}
           </div>
         </div>
       </header>
 
       {/* ============================================================== */}
-      {/* 3. Hero                                                        */}
+      {/* Promise strip (Sudathi's USP row, in the shop's own words)       */}
       {/* ============================================================== */}
-      <section className="relative w-full h-[360px] sm:h-[420px] md:h-[500px] overflow-hidden bg-[#4A0D18]">
-        {storeImages.length > 0 ? (
-          storeImages.map((src, i) => (
-            <div
-              key={`${i}-${src}`}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                i === slide ? "opacity-100" : "opacity-0"
-              }`}
-              aria-hidden={i !== slide}
+      <section className="mx-auto max-w-7xl px-4 pt-5">
+        <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0">
+          {[
+            { icon: Wallet, title: "Cash on delivery", text: "Pay when it arrives" },
+            { icon: IndianRupee, title: "UPI to the shop", text: "Pay us directly" },
+            { icon: PhoneCall, title: "We call first", text: "Confirm colour & size" },
+            { icon: Store, title: "Visit the shop", text: vendor.locality || vendor.city || "See it in person" },
+          ].map(({ icon: Icon, title, text }) => (
+            <li
+              key={title}
+              className="flex min-w-[46%] shrink-0 items-center gap-2.5 rounded-xl border border-[#EADBC8] bg-white px-3 py-2.5 sm:min-w-0"
             >
-              <Image
-                src={src}
-                alt={`${vendor.businessName} collection ${i + 1}`}
-                fill
-                sizes="100vw"
-                className="object-cover"
-                priority={i === 0}
-              />
-            </div>
-          ))
-        ) : (
-          <div
-            className="absolute inset-0 opacity-[0.12]"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, #E9C979 1.5px, transparent 0), radial-gradient(circle at 13px 13px, #E9C979 1px, transparent 0)",
-              backgroundSize: "26px 26px",
-            }}
-            aria-hidden="true"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#2E0710]/90 via-[#4A0D18]/60 to-transparent" />
-
-        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-8 flex items-center">
-          <div className="max-w-xl">
-            <p className="text-[#E9C979] text-xs sm:text-sm font-semibold uppercase tracking-[0.3em] mb-3">
-              {heroEyebrow}
-            </p>
-            <h2 className={`${serif.className} text-white text-4xl sm:text-5xl md:text-6xl font-semibold leading-[1.05]`}>
-              {heroTitle}
-            </h2>
-            <p className="text-white/80 text-sm sm:text-base mt-4 max-w-md line-clamp-2">
-              {heroSubtitle}
-            </p>
-            <div className="mt-7 flex items-center gap-3 flex-wrap">
-              <button
-                onClick={scrollToCatalog}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#E9C979] text-[#4A0D18] text-sm font-bold uppercase tracking-wider hover:bg-[#f2d78f] transition-colors"
-              >
-                Shop the collection
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              {whatsappDigits && (
-                <a
-                  href={`https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
-                    `Hi ${vendor.businessName}, please share your latest saree collection.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden sm:inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/40 text-white text-sm font-semibold hover:bg-white/10 transition-colors"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Ask on WhatsApp
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Arched product frames when the store has no banner images */}
-          {storeImages.length === 0 && heroProductImages.length > 0 && (
-            <div className="hidden lg:flex absolute right-8 bottom-0 items-end gap-4" aria-hidden="true">
-              {heroProductImages.map((src, i) => (
-                <div
-                  key={`${i}-${src}`}
-                  className={`relative w-44 rounded-t-full overflow-hidden border-4 border-[#E9C979]/70 border-b-0 ${
-                    i === 1 ? "h-[400px]" : "h-[320px]"
-                  }`}
-                >
-                  <Image src={src} alt="" fill sizes="176px" className="object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {storeImages.length > 1 && (
-          <>
-            <button
-              onClick={() => setSlide((s) => (s - 1 + storeImages.length) % storeImages.length)}
-              className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/30 text-white items-center justify-center hover:bg-black/50 transition-colors"
-              aria-label="Previous banner"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setSlide((s) => (s + 1) % storeImages.length)}
-              className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/30 text-white items-center justify-center hover:bg-black/50 transition-colors"
-              aria-label="Next banner"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-              {storeImages.map((src, i) => (
-                <button
-                  key={`${i}-${src}`}
-                  onClick={() => setSlide(i)}
-                  aria-label={`Show banner ${i + 1}`}
-                  className="p-1"
-                >
-                  <span
-                    className={`block h-1.5 rounded-full transition-all ${
-                      i === slide ? "w-6 bg-[#E9C979]" : "w-1.5 bg-white/60"
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </>
-        )}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#6E1423]/5 text-[#6E1423]">
+                <Icon className="h-[18px] w-[18px]" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13px] font-bold leading-tight text-[#4A0D18]">{title}</span>
+                <span className="block truncate text-[12px] leading-tight text-gray-600">{text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
-
-      {/* ============================================================== */}
-      {/* 4. Shop by occasion                                            */}
-      {/* ============================================================== */}
-      {occasionTiles.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 pt-14 pb-4">
-          <SectionHeading eyebrow="Find the perfect drape" title="Shop by Occasion" />
-          <div className="flex sm:justify-center gap-5 sm:gap-8 overflow-x-auto pb-2 -mx-4 px-4 snap-x">
-            {occasionTiles.map((tile) => (
-              <button
-                key={tile.key}
-                onClick={() => openTile(tile)}
-                className="group flex-shrink-0 w-24 sm:w-32 text-center snap-start"
-              >
-                <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden ring-1 ring-[#B8862B]/50 ring-offset-4 ring-offset-[#FBF6EE] bg-[#F4EBDD] group-hover:ring-[#B8862B] transition-all">
-                  {tile.cover ? (
-                    <Image
-                      src={tile.cover}
-                      alt={tile.label}
-                      fill
-                      sizes="128px"
-                      className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className={`${serif.className} absolute inset-0 flex items-center justify-center text-3xl text-[#6E1423]`}>
-                      {tile.label.charAt(0)}
-                    </div>
-                  )}
-                </div>
-                <p className="mt-3 text-sm font-semibold text-[#4A0D18] group-hover:text-[#6E1423]">
-                  {tile.label}
-                </p>
-                <p className="text-[11px] text-gray-500">{tile.count} sarees</p>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* ============================================================== */}
       {/* 5. Trending collections (by fabric)                            */}
       {/* ============================================================== */}
-      {fabricCollections.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 pt-12 pb-4">
-          <SectionHeading eyebrow="Woven with tradition" title="Trending Collections" />
-          <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 -mx-4 px-4 snap-x lg:grid lg:grid-cols-5 lg:overflow-visible lg:mx-0 lg:px-0">
+      {fabricCollections.length >= 2 && (
+        <section className="max-w-7xl mx-auto px-4 pt-10 pb-2">
+          <SectionHeading eyebrow="Woven with tradition" title="Shop by Fabric" />
+          <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-hide lg:justify-center lg:overflow-visible lg:mx-0 lg:px-0">
             {fabricCollections.slice(0, 5).map((f) => (
               <button
                 key={f.key}
                 onClick={() => openFabric(f.key)}
-                className="group flex-shrink-0 w-40 sm:w-48 lg:w-auto snap-start text-left"
+                className="group flex-shrink-0 w-40 sm:w-48 lg:w-56 snap-start text-left"
               >
                 <div className="relative w-full aspect-[3/4] rounded-t-full overflow-hidden border-[3px] border-[#E9C979] bg-[#F4EBDD]">
                   {f.cover ? (
@@ -1162,30 +1007,163 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       )}
 
       {/* ============================================================== */}
-      {/* 6. New arrivals + top picks rails                              */}
+      {/* 4. "The Saree Store" — Sudathi-style photo grid of collections */}
       {/* ============================================================== */}
-      {showRails && (
-        <section className="max-w-7xl mx-auto px-4 pt-14">
-          <SectionHeading
-            eyebrow="Fresh from the loom"
-            title="New Arrivals"
-            action={{ label: "View all sarees", onClick: scrollToCatalog }}
-          />
-          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x lg:grid lg:grid-cols-4 lg:overflow-visible lg:mx-0 lg:px-0">
-            {newArrivals.map((p) => (
+      {bento.length >= 3 && (
+        <section className="max-w-7xl mx-auto px-4 pt-10 pb-2">
+          <SectionHeading eyebrow="Find the perfect drape" title="The Saree Store" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:h-[560px] lg:grid-cols-3 lg:grid-rows-2">
+            {bento.map((t, i) => {
+              const shape =
+                i === 0
+                  ? "row-span-2 aspect-[3/5] lg:aspect-auto"
+                  : i === 3
+                    ? "col-span-2 aspect-[2/1] lg:col-span-1 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:aspect-auto"
+                    : "aspect-[4/3] lg:aspect-auto";
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={t.open}
+                  className={`group relative overflow-hidden rounded-2xl bg-[#F4EBDD] text-left cursor-pointer ${shape}`}
+                >
+                  {t.cover && (
+                    <Image
+                      src={t.cover}
+                      alt=""
+                      fill
+                      sizes="(max-width: 1024px) 50vw, 33vw"
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-4 pb-4 pt-16 text-center">
+                    <span className="block text-[18px] font-extrabold uppercase leading-tight tracking-wide text-[#F3D27A] sm:text-[24px]">
+                      {t.label}
+                    </span>
+                    <span className="mt-0.5 block text-[12px] font-medium text-white/85">
+                      {t.count} {t.count === 1 ? "saree" : "sarees"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* "Loved by our customers" — wide banner + tall saree tiles */}
+      {loved.length >= 3 && (
+        <section className="max-w-7xl mx-auto px-4 pt-12 pb-2">
+          <div className="relative flex min-h-[180px] overflow-hidden rounded-2xl bg-[#4A0D18] sm:min-h-[240px]">
+            <div className="relative z-10 flex flex-1 flex-col justify-center px-6 py-6 sm:px-10">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#E9C979]">
+                {vendor.city ? `Loved in ${vendor.city}` : "Customer favourites"}
+              </p>
+              <h2 className={`${serif.className} mt-1 text-[30px] font-semibold leading-[1.05] text-white sm:text-[48px]`}>
+                Loved by our <span className="text-[#F3D27A]">customers</span>
+              </h2>
+              <p className="mt-2 text-[14px] text-white/80 sm:text-[16px]">
+                {(vendor.reviewCount ?? 0) > 0 && vendor.averageRating
+                  ? `★ ${Number(vendor.averageRating).toFixed(1)} from ${vendor.reviewCount} ${vendor.reviewCount === 1 ? "review" : "reviews"}`
+                  : "The sarees our shoppers pick most"}
+              </p>
+            </div>
+            {toImageList(loved[0].images)[0] && (
+              <div className="relative w-[42%] shrink-0 sm:w-[38%]">
+                <Image
+                  src={toImageList(loved[0].images)[0]}
+                  alt=""
+                  fill
+                  sizes="(max-width: 640px) 42vw, 480px"
+                  className="object-cover object-top"
+                />
+              </div>
+            )}
+          </div>
+          <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1 snap-x snap-mandatory scrollbar-hide lg:mx-0 lg:grid lg:grid-cols-6 lg:overflow-visible lg:px-0">
+            {loved.map((p) => {
+              const img = toImageList(p.images)[0];
+              return (
+                <Link
+                  key={p.id}
+                  href={`/products/${p.id}`}
+                  className="group relative aspect-[3/4.4] w-[42%] shrink-0 snap-start overflow-hidden rounded-2xl bg-[#F4EBDD] sm:w-[30%] lg:w-auto"
+                >
+                  {img && (
+                    <Image
+                      src={img}
+                      alt={p.name}
+                      fill
+                      sizes="(max-width: 1024px) 42vw, 16vw"
+                      className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                    />
+                  )}
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-3 pt-14 text-center">
+                    <span className="line-clamp-2 block text-[14px] font-extrabold uppercase leading-tight tracking-wide text-white">
+                      {p.name}
+                    </span>
+                    <span className="mt-0.5 block text-[13px] font-semibold text-[#F3D27A]">{formatINR(Number(p.price))}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6. Trending now + budget collection                            */}
+      {/* ============================================================== */}
+      {newArrivals.length >= 4 && (
+        <section className="max-w-7xl mx-auto px-4 pt-12">
+          <SectionHeading eyebrow="Fresh from the loom" title="Trending Now" />
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-hide lg:grid lg:grid-cols-4 lg:overflow-visible lg:mx-0 lg:px-0">
+            {newArrivals.slice(0, 8).map((p) => (
               <div key={p.id} className="flex-shrink-0 w-[46%] sm:w-[31%] lg:w-auto snap-start">
                 {renderCard(p)}
               </div>
             ))}
           </div>
+          <div className="mt-5 text-center">
+            <button
+              type="button"
+              onClick={scrollToCatalog}
+              className="h-12 rounded-full bg-[#4A0D18] px-10 text-[14px] font-bold uppercase tracking-[0.18em] text-white hover:bg-[#6E1423] cursor-pointer"
+            >
+              View all
+            </button>
+          </div>
         </section>
       )}
 
-      {showRails && topPicks.length >= 4 && (
-        <section className="max-w-7xl mx-auto px-4 pt-14">
-          <SectionHeading eyebrow="Loved by our customers" title="Top Picks" />
-          <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x lg:grid lg:grid-cols-4 lg:overflow-visible lg:mx-0 lg:px-0">
-            {topPicks.map((p) => (
+      {budget.length >= 2 && (
+        <section className="max-w-7xl mx-auto px-4 pt-12">
+          <button
+            type="button"
+            onClick={() => {
+              clearFilters();
+              setSelectedPrice("u999");
+              scrollToCatalog();
+            }}
+            className="relative flex min-h-[150px] w-full overflow-hidden rounded-2xl bg-[#2E0710] text-left cursor-pointer sm:min-h-[200px]"
+          >
+            <span className="relative z-10 flex flex-1 flex-col justify-center px-6 py-6 sm:px-10">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#E9C979]">Everyday sarees</span>
+              <span className={`${serif.className} mt-1 block text-[30px] font-semibold leading-[1.05] text-white sm:text-[46px]`}>
+                Under <span className="text-[#F3D27A]">₹999</span>
+              </span>
+              <span className="mt-3 inline-flex w-fit items-center rounded-md bg-[#E9C979] px-4 py-2 text-[13px] font-bold uppercase tracking-wide text-[#2E0710]">
+                Shop now
+              </span>
+            </span>
+            {toImageList(budget[0].images)[0] && (
+              <span className="relative block w-[40%] shrink-0 sm:w-[34%]">
+                <Image src={toImageList(budget[0].images)[0]} alt="" fill sizes="(max-width: 640px) 40vw, 440px" className="object-cover object-top" />
+              </span>
+            )}
+          </button>
+          <div className="mt-3 flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-hide lg:grid lg:grid-cols-4 lg:overflow-visible lg:mx-0 lg:px-0">
+            {budget.slice(0, 8).map((p) => (
               <div key={p.id} className="flex-shrink-0 w-[46%] sm:w-[31%] lg:w-auto snap-start">
                 {renderCard(p)}
               </div>
@@ -1197,11 +1175,16 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* ============================================================== */}
       {/* 7. Full catalog with filters                                   */}
       {/* ============================================================== */}
-      <section id="saree-catalog" className="max-w-7xl mx-auto px-4 pt-14 pb-10 scroll-mt-20">
+      <section id="saree-catalog" className="max-w-7xl mx-auto px-4 pt-10 pb-10 scroll-mt-28">
         <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "saree" : "sarees"} in store`} title="All Sarees" />
 
+        {/* Fabric chips + sort stay pinned under the header while scrolling */}
+        <div
+          className="sticky z-30 -mx-4 mb-6 border-b border-[#EADBC8] bg-[#FBF6EE]/95 px-4 pt-3 backdrop-blur"
+          style={{ top: "var(--header-h, 112px)" }}
+        >
         {fabricCollections.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-3 mb-4 -mx-4 px-4 sm:justify-center">
+          <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide sm:justify-center">
             {[{ key: null as string | null, label: "All" }, ...fabricCollections].map((f) => (
               <button
                 key={f.key ?? "all"}
@@ -1218,7 +1201,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 mb-6 border-y border-[#EADBC8] py-3">
+        <div className="flex items-center justify-between gap-3 border-t border-[#EADBC8] py-2.5">
           <p className="text-sm text-gray-600">
             Showing <span className="font-bold text-[#4A0D18]">{filteredProducts.length}</span>{" "}
             {filteredProducts.length === 1 ? "saree" : "sarees"}
@@ -1252,9 +1235,13 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
             </button>
           </div>
         </div>
+        </div>
 
         <div className="flex gap-8">
-          <aside className="hidden lg:block w-60 flex-shrink-0 h-fit sticky top-24 bg-white rounded-xl border border-[#EADBC8] p-5">
+          <aside
+            className="hidden lg:block w-60 flex-shrink-0 h-fit sticky bg-white rounded-xl border border-[#EADBC8] p-5"
+            style={{ top: "calc(var(--header-h, 112px) + 128px)" }}
+          >
             <h3 className={`${serif.className} text-xl font-semibold text-[#4A0D18] mb-5`}>Filters</h3>
             {filterContent}
           </aside>
@@ -1327,42 +1314,6 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      {/* ============================================================== */}
-      {/* 8. Why shop with us                                            */}
-      {/* ============================================================== */}
-      <section className="max-w-7xl mx-auto px-4 pb-14">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          {[
-            { icon: Sparkles, title: "Handpicked Sarees", desc: "Chosen in-store, now online" },
-            { icon: Wallet, title: "Cash on Delivery", desc: "Pay when your order arrives" },
-            whatsappDigits
-              ? { icon: MessageCircle, title: "Ask Before You Buy", desc: "Chat with us on WhatsApp" }
-              : { icon: Phone, title: "Ask Before You Buy", desc: "Call the store for details" },
-            {
-              icon: Store,
-              title: "Visit the Store",
-              desc: [vendor.locality, vendor.city].filter(Boolean).join(", ") || "See sarees in person",
-            },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-3 p-4 sm:p-5 bg-white rounded-xl border border-[#EADBC8]"
-              >
-                <div className="w-11 h-11 rounded-full bg-[#6E1423]/5 border border-[#B8862B]/30 flex items-center justify-center flex-shrink-0">
-                  <Icon className="w-5 h-5 text-[#6E1423]" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-[#4A0D18]">{item.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </section>
 

@@ -1,32 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Store } from "lucide-react";
+import { Bell, ChevronRight, MapPin, Phone, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-provider";
-import { useAppDispatch } from "@/lib/redux/hooks";
-import { addToCart } from "@/lib/redux/slices/cartSlice";
-import type { CartItem } from "@/lib/redux/slices/cartSlice";
+import { useAppSelector } from "@/lib/redux/hooks";
+import { selectCartItemById } from "@/lib/redux/slices/cartSlice";
+import { useLocation } from "@/context/LocationContext";
+import { useCartQuote } from "@/hooks/useCartQuote";
+import { useMounted } from "@/hooks/useMounted";
+import AddStepper from "@/components/cart/AddStepper";
+import { StickyBar, rupees } from "@/components/app/ui";
+
+type Numeric = number | string;
 
 interface ProductInfoProps {
   product: {
     id: string;
     name: string;
-    description: string;
-    price: any;
-    compareAtPrice: any;
+    price: Numeric;
+    compareAtPrice: Numeric | null;
     stockQuantity: number;
-    sku: string | null;
-    weight: any;
-    dimensions: any;
-    averageRating: any;
+    averageRating: Numeric | null;
     reviewCount: number;
-    category: {
-      id: string;
-      name: string;
-      slug: string;
-    };
+    category: { id: string; name: string; slug: string } | null;
     images: string[];
   };
   vendor: {
@@ -35,398 +33,261 @@ interface ProductInfoProps {
     storeLogo: string | null;
     city: string;
     state: string;
-    averageRating: any;
+    locality?: string | null;
+    pincode?: string | null;
+    businessAddress?: { street?: string; landmark?: string } | null;
+    contactPhone?: string | null;
+    averageRating: Numeric | null;
     reviewCount: number;
   };
 }
 
+/** "Near Railway Gate, Banskhedi, Guna 473001" without repeats */
+export function shopAddress(v: ProductInfoProps["vendor"]) {
+  const parts: string[] = [];
+  for (const p of [v.businessAddress?.street, v.businessAddress?.landmark && `Near ${v.businessAddress.landmark}`, v.locality, v.city]) {
+    if (p && !parts.join(", ").toLowerCase().includes(String(p).toLowerCase())) parts.push(String(p));
+  }
+  return parts.join(", ") + (v.pincode ? ` ${v.pincode}` : "");
+}
+
 export default function ProductInfo({ product, vendor }: ProductInfoProps) {
-  const dispatch = useAppDispatch();
   const { user } = useAuth();
-  const [quantity, setQuantity] = useState(1);
-  const [isAdding, setIsAdding] = useState(false);
+  const { location } = useLocation();
+  const mounted = useMounted();
+  const inCart = useAppSelector((s) => selectCartItemById(s, product.id));
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState<string | null>(null);
 
   const price = Number(product.price);
-  const compareAtPrice = product.compareAtPrice ? Number(product.compareAtPrice) : null;
-  const discount = compareAtPrice && compareAtPrice > price
-    ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
-    : 0;
+  const compareAt = product.compareAtPrice ? Number(product.compareAtPrice) : null;
+  const discount = compareAt && compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : 0;
+  const out = product.stockQuantity <= 0;
+  const rating = product.averageRating ? Number(product.averageRating) : 0;
+  const qty = mounted ? inCart?.quantity ?? 0 : 0;
 
-  // Check if user is subscribed to back-in-stock notifications
+  const cartItem = {
+    id: product.id,
+    name: product.name,
+    price,
+    image: product.images[0],
+    stockQuantity: product.stockQuantity,
+    vendorId: vendor.id,
+    vendorName: vendor.businessName,
+  };
+
+  // Real delivery charge for the shopper's area, from the same server
+  // pricing the cart and checkout use
+  const { quote } = useCartQuote(out ? [] : [{ ...cartItem, quantity: 1 }], {
+    pincode: location?.pincode,
+    latitude: location?.latitude,
+    longitude: location?.longitude,
+  });
+  const sq = quote?.stores[0];
+  const area = location?.pincode;
+
+  let deliveryTitle = "Delivered by the shop";
+  let deliveryText = "Choose your area at the top to see the delivery charge";
+  let deliveryBad = false;
+  if (sq && area) {
+    if (sq.serviceable === false) {
+      deliveryTitle = `Doesn't deliver to ${area}`;
+      deliveryText = "This shop delivers nearby only. Try changing your area.";
+      deliveryBad = true;
+    } else if (sq.deliveryFee === 0) {
+      deliveryTitle = `Free delivery to ${area}`;
+      deliveryText = `Delivered by ${vendor.businessName}`;
+    } else {
+      deliveryTitle = `Delivery ${rupees(sq.deliveryFee)} to ${area}`;
+      deliveryText = sq.freeDeliveryAbove
+        ? `Free on orders above ${rupees(sq.freeDeliveryAbove)} · delivered by the shop`
+        : `Delivered by ${vendor.businessName}`;
+    }
+  }
+
   useEffect(() => {
-    const checkSubscription = async () => {
-      if (!user || product.stockQuantity > 0) return;
-
+    if (!user || !out) return;
+    import("@/lib/api/client").then(async ({ apiClient }) => {
       try {
-        const { apiClient } = await import("@/lib/api/client");
-        // Note: Backend doesn't have a check subscription endpoint yet
-        // We'll use getSubscriptions to check all user subscriptions
         const data = await apiClient.getSubscriptions();
         if (data.success) {
-          const isSubbed = data.data.some((sub: any) => sub.productId === product.id);
-          setIsSubscribed(isSubbed);
+          setIsSubscribed(data.data.some((sub: { productId: string }) => sub.productId === product.id));
         }
-      } catch (error) {
-        console.error("Failed to check subscription:", error);
+      } catch {
+        // not critical
       }
-    };
-
-    checkSubscription();
-  }, [user, product.id, product.stockQuantity]);
-
-  const handleAddToCart = () => {
-    const cartItem: CartItem = {
-      id: product.id,
-      name: product.name,
-      price: price,
-      image: product.images.length > 0 ? product.images[0] : undefined,
-      quantity: quantity,
-      stockQuantity: product.stockQuantity,
-      vendorId: vendor.id,
-      vendorName: vendor.businessName,
-    };
-
-    setIsAdding(true);
-    dispatch(addToCart(cartItem));
-
-    setTimeout(() => {
-      setIsAdding(false);
-    }, 1000);
-  };
+    });
+  }, [user, product.id, out]);
 
   const handleNotifyMe = async () => {
     if (!user) {
-      setNotifyMessage("Please sign in to get notified");
-      setTimeout(() => setNotifyMessage(null), 3000);
+      setNotifyMessage("Sign in to get a message when it's back.");
       return;
     }
-
     setIsSubscribing(true);
     setNotifyMessage(null);
-
     try {
       const { apiClient } = await import("@/lib/api/client");
       await apiClient.subscribeToNotifications(product.id);
-
       setIsSubscribed(true);
-      setNotifyMessage("You'll be notified when this product is back in stock!");
-      setTimeout(() => setNotifyMessage(null), 5000);
-    } catch (error: any) {
-      setNotifyMessage(error.message || "Failed to subscribe to notifications");
-      setTimeout(() => setNotifyMessage(null), 5000);
+      setNotifyMessage("Done — we'll tell you when it's back in stock.");
+    } catch (error) {
+      setNotifyMessage(error instanceof Error ? error.message : "Couldn't set the reminder. Try again.");
     } finally {
       setIsSubscribing(false);
     }
   };
 
-  return (
-    <div className="space-y-5">
-      {/* Product Name */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 leading-tight mb-2">
-          {product.name}
-        </h1>
+  const notifyButton = (
+    <button
+      type="button"
+      onClick={handleNotifyMe}
+      disabled={isSubscribing || isSubscribed}
+      className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-label/25 bg-card text-[16px] font-semibold text-label disabled:opacity-60 cursor-pointer"
+    >
+      <Bell className="h-5 w-5" aria-hidden />
+      {isSubscribed ? "We'll tell you when it's back" : isSubscribing ? "Saving…" : "Tell me when it's back"}
+    </button>
+  );
 
-        {/* Category Badge */}
-        <Link
-          href={`/categories/${product.category.slug}`}
-          className="inline-flex items-center text-sm text-gray-600 hover:text-orange-500 transition-colors"
-        >
-          {product.category.name}
-        </Link>
+  const buyControls = out ? (
+    notifyButton
+  ) : qty > 0 ? (
+    <div className="flex w-full gap-2">
+      <div className="w-[132px] shrink-0">
+        <AddStepper item={cartItem} size="lg" tone="neutral" />
       </div>
+      <Link
+        href="/cart"
+        className="flex h-12 flex-1 items-center justify-center rounded-xl bg-cta text-[16px] font-semibold text-white hover:bg-cta-hover"
+      >
+        Go to cart
+      </Link>
+    </div>
+  ) : (
+    <AddStepper item={cartItem} size="lg" />
+  );
 
-      {/* Rating */}
-      {product.averageRating && product.reviewCount > 0 ? (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <svg
-                key={star}
-                className={`w-5 h-5 ${
-                  star <= Math.round(Number(product.averageRating))
-                    ? "text-yellow-400"
-                    : "text-gray-300"
-                }`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            ))}
-            <span className="ml-2 text-lg font-semibold text-gray-900">
-              {Number(product.averageRating).toFixed(1)}
-            </span>
-          </div>
-          <a
-            href="#reviews"
-            className="text-gray-700 hover:text-orange-500 hover:underline transition-colors"
-          >
-            {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
-          </a>
-        </div>
-      ) : (
-        <div className="text-gray-500 text-sm">No reviews yet</div>
+  const address = shopAddress(vendor);
+
+  return (
+    <div className="px-4 pt-4 lg:px-0 lg:pt-0">
+      <Link
+        href={`/stores/${vendor.id}`}
+        className="inline-flex max-w-full items-center gap-1 text-[14px] font-medium text-label-2 hover:text-label"
+      >
+        <Store className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="truncate">{vendor.businessName}</span>
+        <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
+      </Link>
+
+      <h1 className="mt-1 text-[22px] font-bold leading-snug text-label sm:text-[28px]">{product.name}</h1>
+
+      {rating > 0 && product.reviewCount > 0 && (
+        <a href="#reviews" className="mt-1 inline-flex items-center gap-1 text-[14px] text-label-2 hover:underline">
+          <span className="rounded-md bg-ok px-1.5 py-0.5 text-[13px] font-semibold text-white">{rating.toFixed(1)} ★</span>
+          {product.reviewCount} {product.reviewCount === 1 ? "review" : "reviews"}
+        </a>
       )}
 
-      <div className="border-t border-gray-200"></div>
-
-      {/* Price */}
-      <div className="space-y-1">
-        <div className="flex items-baseline gap-3">
-          <span className="text-3xl font-bold text-gray-900">
-            ₹{price.toFixed(0)}
-          </span>
-          {compareAtPrice && discount > 0 && (
-            <>
-              <span className="text-xl text-gray-500 line-through">
-                ₹{compareAtPrice.toFixed(0)}
-              </span>
-              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 text-sm font-semibold">
-                {discount}% OFF
-              </span>
-            </>
-          )}
-        </div>
-        <p className="text-sm text-gray-600">Inclusive of all taxes</p>
-      </div>
-
-      {/* Stock Status */}
-      <div>
-        {product.stockQuantity > 0 ? (
-          <div className="flex items-center text-green-700">
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="font-semibold">
-              {product.stockQuantity > 20
-                ? "In Stock"
-                : `Only ${product.stockQuantity} left in stock`}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center text-red-600">
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="font-semibold">Out of Stock</span>
-          </div>
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
+        <span className="text-[28px] font-bold tabular-nums text-label">{rupees(price)}</span>
+        {discount > 0 && compareAt && (
+          <>
+            <span className="text-[16px] text-label-3 line-through">{rupees(compareAt)}</span>
+            <span className="text-[16px] font-semibold text-ok">{discount}% off</span>
+          </>
         )}
       </div>
+      <p className="text-[13px] text-label-2">Inclusive of all taxes</p>
 
-      <div className="border-t border-gray-200"></div>
+      {out ? (
+        <p className="mt-2 text-[15px] font-semibold text-bad">Out of stock</p>
+      ) : product.stockQuantity <= 5 ? (
+        <p className="mt-2 text-[15px] font-semibold text-warn">Only {product.stockQuantity} left</p>
+      ) : null}
 
-      {/* Quantity Selector */}
-      {product.stockQuantity > 0 && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Quantity
-          </label>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
-              disabled={quantity <= 1}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-              </svg>
-            </button>
-            <input
-              type="number"
-              min="1"
-              max={product.stockQuantity}
-              value={quantity}
-              onChange={(e) => {
-                const val = parseInt(e.target.value) || 1;
-                setQuantity(Math.min(Math.max(1, val), product.stockQuantity));
-              }}
-              className="w-20 h-10 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              onClick={() => setQuantity(Math.min(product.stockQuantity, quantity + 1))}
-              className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition-colors"
-              disabled={quantity >= product.stockQuantity}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Desktop: buy right here. Phones use the bar at the bottom. */}
+      <div className="mt-5 hidden max-w-sm lg:block">{buyControls}</div>
+      {notifyMessage && <p className="mt-2 text-[14px] text-label-2" role="status">{notifyMessage}</p>}
 
-      {/* Add to Cart / Notify Me Button */}
-      {product.stockQuantity > 0 ? (
-        <button
-          onClick={handleAddToCart}
-          disabled={isAdding}
-          className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
-            isAdding
-              ? "bg-green-600 text-white"
-              : "bg-[#FF9933] text-white hover:bg-[#e8872b] shadow-md"
-          }`}
-        >
-          {isAdding ? (
-            <span className="flex items-center justify-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Added to Cart!
-            </span>
-          ) : (
-            "Add to Cart"
-          )}
-        </button>
-      ) : (
-        <button
-          onClick={handleNotifyMe}
-          disabled={isSubscribing || isSubscribed}
-          className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
-            isSubscribed
-              ? "bg-green-600 text-white cursor-default"
-              : isSubscribing
-              ? "bg-gray-400 text-white cursor-wait"
-              : "bg-[#FF9933] text-white hover:bg-[#e8872b] shadow-md"
-          }`}
-        >
-          {isSubscribing ? (
-            <span className="flex items-center justify-center">
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Subscribing...
-            </span>
-          ) : isSubscribed ? (
-            <span className="flex items-center justify-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              You'll be notified
-            </span>
-          ) : (
-            <span className="flex items-center justify-center">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              Notify Me When Available
-            </span>
-          )}
-        </button>
-      )}
+      {/* Why buy here */}
+      <ul className="mt-5 divide-y divide-hairline rounded-2xl border border-hairline">
+        <li className="flex gap-3 p-4">
+          <Truck className={`mt-0.5 h-5 w-5 shrink-0 ${deliveryBad ? "text-bad" : "text-label"}`} aria-hidden />
+          <span>
+            <span className={`block text-[15px] font-semibold ${deliveryBad ? "text-bad" : "text-label"}`}>{deliveryTitle}</span>
+            <span className="block text-[14px] text-label-2">{deliveryText}</span>
+          </span>
+        </li>
+        <li className="flex gap-3 p-4">
+          <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-label" aria-hidden />
+          <span>
+            <span className="block text-[15px] font-semibold text-label">Cash on delivery or UPI</span>
+            <span className="block text-[14px] text-label-2">Pay the shop directly — no advance needed</span>
+          </span>
+        </li>
+        <li className="flex gap-3 p-4">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-label" aria-hidden />
+          <span>
+            <span className="block text-[15px] font-semibold text-label">Shop confirms first</span>
+            <span className="block text-[14px] text-label-2">Price and stock are checked before your order is packed</span>
+          </span>
+        </li>
+      </ul>
 
-      {/* Notify Me Message */}
-      {notifyMessage && (
-        <div
-          className={`p-3 rounded-lg text-sm ${
-            notifyMessage.includes("sign in")
-              ? "bg-yellow-50 text-yellow-800 border border-yellow-200"
-              : notifyMessage.includes("notified")
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
-          }`}
-        >
-          {notifyMessage}
-        </div>
-      )}
-
-      <div className="border-t border-gray-200"></div>
-
-      {/* Vendor Information */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Sold by</h3>
-        <Link
-          href={`/stores/${vendor.id}`}
-          className="flex items-center gap-3 group"
-        >
-          <div className="w-12 h-12 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+      {/* The shop */}
+      <div className="mt-4 rounded-2xl bg-fill p-4">
+        <p className="text-[13px] text-label-2">Sold and delivered by</p>
+        <Link href={`/stores/${vendor.id}`} className="mt-2 flex items-center gap-3">
+          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
             {vendor.storeLogo ? (
-              <Image
-                src={vendor.storeLogo}
-                alt={vendor.businessName}
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-              />
+              <Image src={vendor.storeLogo} alt="" fill sizes="48px" className="object-cover" />
             ) : (
-              <Store className="w-5 h-5 text-orange-500" />
+              <Store className="h-5 w-5 text-label-2" aria-hidden />
             )}
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900 group-hover:text-orange-500 transition-colors">
-              {vendor.businessName}
-            </p>
-            <p className="text-sm text-gray-600">
-              {vendor.city}, {vendor.state}
-            </p>
-            {vendor.averageRating && vendor.reviewCount > 0 && (
-              <div className="flex items-center mt-1">
-                <span className="text-sm font-medium text-gray-900">
-                  {Number(vendor.averageRating).toFixed(1)}
-                </span>
-                <svg className="w-4 h-4 ml-1 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                <span className="ml-1 text-sm text-gray-600">
-                  ({vendor.reviewCount})
-                </span>
-              </div>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-semibold text-label">{vendor.businessName}</span>
+            {address && (
+              <span className="mt-0.5 flex items-start gap-1 text-[13px] text-label-2">
+                <MapPin className="mt-[2px] h-3.5 w-3.5 shrink-0" aria-hidden />
+                {address}
+              </span>
             )}
-          </div>
-          <svg className="w-5 h-5 text-gray-400 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
         </Link>
+        <div className={`mt-3 grid gap-2 ${vendor.contactPhone ? "grid-cols-2" : "grid-cols-1"}`}>
+          {vendor.contactPhone && (
+            <a
+              href={`tel:${vendor.contactPhone}`}
+              className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label"
+            >
+              <Phone className="h-4 w-4" aria-hidden /> Call shop
+            </a>
+          )}
+          <Link
+            href={`/stores/${vendor.id}`}
+            className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label"
+          >
+            <Store className="h-4 w-4" aria-hidden /> Visit shop
+          </Link>
+        </div>
       </div>
 
-      {/* Delivery Info */}
-      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <div className="flex items-start gap-3">
-          <svg className="w-6 h-6 text-gray-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-          </svg>
-          <div>
-            <p className="font-semibold text-gray-900">Local Delivery Available</p>
-            <p className="text-sm text-gray-600 mt-1">
-              This product will be delivered by {vendor.businessName}
-            </p>
-          </div>
-        </div>
+      {/* Phone: price + action always within thumb reach */}
+      <div className="lg:hidden">
+        <StickyBar aboveTabBar>
+          {qty === 0 && (
+            <div className="min-w-0 shrink-0">
+              <p className="text-[18px] font-bold leading-tight tabular-nums text-label">{rupees(price)}</p>
+              {discount > 0 && <p className="text-[13px] font-semibold text-ok">{discount}% off</p>}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">{buyControls}</div>
+        </StickyBar>
       </div>
     </div>
   );
