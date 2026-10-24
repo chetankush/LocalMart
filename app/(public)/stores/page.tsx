@@ -82,10 +82,6 @@ export default async function StoresPage({ searchParams }: StoresPageProps) {
   }));
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-orange-50/30 to-purple-50/20">
-      <div className="relative w-full">
-        <StoresList vendors={vendorsWithFavorites} selectedPincode={pincode} selectedCity={city} />
-      </div>
-    </div>
+    <StoresList vendors={vendorsWithFavorites} selectedPincode={pincode} selectedCity={city} />
   );
 }

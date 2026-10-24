@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import ModernStoreCard from "../ModernStoreCard";
+import { ChevronRight } from "lucide-react";
+import { Thumb } from "@/components/app/ui";
 import StoreCardSkeleton from "./StoreCardSkeleton";
 import {
   isStoreOpen,
@@ -41,6 +42,16 @@ interface Props {
   onNavigate: (storeId: string) => void;
   loadingLink?: string | null;
 }
+
+const CATEGORY: Record<string, string> = {
+  GROCERY: "Grocery",
+  FASHION: "Fashion",
+  PHARMACY: "Pharmacy",
+  RESTAURANT: "Food",
+  ELECTRONICS: "Electronics",
+  HOME_SERVICES: "Services",
+  OTHER: "Shop",
+};
 
 const filters: { key: Exclude<FilterKey, null>; label: string }[] = [
   { key: "open", label: "Open now" },
@@ -90,83 +101,101 @@ export default function StoresNearYouSection({
     });
 
   return (
-    <section className="bg-primary-xlight">
-      <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="flex items-end justify-between mb-4 sm:mb-5">
-          <div>
-            <h2 className="font-heading text-ink text-xl sm:text-2xl md:text-3xl font-semibold tracking-tight">
-              {locationLabel ? `Stores in ${locationLabel}` : "Stores near you"}
-            </h2>
-            <p className="text-ink-2 text-sm mt-1">
-              {locationLabel
-                ? "Local favourites from your neighbourhood"
-                : "Set your location to see shops nearby"}
-            </p>
-          </div>
-          <Link
-            href="/stores"
-            className="text-sm font-semibold text-primary-dark hover:text-ink transition-colors"
-          >
-            View all →
-          </Link>
+    <section className="mx-auto w-full max-w-2xl px-4 pt-5 lg:max-w-4xl">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[24px] font-bold leading-tight tracking-[-0.02em] text-label">
+            Shops near you
+          </h2>
+          <p className="mt-0.5 text-[15px] text-label-2">
+            {locationLabel ? `Delivering to ${locationLabel}` : "Set your area to see shops nearby"}
+          </p>
         </div>
+        <Link href="/stores" className="shrink-0 rounded-lg px-1 py-2 text-[16px] text-tint">
+          See all
+        </Link>
+      </div>
 
-        <div className="flex gap-2 mb-5 overflow-x-auto scrollbar-hide pb-1">
-          <button
-            onClick={() => setActive(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all whitespace-nowrap ${
-              active === null
-                ? "bg-ink text-white border-ink"
-                : "bg-white text-ink-2 border-sand hover:border-ink"
-            }`}
-          >
-            All
-          </button>
-          {filters.map((f) => (
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filter shops">
+        {[{ key: null, label: "All" } as const, ...filters].map((f) => {
+          const on = active === f.key;
+          return (
             <button
-              key={f.key}
-              onClick={() => setActive(active === f.key ? null : f.key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border-2 transition-all whitespace-nowrap ${
-                active === f.key
-                  ? "bg-ink text-white border-ink"
-                  : "bg-white text-ink-2 border-sand hover:border-ink"
+              key={f.label}
+              onClick={() => setActive(f.key === null ? null : on ? null : f.key)}
+              aria-pressed={on}
+              className={`h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-[15px] font-medium transition-colors cursor-pointer ${
+                on ? "bg-label text-white" : "bg-card text-label"
               }`}
             >
               {f.label}
             </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {Array.from({ length: 8 }).map((_, i) => <StoreCardSkeleton key={i} />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-sand bg-white/40 px-6 py-12 text-center">
-            <h3 className="font-heading text-ink text-lg font-semibold mb-2">
-              No stores match this filter
-            </h3>
-            <button
-              onClick={() => setActive(null)}
-              className="mt-2 px-4 py-2 bg-ink text-white rounded-full text-sm font-medium"
-            >
-              Clear filter
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {filtered.slice(0, 8).map((v) => (
-              <ModernStoreCard
-                key={v.id}
-                store={v as any}
-                onNavigate={onNavigate}
-                isLoading={loadingLink === `/stores/${v.id}`}
-                showRatingBadge
-              />
-            ))}
-          </div>
-        )}
+          );
+        })}
       </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => <StoreCardSkeleton key={i} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl bg-card px-6 py-10 text-center">
+          <p className="text-[17px] font-semibold text-label">No shops match this filter</p>
+          <button
+            onClick={() => setActive(null)}
+            className="mt-3 h-11 rounded-xl bg-fill px-5 text-[15px] font-semibold text-label cursor-pointer"
+          >
+            Show all shops
+          </button>
+        </div>
+      ) : (
+        <ul className="overflow-hidden rounded-2xl bg-card divide-y divide-hairline">
+          {filtered.slice(0, 8).map((v) => {
+            const open = isStoreOpen(v.businessHours);
+            const c = v.businessAddress?.coordinates;
+            const km =
+              hasUserCoords && c ? Math.round(calculateDistanceKm(userLat!, userLng!, c.lat, c.lng) * 10) / 10 : null;
+            const rating = Number(v.averageRating) || 0;
+            const busy = loadingLink === `/stores/${v.id}`;
+            return (
+              <li key={v.id}>
+                <button
+                  onClick={() => onNavigate(v.id)}
+                  className="flex min-h-[76px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-fill cursor-pointer"
+                >
+                  <Thumb src={v.storeLogo} alt={v.businessName} size={56} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[17px] font-semibold leading-snug text-label">{v.businessName}</span>
+                    <span className="block truncate text-[14px] text-label-2">
+                      {CATEGORY[v.businessType] ?? "Shop"} · {v.locality || v.city}
+                    </span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[14px]">
+                      <span className={open ? "font-medium text-ok" : "text-label-2"}>{open ? "Open now" : "Closed"}</span>
+                      {v.reviewCount > 0 ? (
+                        <>
+                          <span className="text-label-3" aria-hidden>·</span>
+                          <span className="text-label-2">★ {rating.toFixed(1)} ({v.reviewCount})</span>
+                        </>
+                      ) : null}
+                      {km !== null && (
+                        <>
+                          <span className="text-label-3" aria-hidden>·</span>
+                          <span className="text-label-2">{km} km</span>
+                        </>
+                      )}
+                    </span>
+                  </span>
+                  {busy ? (
+                    <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-label-3 border-t-transparent" aria-label="Opening" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

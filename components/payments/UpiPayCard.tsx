@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Clock, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { Button, Notice, rupees } from "@/components/app/ui";
 
 interface UpiPayCardProps {
   orderId: string;
@@ -45,30 +46,26 @@ export function UpiPayCard({
 
   if (status === "COMPLETED") {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
-        <CheckCircle2 className="h-5 w-5 shrink-0" />
-        <p className="text-base font-semibold">Paid ₹{amount.toFixed(0)} — {storeName} confirmed</p>
-      </div>
+      <Notice tone="ok" icon={<CheckCircle2 className="h-5 w-5 text-ok" aria-hidden />}>
+        <span className="font-semibold">Paid {rupees(amount)}</span> — {storeName} confirmed they got it.
+      </Notice>
     );
   }
 
   if (status === "PROCESSING") {
     return (
-      <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
-        <Clock className="mt-0.5 h-5 w-5 shrink-0" />
-        <div>
-          <p className="text-base font-semibold">Payment sent — waiting for {storeName} to confirm</p>
-          <p className="mt-1 text-sm text-blue-800">They will check their UPI app and mark it received.</p>
-        </div>
-      </div>
+      <Notice tone="info" icon={<Clock className="h-5 w-5 text-info" aria-hidden />}>
+        <span className="block font-semibold">Payment sent — waiting for {storeName} to confirm</span>
+        <span className="text-label-2">They&apos;ll check their UPI app and mark it received.</span>
+      </Notice>
     );
   }
 
   if (!upiId) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        {storeName} has not added a UPI ID yet. Please pay them by cash or UPI when your order arrives.
-      </div>
+      <Notice tone="warn">
+        {storeName} hasn&apos;t added a UPI ID yet. Please pay them in cash or by UPI when your order arrives.
+      </Notice>
     );
   }
 
@@ -89,32 +86,26 @@ export function UpiPayCard({
   };
 
   return (
-    <div className="rounded-xl border-2 border-orange-200 bg-orange-50 p-4">
-      <p className="text-lg font-bold text-gray-900">Pay ₹{amount.toFixed(0)} to {storeName}</p>
-      <p className="mb-3 text-sm text-gray-600">Money goes straight to the shop · UPI से भुगतान करें</p>
+    <div className="rounded-2xl bg-saffron-soft p-4">
+      <p className="text-[20px] font-bold tracking-[-0.01em] text-label">Pay {rupees(amount)}</p>
+      <p className="mb-4 text-[15px] text-label-2">
+        Goes straight to {storeName} · UPI से भुगतान करें
+      </p>
 
-      <a
-        href={link}
-        className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-[#FF9933] px-4 text-base font-bold text-white hover:bg-[#e8872b]"
-      >
-        <Smartphone className="h-5 w-5" />
+      <Button href={link} full>
+        <Smartphone className="h-5 w-5" aria-hidden />
         Pay with GPay / PhonePe / Paytm
-      </a>
+      </Button>
 
       <div className="mt-4 hidden flex-col items-center gap-2 sm:flex">
-        <p className="text-sm text-gray-600">Or scan with any UPI app</p>
+        <p className="text-[14px] text-label-2">Or scan with any UPI app</p>
         <UpiQr value={link} />
       </div>
-      <p className="mt-3 break-all text-center text-xs text-gray-500">UPI ID: {upiId}</p>
+      <p className="mt-3 break-all text-center text-[13px] text-label-2">UPI ID: {upiId}</p>
 
-      <button
-        type="button"
-        onClick={handlePaid}
-        disabled={saving}
-        className="mt-4 min-h-[48px] w-full rounded-xl border-2 border-green-600 bg-white px-4 text-base font-semibold text-green-700 hover:bg-green-50 disabled:opacity-60"
-      >
-        {saving ? "Saving…" : "✓ I have paid"}
-      </button>
+      <Button variant="secondary" full onClick={handlePaid} loading={saving} className="mt-3 bg-white hover:bg-white/80">
+        {saving ? "Saving…" : "I have paid"}
+      </Button>
     </div>
   );
 }
@@ -139,5 +130,5 @@ function UpiQr({ value, size = 180 }: { value: string; size?: number }) {
     };
   }, [value, size]);
 
-  return <canvas ref={canvasRef} width={size} height={size} className="rounded-lg bg-white" />;
+  return <canvas ref={canvasRef} width={size} height={size} className="rounded-xl bg-white" />;
 }

@@ -54,12 +54,12 @@ export default function CartIcon() {
     >
       <Link
         href="/cart"
-        className="relative p-2 hover:bg-gray-700 rounded-lg transition-colors block"
-        aria-label="Shopping cart"
+        className="relative flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-fill active:bg-fill"
+        aria-label={`Cart${mounted && itemsCount ? `, ${itemsCount} item${itemsCount === 1 ? '' : 's'}` : ''}`}
       >
-        <ShoppingCart className="w-6 h-6 text-white" />
-        {mounted && (
-          <span className="absolute top-0.5 right-0.5 bg-[#FF9933] text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center leading-none">
+        <ShoppingCart className="h-6 w-6 text-label" strokeWidth={1.9} />
+        {mounted && itemsCount > 0 && (
+          <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-tint px-1 text-[11px] font-bold leading-none text-white">
             {itemsCount > 99 ? '99+' : itemsCount}
           </span>
         )}

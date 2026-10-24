@@ -1,11 +1,33 @@
 @theme {
-  /* Font families */
-  /* Display/heading: General Sans (Fontshare — loaded via <link> in layout.tsx) */
-  /* Body + prices + brand: DM Sans (next/font)                                  */
-  --font-family-sans: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
-  --font-family-display: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
-  --font-family-heading: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
-  --font-family-brand: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  /* ─── App UI (Apple-style) ─────────────────────────────────────
+     One calm system for customer + shop screens: grey canvas, white
+     grouped sections, near-black text and primary buttons, saffron
+     only as the brand accent. Text colours meet WCAG AA on white. */
+  --color-canvas: #F5F5F7;
+  --color-card: #FFFFFF;
+  --color-label: #1D1D1F;
+  --color-label-2: #6E6E73;
+  --color-label-3: #8E8E93;
+  --color-hairline: #E3E3E8;
+  --color-fill: #EDEDF0;
+  --color-fill-strong: #E2E2E7;
+  --color-tint: #C2410C;
+  --color-saffron: #FF8A1F;
+  --color-saffron-soft: #FFF1E3;
+  --color-ok: #1A7F37;
+  --color-ok-soft: #E7F4EA;
+  --color-bad: #C5221F;
+  --color-bad-soft: #FDECEA;
+  --color-warn: #8A5300;
+  --color-warn-soft: #FFF3DC;
+  --color-info: #0B57D0;
+  --color-info-soft: #E8F0FE;
+
+  /* Font families — all the device's system UI font (see globals.css) */
+  --font-family-sans: var(--font-system);
+  --font-family-display: var(--font-system);
+  --font-family-heading: var(--font-system);
+  --font-family-brand: var(--font-system);
 
   /* Custom breakpoints */
   --breakpoint-xs: 320px;

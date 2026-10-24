@@ -75,7 +75,7 @@ export function ApprovalCard({ order }: Props) {
 
   return (
     <article
-      className={`relative bg-white rounded-2xl border ${isUrgent ? 'border-laal/60' : 'border-sand'} shadow-sm overflow-hidden transition-all ${shake ? 'animate-shake' : ''}`}
+      className={`relative bg-card rounded-3xl overflow-hidden transition-all ${isUrgent ? 'ring-2 ring-bad/40' : ''} ${shake ? 'animate-shake' : ''}`}
       style={{ animation: 'fade-slide-up 240ms ease-out' }}
     >
       <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6">
@@ -152,31 +152,31 @@ export function ApprovalCard({ order }: Props) {
       </div>
 
       {/* Sticky bottom action row */}
-      <div className="grid grid-cols-2 border-t border-sand">
+      <div className="grid grid-cols-2 gap-3 border-t border-hairline p-4">
         <button
           type="button"
           disabled={submitting}
           onClick={() => handleAction('reject')}
           aria-label={`Reject order ${order.orderNumber}`}
-          className="h-12 md:h-14 font-semibold text-laal hover:bg-laal/5 disabled:opacity-50 transition-colors border-r border-sand"
+          className="h-[52px] rounded-xl bg-bad-soft text-[17px] font-semibold text-bad disabled:opacity-50 transition-colors cursor-pointer"
         >
           {state === 'submitting-reject' ? (
             <Spinner />
           ) : (
-            <span>❌ Reject</span>
+            <span>Reject</span>
           )}
         </button>
         <button
           type="button"
           disabled={submitting}
           onClick={() => handleAction('approve')}
-          aria-label={`Approve order ${order.orderNumber}`}
-          className="h-12 md:h-14 font-semibold text-white bg-accent hover:bg-accent-dark disabled:opacity-50 transition-colors"
+          aria-label={`Accept order ${order.orderNumber}`}
+          className="h-[52px] rounded-xl bg-label text-[17px] font-semibold text-white hover:bg-[#3a3a3c] disabled:opacity-50 transition-colors cursor-pointer"
         >
           {state === 'submitting-approve' ? (
             <Spinner />
           ) : (
-            <span>✅ Approve</span>
+            <span>Accept order</span>
           )}
         </button>
       </div>

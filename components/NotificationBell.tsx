@@ -265,7 +265,7 @@ export default function NotificationBell() {
       {/* Bell Icon */}
       <button
         onClick={() => user ? setIsOpen(!isOpen) : null}
-        className="relative p-2 text-white hover:bg-gray-800 rounded-full transition-colors cursor-pointer"
+        className="relative flex h-11 w-11 items-center justify-center text-label hover:bg-fill rounded-full transition-colors cursor-pointer"
       >
         <svg
           className="w-6 h-6"

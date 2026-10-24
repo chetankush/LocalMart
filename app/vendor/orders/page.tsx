@@ -2,6 +2,8 @@ import { requireRole } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import OrdersList from "./OrdersList";
+import { RefreshCw } from "lucide-react";
+import { EmptyState, LargeTitle, Page } from "@/components/app/ui";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -71,62 +73,27 @@ export default async function VendorOrdersPage() {
 
   if (result.error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-            <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-            <p className="text-sm text-gray-600">
-              Manage and track your orders
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow p-8 text-center">
-            <div className="text-red-400 mb-4">
-              <svg
-                className="w-16 h-16 mx-auto"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Error Loading Orders
-            </h3>
-            <p className="text-gray-600 mb-4">
-              There was an error loading your orders. Please try refreshing the
-              page.
-            </p>
-          </div>
-        </div>
-      </div>
+      <Page>
+        <LargeTitle title="Orders" />
+        <EmptyState
+          icon={<RefreshCw className="h-8 w-8" aria-hidden />}
+          title="Couldn't load your orders"
+          body="Check your internet and refresh the page."
+        />
+      </Page>
     );
   }
 
   const orders = result.orders;
+  const newCount = orders.filter((o: any) => o.status === "PENDING" || o.status === "PRE_ORDER").length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
-          <p className="text-sm text-gray-600">
-            Manage and track your orders ({orders.length} total)
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <OrdersList orders={orders} />
-      </div>
-    </div>
+    <Page>
+      <LargeTitle
+        title="Orders"
+        subtitle={newCount > 0 ? `${newCount} new order${newCount === 1 ? "" : "s"} waiting for you` : "All caught up"}
+      />
+      <OrdersList orders={orders} />
+    </Page>
   );
 }

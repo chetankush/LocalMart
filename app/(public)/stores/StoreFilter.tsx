@@ -71,7 +71,7 @@ export default function StoreFilter({
   return (
     <div className="w-full">
       {/* Compact horizontal scrollable categories - Both Desktop & Mobile */}
-      <div className="relative bg-white border-b border-gray-200">
+      <div className="relative">
         {/* Left scroll button */}
         {canScrollLeft && (
           <button
@@ -95,7 +95,7 @@ export default function StoreFilter({
         {/* Scrollable container */}
         <div
           ref={scrollContainerRef}
-          className="flex gap-2 sm:gap-3 overflow-x-auto py-3 px-8 mx-auto scrollbar-hide scroll-smooth"
+          className="flex gap-2 overflow-x-auto py-1 scrollbar-hide scroll-smooth"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {loading ? (
@@ -120,8 +120,8 @@ export default function StoreFilter({
                   }
                   className={`flex-shrink-0 flex items-center gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full transition-all duration-200 cursor-pointer ${
                     isSelected
-                      ? "bg-[#FF9933] text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      ? "bg-label text-white"
+                      : "bg-card text-label hover:bg-fill"
                   }`}
                 >
                   {/* Small circular image */}

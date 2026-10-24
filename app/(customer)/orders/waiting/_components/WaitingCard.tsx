@@ -1,15 +1,16 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { CheckCircle2, Clock, Phone, XCircle } from 'lucide-react';
 import { UpiPayCard } from '@/components/payments/UpiPayCard';
 import { apiClient } from '@/lib/api/client';
-import { CountdownRing } from '@/components/ui/CountdownRing';
-import { StatusCopyRotator } from './StatusCopyRotator';
+import { OrderProgress, orderSteps } from '@/components/app/OrderProgress';
+import { Button, rupees } from '@/components/app/ui';
 
 interface OrderSummary {
   id: string;
   orderNumber: string;
   storeName: string;
+  storePhone?: string | null;
   items: { name: string; quantity: number; totalPrice: number }[];
   totalAmount: number;
   placedAt: string;
@@ -18,17 +19,26 @@ interface OrderSummary {
   upiId?: string | null;
 }
 
-type Status = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'PRE_ORDER' | 'OTHER';
-
-const TEN_MIN = 10 * 60 * 1000;
+const CONFIRMED = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const REPLY_WINDOW_MS = 10 * 60 * 1000;
 const MAX_POLL_MS = 12 * 60 * 1000;
 
+/** Minutes the shop has left to reply, refreshed every 15 s */
+function useMinutesLeft(placedAt: string) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  return Math.max(0, Math.ceil((new Date(placedAt).getTime() + REPLY_WINDOW_MS - now) / 60000));
+}
+
 export function WaitingCard({ order }: { order: OrderSummary }) {
-  const router = useRouter();
-  const [status, setStatus] = useState<Status>('PENDING');
-  const [stoppedReason, setStoppedReason] = useState<null | 'timeout'>(null);
-  const startedAt = new Date(order.placedAt);
-  const pollAbort = useRef<boolean>(false);
+  const [status, setStatus] = useState('PENDING');
+  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus ?? 'PENDING');
+  const [timedOut, setTimedOut] = useState(false);
+  const pollAbort = useRef(false);
+  const minutesLeft = useMinutesLeft(order.placedAt);
 
   useEffect(() => {
     pollAbort.current = false;
@@ -37,22 +47,17 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
     async function tick() {
       if (pollAbort.current) return;
       if (Date.now() - start > MAX_POLL_MS) {
-        setStoppedReason('timeout');
+        setTimedOut(true);
         return;
       }
       try {
         const res = await apiClient.getOrderStatus(order.id);
-        const s = (res.status as Status) ?? 'OTHER';
-        setStatus((prev) => (prev === s ? prev : s));
-        if (s === 'ACCEPTED') {
-          // UPI orders stay here so the customer can pay the shop right away
-          const upiDue = order.paymentMethod === 'UPI' && res.paymentStatus === 'PENDING';
-          if (!upiDue) setTimeout(() => router.push('/my-orders'), 2000);
-          return;
-        }
-        if (s === 'REJECTED' || s === 'PRE_ORDER') return;
+        setStatus(res.status);
+        setPaymentStatus(res.paymentStatus);
+        // Stop once the shop has answered
+        if (res.status !== 'PENDING') return;
       } catch {
-        // swallow and keep polling
+        // keep polling
       }
       setTimeout(tick, 3000);
     }
@@ -61,152 +66,105 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
     return () => {
       pollAbort.current = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
 
-  if (status === 'ACCEPTED' && order.paymentMethod === 'UPI') {
-    return (
-      <Card>
-        <div style={{ padding: 24 }}>
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 48 }}>✅</div>
-            <h3 style={{ color: '#16A34A' }}>Confirmed by {order.storeName}</h3>
-            <p style={{ color: '#64748B' }}>Now pay the shop to complete your order</p>
-          </div>
+  const confirmed = CONFIRMED.includes(status);
+  const rejected = status === 'REJECTED' || status === 'CANCELLED';
+  const upi = order.paymentMethod === 'UPI';
+
+  let icon = <Clock className="h-7 w-7 text-tint" aria-hidden />;
+  let iconBg = 'bg-saffron-soft';
+  let title = `Waiting for ${order.storeName}`;
+  let body =
+    minutesLeft > 0
+      ? `The shop usually replies within a few minutes (about ${minutesLeft} min left). You can leave this page.`
+      : 'The shop is taking a little longer. We’ll update My Orders when they reply.';
+
+  if (confirmed) {
+    icon = <CheckCircle2 className="h-7 w-7 text-ok" aria-hidden />;
+    iconBg = 'bg-ok-soft';
+    title = `Confirmed by ${order.storeName}`;
+    body = upi ? 'Now pay the shop to complete your order.' : 'Pay in cash when your order arrives.';
+  } else if (rejected) {
+    icon = <XCircle className="h-7 w-7 text-bad" aria-hidden />;
+    iconBg = 'bg-bad-soft';
+    title = `${order.storeName} couldn’t take your order`;
+    body = 'Nothing was charged. Try another shop nearby.';
+  } else if (status === 'PRE_ORDER') {
+    title = 'Saved as a pre-order';
+    body = `${order.storeName} didn’t reply in time. They’ll confirm as soon as they can.`;
+  } else if (timedOut) {
+    title = 'Still waiting';
+    body = 'This is taking longer than usual. Check My Orders for updates.';
+  }
+
+  const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
+
+  return (
+    <article className="mb-5 overflow-hidden rounded-3xl bg-card">
+      <div className="px-5 pt-6 pb-5 text-center">
+        <span className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full ${iconBg}`}>{icon}</span>
+        <h2 className="text-[22px] font-bold leading-tight tracking-[-0.01em] text-label">{title}</h2>
+        <p className="mx-auto mt-1.5 max-w-sm text-[16px] leading-snug text-label-2">{body}</p>
+        <p className="mt-2 text-[13px] text-label-3">Order #{order.orderNumber}</p>
+      </div>
+
+      {confirmed && upi && (
+        <div className="px-4 pb-4">
           <UpiPayCard
             orderId={order.id}
             orderNumber={order.orderNumber}
             amount={order.totalAmount}
             storeName={order.storeName}
             upiId={order.upiId}
-            paymentStatus={order.paymentStatus ?? 'PENDING'}
+            paymentStatus={paymentStatus}
           />
-          <a href="/my-orders" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: '#64748B' }}>
-            Go to My Orders →
-          </a>
         </div>
-      </Card>
-    );
-  }
+      )}
 
-  if (status === 'ACCEPTED') {
-    return (
-      <Card>
-        <div style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>✅</div>
-          <h3 style={{ color: '#16A34A' }}>Confirmed by {order.storeName}</h3>
-          <p style={{ color: '#64748B' }}>Taking you to your orders…</p>
+      {!rejected && (
+        <div className="border-t border-hairline">
+          <OrderProgress steps={orderSteps(status, order.paymentMethod, paymentStatus)} />
         </div>
-      </Card>
-    );
-  }
+      )}
 
-  if (status === 'PRE_ORDER') {
-    return (
-      <Card tone="blue">
-        <div style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>📦</div>
-          <h3>We'll confirm shortly</h3>
-          <p style={{ color: '#475569' }}>
-            {order.storeName} didn't respond in time, so we've converted this to a Pre-Order. We'll update you as soon as they confirm.
-          </p>
-          <a
-            href="/my-orders"
-            style={{
-              display: 'inline-block',
-              marginTop: 12,
-              padding: '10px 20px',
-              background: '#1E293B',
-              color: 'white',
-              borderRadius: 8,
-              textDecoration: 'none',
-            }}
-          >
-            Go to My Orders
-          </a>
-        </div>
-      </Card>
-    );
-  }
+      <details className="group border-t border-hairline">
+        <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between px-4 text-[16px] text-label">
+          <span>
+            {itemCount} item{itemCount === 1 ? '' : 's'} · <span className="font-semibold">{rupees(order.totalAmount)}</span>
+          </span>
+          <span className="text-[15px] text-tint group-open:hidden">Show</span>
+          <span className="hidden text-[15px] text-tint group-open:inline">Hide</span>
+        </summary>
+        <ul className="px-4 pb-3 text-[15px] text-label-2">
+          {order.items.map((i) => (
+            <li key={i.name} className="flex justify-between gap-3 py-1">
+              <span>
+                {i.quantity} × {i.name}
+              </span>
+              <span className="tabular-nums">{rupees(i.totalPrice)}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
 
-  if (status === 'REJECTED') {
-    return (
-      <Card tone="gray">
-        <div style={{ padding: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>😔</div>
-          <h3>{order.storeName} couldn't fulfill your order</h3>
-          <p style={{ color: '#475569' }}>Your items are back in stock elsewhere.</p>
-          <a
-            href="/"
-            style={{
-              display: 'inline-block',
-              marginTop: 12,
-              padding: '10px 20px',
-              background: '#FF9933',
-              color: 'white',
-              borderRadius: 8,
-              textDecoration: 'none',
-            }}
-          >
-            Browse similar stores
-          </a>
-        </div>
-      </Card>
-    );
-  }
-
-  if (stoppedReason === 'timeout') {
-    return (
-      <Card tone="gray">
-        <div style={{ padding: 24, textAlign: 'center' }}>
-          <h3>Something took longer than expected</h3>
-          <p>Check My Orders for the latest status.</p>
-          <a href="/my-orders">Go to My Orders →</a>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <div style={{ display: 'flex', gap: 24, padding: 24, alignItems: 'center' }}>
-        <CountdownRing startedAt={startedAt} durationMs={TEN_MIN} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, color: '#94A3B8', letterSpacing: 1 }}>
-            ORDER #{order.orderNumber}
-          </div>
-          <h3 style={{ margin: '4px 0 8px', fontSize: 22 }}>{order.storeName}</h3>
-          <StatusCopyRotator storeName={order.storeName} />
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: 'pointer', color: '#64748B', fontSize: 14 }}>
-              View order ({order.items.length} items, ₹{order.totalAmount.toFixed(0)})
-            </summary>
-            <ul style={{ marginTop: 8, color: '#475569', fontSize: 14 }}>
-              {order.items.map((i) => (
-                <li key={i.name}>
-                  {i.quantity}× {i.name} — ₹{i.totalPrice.toFixed(0)}
-                </li>
-              ))}
-            </ul>
-          </details>
-        </div>
+      <div className="flex gap-3 border-t border-hairline p-4">
+        {order.storePhone && !rejected && (
+          <Button href={`tel:${order.storePhone}`} variant="secondary" size="md" className="flex-1">
+            <Phone className="h-[18px] w-[18px]" aria-hidden />
+            Call shop
+          </Button>
+        )}
+        {rejected ? (
+          <Button href="/" size="md" className="flex-1">
+            Find another shop
+          </Button>
+        ) : (
+          <Button href="/my-orders" variant={confirmed && !upi ? 'primary' : 'secondary'} size="md" className="flex-1">
+            {confirmed && !upi ? 'Done' : 'My orders'}
+          </Button>
+        )}
       </div>
-    </Card>
-  );
-}
-
-function Card({ children, tone }: { children: React.ReactNode; tone?: 'blue' | 'gray' }) {
-  const bg = tone === 'blue' ? '#EFF6FF' : tone === 'gray' ? '#F1F5F9' : 'white';
-  return (
-    <div
-      style={{
-        background: bg,
-        borderRadius: 16,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 8px 20px rgba(0,0,0,0.04)',
-        margin: '16px 0',
-      }}
-    >
-      {children}
-    </div>
+    </article>
   );
 }

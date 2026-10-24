@@ -68,9 +68,9 @@ export default function CitySelector({ selectedCity }: CitySelectorProps) {
     <div ref={dropdownRef} className="relative inline-block">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border-2 border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:border-gray-400 transition-all cursor-pointer"
+        className="flex h-11 items-center gap-2 rounded-xl bg-card px-4 text-[15px] font-medium text-label transition-colors hover:bg-fill cursor-pointer"
       >
-        <MapPin className="w-4 h-4 text-orange-500" />
+        <MapPin className="h-4 w-4 text-tint" />
         <span className="max-w-[120px] sm:max-w-[160px] truncate">
           {selectedCity || "All Cities"}
         </span>

@@ -2,19 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
-import { useRouter, usePathname } from 'next/navigation';
-import { Package, Clock, CheckCircle, XCircle, Truck, Home, ArrowLeft, Ban, Phone } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Package, Phone, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/hooks/useConfirm';
 import { UpiPayCard } from '@/components/payments/UpiPayCard';
-
-// Loading Spinner Component
-const LoadingSpinner = ({ size = "sm" }: { size?: "sm" | "md" }) => {
-  const sizeClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
-  return (
-    <div className={`${sizeClass} border-2 border-current border-t-transparent rounded-full animate-spin`} />
-  );
-};
+import { OrderProgress, orderSteps } from '@/components/app/OrderProgress';
+import { Button, EmptyState, LargeTitle, Page, Pill, Thumb, formatIST, rupees, type Tone } from '@/components/app/ui';
 
 interface OrderItem {
   id: string;
@@ -37,6 +31,7 @@ interface Order {
     fullName: string;
     phone: string;
     street: string;
+    landmark?: string;
     city: string;
     state: string;
     zipCode: string;
@@ -52,113 +47,82 @@ interface Order {
   items: OrderItem[];
 }
 
-// Statuses after the shop has accepted — the customer can pay by UPI now
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: 'Waiting for shop', tone: 'warn' },
+  ACCEPTED: { label: 'Confirmed', tone: 'info' },
+  PREPARING: { label: 'Being packed', tone: 'info' },
+  READY: { label: 'Ready', tone: 'info' },
+  OUT_FOR_DELIVERY: { label: 'On the way', tone: 'info' },
+  DELIVERED: { label: 'Delivered', tone: 'ok' },
+  CANCELLED: { label: 'Cancelled', tone: 'bad' },
+  REJECTED: { label: 'Shop could not take it', tone: 'bad' },
+  PRE_ORDER: { label: 'Pre-order', tone: 'neutral' },
+  REFUNDED: { label: 'Refunded', tone: 'neutral' },
+};
+
+// After the shop accepts, a UPI order can be paid
 const UPI_PAYABLE = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const FINISHED = ['DELIVERED', 'CANCELLED', 'REJECTED', 'REFUNDED'];
 
-const paymentMethodLabel = (m: string) =>
-  m === 'COD' ? 'Cash on Delivery' : m === 'UPI' ? 'UPI' : m;
-
-const paymentStatusLabel = (s: string) =>
-  s === 'COMPLETED'
-    ? 'Paid'
-    : s === 'PROCESSING'
-      ? 'Waiting for shop to confirm'
-      : s === 'REFUNDED'
-        ? 'Refunded'
-        : s === 'FAILED'
-          ? 'Failed'
+const paymentText = (o: Order) => {
+  const method = o.paymentMethod === 'COD' ? 'Cash on delivery' : o.paymentMethod === 'UPI' ? 'UPI' : o.paymentMethod;
+  const state =
+    o.paymentStatus === 'COMPLETED'
+      ? 'Paid'
+      : o.paymentStatus === 'PROCESSING'
+        ? 'Shop is checking payment'
+        : o.paymentStatus === 'REFUNDED'
+          ? 'Refunded'
           : 'Not paid yet';
-
-const statusConfig = {
-  PENDING: { label: 'Pending', icon: Clock, color: 'text-yellow-600 bg-yellow-100' },
-  ACCEPTED: { label: 'Accepted', icon: CheckCircle, color: 'text-orange-600 bg-orange-100' },
-  PREPARING: { label: 'Preparing', icon: Package, color: 'text-orange-600 bg-orange-100' },
-  READY: { label: 'Ready', icon: Package, color: 'text-orange-600 bg-orange-100' },
-  OUT_FOR_DELIVERY: { label: 'Out for Delivery', icon: Truck, color: 'text-orange-600 bg-orange-100' },
-  DELIVERED: { label: 'Delivered', icon: CheckCircle, color: 'text-green-600 bg-green-100' },
-  CANCELLED: { label: 'Cancelled', icon: XCircle, color: 'text-red-600 bg-red-100' },
-  REJECTED: { label: 'Shop could not take it', icon: XCircle, color: 'text-red-600 bg-red-100' },
-  PRE_ORDER: { label: 'Pre-order', icon: Clock, color: 'text-blue-600 bg-blue-100' },
-  REFUNDED: { label: 'Refunded', icon: XCircle, color: 'text-gray-600 bg-gray-100' },
+  return { method, state };
 };
 
 export default function MyOrdersPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadingLink, setLoadingLink] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const confirm = useConfirm();
-
-  // Optimized navigation handler for instant navigation
-  const handleNavigation = (href: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-
-    // If we're already on this page, do a full page refresh (like e-commerce sites)
-    if (pathname === href) {
-      // Do a full hard refresh to get fresh data from server
-      window.location.href = href;
-      return;
-    }
-
-    // Set loading state immediately
-    setLoadingLink(href);
-
-    // Navigate
-    router.push(href);
-  };
-
-  // Clear loading state ONLY when pathname actually changes (navigation complete)
-  useEffect(() => {
-    setLoadingLink(null);
-  }, [pathname]);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/sign-in');
       return;
     }
-
-    if (user) {
-      fetchOrders();
-    }
+    if (user) fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, router]);
 
   const fetchOrders = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Ensure session is ready before making API call
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
-        // Try to refresh the session
         const { data: refreshData } = await supabase.auth.refreshSession();
         if (!refreshData.session) {
           router.push('/sign-in');
           return;
         }
       }
-      
+
       const { apiClient } = await import('@/lib/api/client');
       const data = await apiClient.getOrders();
       setOrders(data.orders || []);
-    } catch (error: unknown) {
-      console.error('Error fetching orders:', error);
-      // Check if it's an auth error
-      if (error instanceof Error && (error as Error & { isAuthError?: boolean }).isAuthError) {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err as Error & { isAuthError?: boolean }).isAuthError) {
         router.push('/sign-in');
         return;
       }
-      setError('Failed to load orders. Please try again.');
+      setError("Couldn't load your orders. Check your internet and try again.");
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -168,7 +132,7 @@ export default function MyOrdersPage() {
   const handleCancelOrder = async (orderId: string) => {
     const ok = await confirm({
       title: 'Cancel this order?',
-      description: 'The vendor will be notified and any pending charges will be voided.',
+      description: 'The shop will be told. You won’t be charged.',
       confirmLabel: 'Cancel order',
       cancelLabel: 'Keep order',
       destructive: true,
@@ -179,11 +143,10 @@ export default function MyOrdersPage() {
       setCancellingOrderId(orderId);
       const { apiClient } = await import('@/lib/api/client');
       await apiClient.cancelOrder(orderId, 'Cancelled by customer');
-      toast.success('Order cancelled successfully');
+      toast.success('Order cancelled');
       fetchOrders();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to cancel order';
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : 'Could not cancel the order');
     } finally {
       setCancellingOrderId(null);
     }
@@ -191,267 +154,163 @@ export default function MyOrdersPage() {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your orders...</p>
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center text-label-2">
+        <Loader2 className="h-6 w-6 animate-spin" aria-label="Loading your orders" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <XCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={fetchOrders}
-            className="bg-[#FF9933] text-white px-6 py-2 rounded-lg hover:bg-[#e8872b] cursor-pointer"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
+      <Page>
+        <LargeTitle title="Orders" />
+        <EmptyState
+          icon={<RefreshCw className="h-8 w-8" aria-hidden />}
+          title="Something went wrong"
+          body={error}
+          action={<Button onClick={fetchOrders} full>Try again</Button>}
+        />
+      </Page>
+    );
+  }
+
+  if (orders.length === 0) {
+    return (
+      <Page>
+        <LargeTitle title="Orders" />
+        <EmptyState
+          icon={<Package className="h-8 w-8" aria-hidden />}
+          title="No orders yet"
+          body="When you order from a shop, you can follow it here."
+          action={<Button href="/" full>Find shops</Button>}
+        />
+      </Page>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8 lg:px-6 xl:px-8">
-        {/* Header */}
-        <div className="mb-4 sm:mb-6 lg:mb-8">
-          <button
-            onClick={(e) => handleNavigation("/", e)}
-            className="inline-flex items-center gap-1.5 sm:gap-2 text-sm sm:text-base text-gray-700 hover:text-orange-500 mb-3 sm:mb-4 cursor-pointer transition-colors bg-transparent border-none"
-          >
-            {loadingLink === "/" && <LoadingSpinner size="sm" />}
-            <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span>Back to Home</span>
-          </button>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
-            {!orders || orders.length === 0
-              ? 'You haven\'t placed any orders yet'
-              : `${orders.length} order${orders.length > 1 ? 's' : ''} found`}
-          </p>
-        </div>
+    <Page>
+      <LargeTitle title="Orders" />
 
-        {!orders || orders.length === 0 ? (
-          // Empty State
-          <div className="bg-white rounded-lg shadow-md p-8 sm:p-12 lg:p-16 text-center">
-            <Package className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-              No orders yet
-            </h2>
-            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
-              Start shopping to place your first order!
-            </p>
-            <button
-              onClick={(e) => handleNavigation("/", e)}
-              className="inline-flex items-center gap-2 bg-[#FF9933] text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-sm sm:text-base hover:bg-[#e8872b] transition-colors cursor-pointer"
-            >
-              {loadingLink === "/" && <LoadingSpinner size="sm" />}
-              Browse Products
-            </button>
-          </div>
-        ) : (
-          // Orders List
-          <div className="space-y-4 sm:space-y-6">
-            {orders.map((order) => {
-              const statusInfo = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.PENDING;
-              const StatusIcon = statusInfo.icon;
+      {orders.map((order) => {
+        const status = STATUS[order.status] ?? { label: order.status, tone: 'neutral' as Tone };
+        const pay = paymentText(order);
+        const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
+        const upiDue = order.paymentMethod === 'UPI' && UPI_PAYABLE.includes(order.status);
+        const active = !FINISHED.includes(order.status);
+        const first = order.items[0];
 
-              return (
-                <div key={order.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  {/* Order Header */}
-                  <div className="bg-gray-50 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
-                      <div>
-                        <h3 className="font-bold text-sm sm:text-base text-gray-900">
-                          Order #{order.orderNumber}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-                          Placed on {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <span className={`inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-semibold ${statusInfo.color}`}>
-                          <StatusIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          {statusInfo.label}
-                        </span>
-                        {order.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleCancelOrder(order.id)}
-                            disabled={cancellingOrderId === order.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {cancellingOrderId === order.id ? (
-                              <LoadingSpinner size="sm" />
-                            ) : (
-                              <Ban className="w-3.5 h-3.5" />
-                            )}
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </div>
+        return (
+          <article key={order.id} className="mb-4 overflow-hidden rounded-3xl bg-card">
+            {/* Shop + status */}
+            <div className="flex items-center gap-3 px-4 pt-4">
+              <Thumb src={order.vendor?.storeLogo} alt={order.vendor?.businessName ?? 'Shop'} size={44} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[17px] font-semibold text-label">{order.vendor?.businessName}</p>
+                <p className="text-[14px] text-label-2">{formatIST(order.createdAt)}</p>
+              </div>
+              <Pill tone={status.tone}>{status.label}</Pill>
+            </div>
+
+            {/* What was bought */}
+            <div className="flex items-center gap-3 px-4 py-4">
+              <Thumb src={first?.productImage} alt={first?.productName ?? 'Item'} size={56} />
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-[16px] leading-snug text-label">
+                  {first?.productName}
+                  {order.items.length > 1 && <span className="text-label-2"> +{order.items.length - 1} more</span>}
+                </p>
+                <p className="mt-0.5 text-[15px] text-label-2">
+                  <span className="font-semibold text-label">{rupees(Number(order.totalAmount))}</span> · {itemCount} item
+                  {itemCount === 1 ? '' : 's'} · {pay.method} ·{' '}
+                  <span className={order.paymentStatus === 'COMPLETED' ? 'font-medium text-ok' : ''}>{pay.state}</span>
+                </p>
+              </div>
+            </div>
+
+            {order.paymentMethod === 'UPI' && order.status === 'PENDING' && (
+              <p className="px-4 pb-4 text-[14px] text-label-2">You can pay by UPI once the shop confirms.</p>
+            )}
+
+            {upiDue && (
+              <div className="px-4 pb-4">
+                <UpiPayCard
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  amount={Number(order.totalAmount)}
+                  storeName={order.vendor?.businessName ?? 'the shop'}
+                  upiId={order.vendor?.upiId}
+                  paymentStatus={order.paymentStatus}
+                  onStatusChange={(paymentStatus) =>
+                    setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, paymentStatus } : o)))
+                  }
+                />
+              </div>
+            )}
+
+            {active && (
+              <div className="border-t border-hairline">
+                <OrderProgress steps={orderSteps(order.status, order.paymentMethod, order.paymentStatus)} />
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 border-t border-hairline p-4">
+              {order.vendor?.contactPhone && (
+                <Button href={`tel:${order.vendor.contactPhone}`} variant="secondary" size="md" className="flex-1">
+                  <Phone className="h-[18px] w-[18px]" aria-hidden />
+                  Call shop
+                </Button>
+              )}
+              {order.status === 'PENDING' && (
+                <Button
+                  variant="danger"
+                  size="md"
+                  className="flex-1 bg-bad-soft"
+                  onClick={() => handleCancelOrder(order.id)}
+                  loading={cancellingOrderId === order.id}
+                >
+                  Cancel order
+                </Button>
+              )}
+            </div>
+
+            {/* Details */}
+            <details className="group border-t border-hairline">
+              <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-[15px] text-tint">
+                <span className="group-open:hidden">Order details</span>
+                <span className="hidden group-open:inline">Hide details</span>
+              </summary>
+              <div className="space-y-4 px-4 pb-4 text-[15px]">
+                <ul className="space-y-1">
+                  {order.items.map((item) => (
+                    <li key={item.id} className="flex justify-between gap-3 text-label">
+                      <span>
+                        {item.quantity} × {item.productName}
+                      </span>
+                      <span className="tabular-nums">{rupees(Number(item.totalPrice))}</span>
+                    </li>
+                  ))}
+                </ul>
+                {order.deliveryAddress && (
+                  <div className="text-label-2">
+                    <p className="font-medium text-label">Delivering to {order.deliveryAddress.fullName}</p>
+                    <p>
+                      {order.deliveryAddress.street}
+                      {order.deliveryAddress.landmark ? `, ${order.deliveryAddress.landmark}` : ''}
+                    </p>
+                    <p>
+                      {order.deliveryAddress.city}, {order.deliveryAddress.state} {order.deliveryAddress.zipCode}
+                    </p>
+                    <p>Phone {order.deliveryAddress.phone}</p>
                   </div>
-
-                  {/* Order Content */}
-                  <div className="p-3 sm:p-4 lg:p-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                      {/* Items */}
-                      <div className="lg:col-span-2">
-                        <h4 className="font-semibold text-sm sm:text-base text-gray-900 mb-3 sm:mb-4">Items Ordered</h4>
-                        <div className="space-y-3 sm:space-y-4">
-                          {order.items?.map((item) => (
-                            <div key={item.id} className="flex gap-3 sm:gap-4">
-                              <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 bg-gray-200 rounded-lg flex-shrink-0 overflow-hidden">
-                                {item.productImage ? (
-                                  <img
-                                    src={item.productImage}
-                                    alt={item.productName}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xl sm:text-2xl">
-                                    📦
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h5 className="font-medium text-sm sm:text-base text-gray-900 line-clamp-2">{item.productName}</h5>
-                                <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">
-                                  Quantity: {item.quantity} × ₹{Number(item.unitPrice).toFixed(2)}
-                                </p>
-                                <p className="font-semibold text-sm sm:text-base text-gray-900 mt-0.5 sm:mt-1">
-                                  ₹{Number(item.totalPrice).toFixed(2)}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Vendor Info */}
-                        {order.vendor && (
-                          <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
-                            <h4 className="font-semibold text-sm sm:text-base text-gray-900 mb-2">Vendor</h4>
-                            <div className="flex items-start gap-2 sm:gap-3">
-                              {order.vendor.storeLogo ? (
-                                <img 
-                                  src={order.vendor.storeLogo} 
-                                  alt={order.vendor.businessName}
-                                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
-                                  <Home className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-medium text-sm sm:text-base text-gray-900">{order.vendor.businessName}</p>
-                                <p className="text-xs sm:text-sm text-gray-600">
-                                  {order.vendor.city}, {order.vendor.state}
-                                </p>
-                                {order.vendor.contactPhone && (
-                                  <a
-                                    href={`tel:${order.vendor.contactPhone}`}
-                                    className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-800 hover:bg-gray-50"
-                                  >
-                                    <Phone className="h-4 w-4" /> Call shop · {order.vendor.contactPhone}
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Order Summary */}
-                      <div className="lg:col-span-1">
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          <h4 className="font-semibold text-sm sm:text-base text-gray-900 mb-3 sm:mb-4">Order Summary</h4>
-
-                          <div className="space-y-1.5 sm:space-y-2 mb-3 sm:mb-4">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Total Amount</span>
-                              <span className="font-semibold text-gray-900">
-                                ₹{Number(order.totalAmount).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Payment Method</span>
-                              <span className="font-medium text-gray-900">
-                                {paymentMethodLabel(order.paymentMethod)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span className="text-gray-600">Payment Status</span>
-                              <span className={`font-medium ${
-                                order.paymentStatus === 'COMPLETED' ? 'text-green-600' :
-                                order.paymentStatus === 'FAILED' ? 'text-red-600' :
-                                'text-yellow-600'
-                              }`}>
-                                {paymentStatusLabel(order.paymentStatus)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {order.paymentMethod === 'UPI' && order.status === 'PENDING' && (
-                            <p className="mb-3 text-xs sm:text-sm text-gray-600">
-                              You can pay by UPI once the shop confirms your order.
-                            </p>
-                          )}
-                          {order.paymentMethod === 'UPI' && UPI_PAYABLE.includes(order.status) && (
-                            <div className="mb-3">
-                              <UpiPayCard
-                                orderId={order.id}
-                                orderNumber={order.orderNumber}
-                                amount={Number(order.totalAmount)}
-                                storeName={order.vendor?.businessName ?? 'the shop'}
-                                upiId={order.vendor?.upiId}
-                                paymentStatus={order.paymentStatus}
-                                onStatusChange={(paymentStatus) =>
-                                  setOrders((prev) =>
-                                    prev.map((o) => (o.id === order.id ? { ...o, paymentStatus } : o))
-                                  )
-                                }
-                              />
-                            </div>
-                          )}
-
-                          {/* Delivery Address */}
-                          {order.deliveryAddress && (
-                            <div className="pt-3 sm:pt-4 border-t">
-                              <h5 className="font-semibold text-gray-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Delivery Address</h5>
-                              <div className="text-xs sm:text-sm text-gray-600">
-                                <p className="font-medium text-gray-900">{order.deliveryAddress.fullName}</p>
-                                <p>{order.deliveryAddress.street}</p>
-                                <p>{order.deliveryAddress.city}, {order.deliveryAddress.state}</p>
-                                <p>{order.deliveryAddress.zipCode}</p>
-                                <p className="mt-1">Phone: {order.deliveryAddress.phone}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+                )}
+                <p className="text-[13px] text-label-3">Order #{order.orderNumber}</p>
+              </div>
+            </details>
+          </article>
+        );
+      })}
+    </Page>
   );
 }

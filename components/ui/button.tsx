@@ -32,19 +32,19 @@ type Props = ButtonAsButton | ButtonAsLink;
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-accent text-white hover:bg-accent-dark shadow-sm hover:shadow-md disabled:bg-sand disabled:text-ink-3 disabled:shadow-none",
+    "bg-label text-white hover:bg-[#3a3a3c] disabled:bg-fill disabled:text-label-3",
   secondary:
-    "bg-white text-ink border-2 border-sand hover:border-ink hover:bg-cream disabled:text-ink-3 disabled:border-sand",
+    "bg-fill text-label hover:bg-fill-strong disabled:text-label-3",
   ghost:
-    "bg-transparent text-ink hover:bg-cream disabled:text-ink-3",
+    "bg-transparent text-tint hover:bg-saffron-soft disabled:text-label-3",
   destructive:
-    "bg-laal text-white hover:bg-laal/90 shadow-sm disabled:bg-sand disabled:text-ink-3",
+    "bg-bad-soft text-bad hover:bg-bad-soft/80 disabled:text-label-3",
 };
 
 const sizeClasses: Record<Size, string> = {
-  sm: "px-3 py-1.5 text-xs gap-1.5",
-  md: "px-5 py-2.5 text-sm gap-2",
-  lg: "px-7 py-3.5 text-base gap-2.5",
+  sm: "h-10 px-3 text-[14px] gap-1.5",
+  md: "h-11 px-5 text-[15px] gap-2",
+  lg: "h-[52px] px-6 text-[17px] gap-2.5",
 };
 
 const Spinner = ({ size }: { size: Size }) => {
@@ -65,7 +65,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(props, ref) 
   } = props;
 
   const className =
-    `font-semibold rounded-full transition-all duration-200 active:scale-[0.97] inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed ${
+    `font-semibold rounded-xl transition-[background-color,transform] duration-150 active:scale-[0.98] inline-flex items-center justify-center cursor-pointer disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-tint ${
       variantClasses[variant]
     } ${sizeClasses[size]} ${fullWidth ? "w-full" : ""}`;
 

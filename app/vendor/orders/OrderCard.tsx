@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Phone } from "lucide-react";
 import { OrderStatus } from "@/src/generated/prisma";
-import OrderStatusUpdater from "@/app/vendor/orders/OrderStatusUpdater";
-import OrderDetails from "@/app/vendor/orders/OrderDetails";
 import { apiClient } from "@/lib/api/client";
+import { useConfirm } from "@/hooks/useConfirm";
+import { Button, Pill, Thumb, formatIST, rupees, type Tone } from "@/components/app/ui";
 
 interface OrderItem {
   id: string;
@@ -59,53 +59,91 @@ interface OrderCardProps {
   order: Order;
 }
 
-const statusColors: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800",
-  ACCEPTED: "bg-blue-100 text-blue-800",
-  PREPARING: "bg-orange-100 text-orange-800",
-  READY: "bg-purple-100 text-purple-800",
-  OUT_FOR_DELIVERY: "bg-indigo-100 text-indigo-800",
-  DELIVERED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  REJECTED: "bg-red-100 text-red-800",
-  PRE_ORDER: "bg-blue-100 text-blue-800",
-  REFUNDED: "bg-gray-100 text-gray-800",
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: "New", tone: "warn" },
+  PRE_ORDER: { label: "Pre-order", tone: "warn" },
+  ACCEPTED: { label: "Accepted", tone: "info" },
+  PREPARING: { label: "Packing", tone: "info" },
+  READY: { label: "Ready", tone: "info" },
+  OUT_FOR_DELIVERY: { label: "On the way", tone: "info" },
+  DELIVERED: { label: "Delivered", tone: "ok" },
+  CANCELLED: { label: "Cancelled", tone: "bad" },
+  REJECTED: { label: "Rejected", tone: "bad" },
+  REFUNDED: { label: "Refunded", tone: "neutral" },
 };
 
-const statusLabels: Record<string, string> = {
-  PENDING: "Pending",
-  ACCEPTED: "Accepted",
-  PREPARING: "Preparing",
-  READY: "Ready",
-  OUT_FOR_DELIVERY: "Out for Delivery",
-  DELIVERED: "Delivered",
-  CANCELLED: "Cancelled",
-  REJECTED: "Rejected",
-  PRE_ORDER: "Pre-order",
-  REFUNDED: "Refunded",
+// The one thing the shop does next, in plain words
+const NEXT: Record<string, { to: string; label: string }> = {
+  PENDING: { to: "ACCEPTED", label: "Accept order" },
+  PRE_ORDER: { to: "ACCEPTED", label: "Accept order" },
+  ACCEPTED: { to: "PREPARING", label: "Start packing" },
+  PREPARING: { to: "READY", label: "Mark ready" },
+  READY: { to: "OUT_FOR_DELIVERY", label: "Out for delivery" },
+  OUT_FOR_DELIVERY: { to: "DELIVERED", label: "Mark delivered" },
 };
 
+const CANCELLABLE = ["PENDING", "PRE_ORDER", "ACCEPTED", "PREPARING", "READY"];
 // Payment can be marked received once the order is accepted
 const PAYMENT_CONFIRMABLE = ["ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"];
 
 export default function OrderCard({ order }: OrderCardProps) {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showStatusUpdater, setShowStatusUpdater] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const confirm = useConfirm();
+  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
+  const [busy, setBusy] = useState<null | "next" | "payment" | "cancel">(null);
 
   useEffect(() => setPaymentStatus(order.paymentStatus), [order.paymentStatus]);
 
   const isUpi = order.paymentMethod === "UPI";
+  const status = STATUS[order.status] ?? { label: order.status, tone: "neutral" as Tone };
+  const next = NEXT[order.status];
+  const total = Number(order.totalAmount);
+  const address = order.deliveryAddress ?? {};
+
+  const paymentLine =
+    paymentStatus === "COMPLETED" ? (
+      <span className="font-medium text-ok">{isUpi ? "UPI · Received ✓" : "Cash · Collected ✓"}</span>
+    ) : isUpi ? (
+      paymentStatus === "PROCESSING" ? (
+        <span className="font-medium text-info">Customer says paid — check your UPI app</span>
+      ) : order.status === "PENDING" ? (
+        "UPI · customer pays after you accept"
+      ) : (
+        "UPI · not paid yet"
+      )
+    ) : (
+      `Cash on delivery · collect ${rupees(total)}`
+    );
+
+  const canConfirmPayment =
+    PAYMENT_CONFIRMABLE.includes(order.status) && paymentStatus !== "COMPLETED" && paymentStatus !== "REFUNDED";
+
+  const updateStatus = async (to: string, kind: "next" | "cancel") => {
+    setBusy(kind);
+    try {
+      await apiClient.updateOrderStatus(order.id, { status: to });
+      toast.success(kind === "cancel" ? "Order cancelled" : `Order: ${STATUS[to]?.label ?? to}`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't update the order. Try again.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    const ok = await confirm({
+      title: "Cancel this order?",
+      description: "The customer will be told, and the items go back into your stock.",
+      confirmLabel: "Cancel order",
+      cancelLabel: "Keep order",
+      destructive: true,
+    });
+    if (ok) updateStatus("CANCELLED", "cancel");
+  };
 
   const handlePaymentReceived = async () => {
-    setConfirmingPayment(true);
+    setBusy("payment");
     try {
       const res = await apiClient.confirmPaymentReceived(order.id);
       setPaymentStatus(res.data.paymentStatus);
@@ -114,168 +152,106 @@ export default function OrderCard({ order }: OrderCardProps) {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update payment");
     } finally {
-      setConfirmingPayment(false);
+      setBusy(null);
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Kolkata",
-    }).format(new Date(date));
-  };
-
-  const formatCurrency = (amount: any) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-    }).format(Number(amount));
-  };
-
-  if (!mounted) {
-    return (
-      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-        Loading...
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white rounded-lg shadow">
-      {/* Order Header */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Order #{order.orderNumber}
-              </h3>
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  statusColors[order.status] ?? "bg-gray-100 text-gray-800"
-                }`}
+    <article className="overflow-hidden rounded-3xl bg-card">
+      {/* Who + when + status */}
+      <div className="flex items-start gap-3 px-4 pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-semibold text-label">{order.customer?.fullName}</p>
+          <p className="text-[14px] text-label-2">
+            {formatIST(order.placedAt)}
+            {address.city ? ` · ${address.street ? `${address.street}, ` : ""}${address.city}` : ""}
+          </p>
+        </div>
+        <Pill tone={status.tone}>{status.label}</Pill>
+      </div>
+
+      {/* What to pack */}
+      <ul className="space-y-2 px-4 py-3">
+        {order.items.map((item) => (
+          <li key={item.id} className="flex items-center gap-3">
+            <Thumb src={item.productImage} alt={item.productName} size={44} />
+            <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
+              <span className="font-semibold">{item.quantity} ×</span> {item.productName}
+            </span>
+            <span className="shrink-0 text-[15px] tabular-nums text-label-2">{rupees(Number(item.totalPrice))}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Money */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pb-4 text-[15px] text-label-2">
+        <span>
+          Total <span className="text-[17px] font-semibold tabular-nums text-label">{rupees(total)}</span>
+          {Number(order.deliveryFee) > 0 && <span> (incl. {rupees(Number(order.deliveryFee))} delivery)</span>}
+        </span>
+        <span>
+          <span className="sr-only">Payment: </span>
+          {paymentLine}
+        </span>
+      </div>
+
+      {/* Actions */}
+      {(next || canConfirmPayment || order.customer?.phone) && (
+        <div className="space-y-3 border-t border-hairline p-4">
+          {next && (
+            <Button full onClick={() => updateStatus(next.to, "next")} loading={busy === "next"}>
+              {next.label}
+            </Button>
+          )}
+          <div className="flex gap-3">
+            {order.customer?.phone && (
+              <Button href={`tel:${order.customer.phone}`} variant="secondary" size="md" className="flex-1">
+                <Phone className="h-[18px] w-[18px]" aria-hidden />
+                Call customer
+              </Button>
+            )}
+            {canConfirmPayment && (
+              <Button
+                variant="secondary"
+                size="md"
+                className="flex-1 bg-ok-soft text-ok hover:bg-ok-soft"
+                onClick={handlePaymentReceived}
+                loading={busy === "payment"}
               >
-                {statusLabels[order.status] ?? order.status}
-              </span>
-            </div>
-            <div className="text-sm text-gray-600">
-              <p>
-                <strong>Customer:</strong> {order.customer.fullName}
-                {order.customer.phone && ` (${order.customer.phone})`}
-              </p>
-              <p>
-                <strong>Placed:</strong> {formatDate(order.placedAt)}
-              </p>
-              <p>
-                <strong>Total:</strong> {formatCurrency(order.totalAmount)}
-              </p>
-              <p>
-                <strong>Payment:</strong> {isUpi ? "UPI" : "Cash on Delivery"} —{" "}
-                {paymentStatus === "COMPLETED" ? (
-                  <span className="font-semibold text-green-700">Received ✓</span>
-                ) : paymentStatus === "PROCESSING" ? (
-                  <span className="font-semibold text-blue-700">
-                    Customer says paid — check your UPI app
-                  </span>
-                ) : (
-                  <span className="text-amber-700">Not received yet</span>
-                )}
-              </p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {order.customer.phone && (
-                <a
-                  href={`tel:${order.customer.phone}`}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-800 hover:bg-gray-50"
-                >
-                  <Phone className="h-4 w-4" /> Call customer
-                </a>
-              )}
-              {PAYMENT_CONFIRMABLE.includes(order.status) &&
-                paymentStatus !== "COMPLETED" &&
-                paymentStatus !== "REFUNDED" && (
-                  <button
-                    onClick={handlePaymentReceived}
-                    disabled={confirmingPayment}
-                    className="inline-flex min-h-[44px] items-center rounded-lg bg-green-600 px-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 cursor-pointer"
-                  >
-                    {confirmingPayment
-                      ? "Saving…"
-                      : isUpi
-                        ? "✓ Payment received"
-                        : "✓ Cash collected"}
-                  </button>
-                )}
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4 sm:mt-0">
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              {showDetails ? "Hide Details" : "View Details"}
-            </button>
-            <button
-              onClick={() => setShowStatusUpdater(true)}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              Update Status
-            </button>
+                {isUpi ? "Payment received" : "Cash collected"}
+              </Button>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Order Items Preview */}
-      <div className="p-6">
-        <div className="space-y-3">
-          {order.items.slice(0, 3).map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              {item.productImage && (
-                <img
-                  src={item.productImage}
-                  alt={item.productName}
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-              )}
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {item.productName}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Qty: {item.quantity} × {formatCurrency(item.unitPrice)}
-                </p>
-              </div>
-              <div className="text-sm font-medium text-gray-900">
-                {formatCurrency(item.totalPrice)}
-              </div>
-            </div>
-          ))}
-          {order.items.length > 3 && (
-            <p className="text-sm text-gray-600">
-              +{order.items.length - 3} more items
+      {/* Details */}
+      <details className="group border-t border-hairline">
+        <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between px-4 text-[15px] text-tint">
+          <span className="group-open:hidden">Details</span>
+          <span className="hidden group-open:inline">Hide details</span>
+        </summary>
+        <div className="space-y-3 px-4 pb-4 text-[15px] text-label-2">
+          <div>
+            <p className="font-medium text-label">Deliver to {address.fullName}</p>
+            <p>
+              {address.street}
+              {address.landmark ? `, ${address.landmark}` : ""}
             </p>
+            <p>
+              {address.city} {address.zipCode}
+            </p>
+            {address.phone && <p>Phone {address.phone}</p>}
+          </div>
+          {order.customerNotes && <p className="rounded-xl bg-warn-soft p-3 text-label">Note: {order.customerNotes}</p>}
+          <p className="text-[13px] text-label-3">Order #{order.orderNumber}</p>
+          {CANCELLABLE.includes(order.status) && (
+            <Button variant="danger" size="md" full className="bg-bad-soft" onClick={handleCancel} loading={busy === "cancel"}>
+              Cancel order
+            </Button>
           )}
         </div>
-      </div>
-
-      {/* Order Details (Collapsible) */}
-      {showDetails && (
-        <div className="border-t border-gray-200">
-          <OrderDetails order={order} />
-        </div>
-      )}
-
-      {/* Status Updater Modal */}
-      {showStatusUpdater && (
-        <OrderStatusUpdater
-          order={order}
-          onClose={() => setShowStatusUpdater(false)}
-        />
-      )}
-    </div>
+      </details>
+    </article>
   );
 }

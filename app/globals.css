@@ -2,42 +2,63 @@
 @import "./tailwind.config.css";
 @import "tw-animate-css";
 
-/* Font Configuration */
+/* Font: the phone's own UI font (SF on iPhone, Roboto on Android), with
+   Noto for Hindi. No web-font download, so text shows instantly. The old
+   --font-dm-sans variable points here too so existing inline styles match. */
+:root {
+  --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+    "Helvetica Neue", "Noto Sans", "Noto Sans Devanagari", Arial, sans-serif;
+  --font-dm-sans: var(--font-system);
+}
+
 body {
-  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-system);
   font-weight: 400;
-  background-color: #FAF7F2;
-  color: #1C1C2E;
+  background-color: var(--color-canvas);
+  color: var(--color-label);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, [role="button"] {
+  touch-action: manipulation;
 }
 
 @layer base {
   h1, h2, h3, h4, h5, h6,
   .heading {
-    font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+    font-family: var(--font-system);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
   }
 }
 
 /* Utility classes for manual font application */
 .font-heading,
 .font-display {
-  font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-system);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .font-body {
-  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-system);
   font-weight: 400;
 }
 
 .font-brand {
-  font-family: "General Sans", var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-system);
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+}
+
+/* Bottom padding so page content clears the phone tab bar / sticky bars */
+.pb-tabbar {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pb-tabbar { padding-bottom: 0; }
 }
 
 /* Custom scrollbar styles */

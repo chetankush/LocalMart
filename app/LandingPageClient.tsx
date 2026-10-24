@@ -124,11 +124,10 @@ export default function LandingPageClient({
   }, []);
 
   // ─────────────────────────────────────────────────────────────────
-  // Single render path — same landing page for everyone.
-  // Personalized sections (StoresNearYou, FlashDeals, PopularProductsRail,
-  // ShopByCategory) are only included when their underlying data has
-  // content. Global sections (Hero, HowItWorks, PopularStoresGlobal,
-  // CitiesAvailable, VendorCTA, FAQ) always render.
+  // Two layouts: shoppers whose area has shops see those shops first
+  // (an app-style home); everyone else gets the explainer landing page
+  // (Hero, HowItWorks, PopularStoresGlobal, CitiesAvailable, VendorCTA,
+  // FAQ). Personalized sections only render when they have content.
   // ─────────────────────────────────────────────────────────────────
   const allProducts = featuredProducts.length > 0 ? featuredProducts : popularProducts;
   const popularSorted = [...(popularProducts.length > 0 ? popularProducts : allProducts)].sort(
@@ -175,18 +174,11 @@ export default function LandingPageClient({
   const hasCategoryDeals = categoryDealSections.length > 0;
   const hasCategoryTiles = categories.length > 0;
 
-  return (
-    <div className="min-h-screen bg-ivory">
-      <HeroBanner />
-      <HowItWorksHorizontal authenticated={!!user} />
-
-      {hasCategoryTiles && (
-        <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />
-      )}
-
-      {hasDeals && <FlashDealsSection products={enrichedDeals} />}
-
-      {hasNearbyVendors && (
+  // Shoppers with shops nearby get straight to shopping; the explainer
+  // sections are for first-time visitors and sit lower down otherwise.
+  if (hasNearbyVendors) {
+    return (
+      <div className="min-h-screen bg-canvas">
         <StoresNearYouSection
           vendors={vendors}
           userLat={location?.latitude}
@@ -195,7 +187,40 @@ export default function LandingPageClient({
           onNavigate={(id) => handleNavigate(`/stores/${id}`)}
           loadingLink={loadingLink}
         />
+
+        {hasCategoryTiles && <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />}
+
+        {hasPopularProducts && (
+          <PopularProductsRail products={enrichedPopular} locationLabel={locationLabel} />
+        )}
+
+        {hasDeals && <FlashDealsSection products={enrichedDeals} />}
+
+        {hasCategoryDeals && (
+          <ShopByCategorySection sections={categoryDealSections} locationLabel={locationLabel} />
+        )}
+
+        <VendorCtaSection />
+        <FaqAccordion />
+
+        <LocationSelectorModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-canvas">
+      <HeroBanner />
+      <HowItWorksHorizontal authenticated={!!user} />
+
+      {hasCategoryTiles && (
+        <CategoryTiles availableSlugs={categories.map((c) => c.slug)} />
       )}
+
+      {hasDeals && <FlashDealsSection products={enrichedDeals} />}
 
       <PopularStoresGlobal stores={popularStoresGlobal} />
 

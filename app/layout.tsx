@@ -1,5 +1,4 @@
-import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/lib/supabase/auth-provider";
 import StoreProvider from "@/lib/redux/StoreProvider";
 import { LocationProvider } from "@/context/LocationContext";
@@ -16,12 +15,12 @@ import WebVitalsTracker from "@/components/WebVitalsTracker";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F5F5F7",
+};
 
 export const metadata: Metadata = {
   title: "LocalMart - Local Delivery Platform",
@@ -35,13 +34,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap"
-        />
-      </head>
-      <body className={`${dmSans.variable} antialiased`}>
+      <body className="antialiased">
         <StoreProvider>
           <AuthProvider>
             <LocationProvider>
@@ -49,7 +42,7 @@ export default function RootLayout({
                 <ConfirmDialogProvider>
                 <InstantNavigationProvider>
                   <NextTopLoader
-                    color="#6B7FFF"
+                    color="#FF8A1F"
                     initialPosition={0.08}
                     crawlSpeed={200}
                     height={3}
@@ -57,11 +50,11 @@ export default function RootLayout({
                     showSpinner={false}
                     easing="ease"
                     speed={200}
-                    shadow="0 0 10px #6B7FFF,0 0 5px #6B7FFF"
+                    shadow={false}
                   />
                   <WebVitalsTracker />
                   <Navbar />
-                  <main className="min-h-screen">{children}</main>
+                  <main className="min-h-screen pb-tabbar">{children}</main>
                   <Footer />
                   <CartSidebar />
                   <Toaster
@@ -70,7 +63,7 @@ export default function RootLayout({
                     closeButton
                     toastOptions={{
                       style: {
-                        fontFamily: "var(--font-dm-sans), system-ui, sans-serif",
+                        fontFamily: "var(--font-system)",
                       },
                     }}
                   />
