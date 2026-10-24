@@ -3,24 +3,34 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Plus,
-  Store,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Share2,
-  Package,
-  ShoppingCart,
+  Bell,
+  Check,
+  ChevronRight,
   Clock,
-  CheckCircle,
-  Settings,
+  Eye,
+  Layers,
   Megaphone,
-  Zap,
-  Loader2,
-  AlertTriangle,
+  Package,
+  Plus,
+  ReceiptText,
+  Send,
+  Share2,
+  ShieldAlert,
+  Store,
 } from "lucide-react";
-import VendorStoreCard from "@/components/VendorStoreCard";
 import ShareStoreModal from "@/components/ShareStoreModal";
+import { Button, Notice, Pill, Row, Thumb, formatIST, rupees } from "@/components/app/ui";
+import {
+  ActionTile,
+  IconBox,
+  List,
+  SectionHeader,
+  StatGrid,
+  StatTile,
+  orderStatus,
+  shopStatus,
+} from "@/components/app/seller";
+import { useApprovals } from "../_approvals/ApprovalsPollerContext";
 
 interface StoreInfo {
   id: string;
@@ -54,439 +64,382 @@ interface StoreData {
 interface DashboardClientProps {
   stores: StoreInfo[];
   initialStoreData: StoreData;
+  firstName?: string;
 }
 
-export default function DashboardClient({ stores, initialStoreData }: DashboardClientProps) {
-  const [currentStoreId, setCurrentStoreId] = useState(initialStoreData.id);
-  const [storeData, setStoreData] = useState<StoreData>(initialStoreData);
-  const [loading, setLoading] = useState(false);
-  const [showAllStores, setShowAllStores] = useState(false);
+const firstImage = (images: unknown): string | null =>
+  Array.isArray(images) && typeof images[0] === "string" ? images[0] : null;
+
+/**
+ * Seller home. Phone first: what needs doing now (new orders, set-up steps),
+ * then the shop's numbers, then big one-tap actions, then the latest orders
+ * and products. On desktop the lists move into a right-hand column.
+ */
+export default function DashboardClient({ stores, initialStoreData, firstName }: DashboardClientProps) {
   const [showShareModal, setShowShareModal] = useState(false);
+  const { count: waiting } = useApprovals();
 
-  const handleStoreSelect = async (storeId: string) => {
-    if (storeId === currentStoreId) return;
+  const shop = initialStoreData;
+  const stats = shop.stats;
+  const storeId = shop.id;
+  const status = shopStatus(shop.status);
+  const q = `storeId=${storeId}`;
 
-    setLoading(true);
-    setCurrentStoreId(storeId);
-
-    try {
-      const response = await fetch(`/api/vendor/dashboard?storeId=${storeId}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setStoreData(data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching store data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const vendor = storeData;
-  const stats = storeData.stats;
-
-  // Show first 3 stores, or all if expanded
-  const displayedStores = showAllStores ? stores : stores.slice(0, 3);
-  const hasMoreStores = stores.length > 3;
-
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-tulsi/10 text-tulsi";
-      case "PENDING_APPROVAL":
-        return "bg-accent-light text-accent-dark";
-      case "SUSPENDED":
-        return "bg-laal/10 text-laal";
-      default:
-        return "bg-cream text-ink-2";
-    }
-  };
+  // Set-up checklist until the shop has products and a first order
+  const setupSteps = [
+    { done: true, title: "Shop created", body: "Your name and address are saved" },
+    {
+      done: stats.totalProducts > 0,
+      title: "Add your products",
+      body: "Photo, name and price — that's all",
+      href: `/vendor/products/new?${q}`,
+      action: "Add",
+    },
+    {
+      done: stats.totalOrders > 0,
+      title: "Share your shop link",
+      body: "Send it on WhatsApp to your customers",
+      onClick: () => setShowShareModal(true),
+      action: "Share",
+    },
+  ];
+  const showSetup = stats.totalProducts === 0 || stats.totalOrders === 0;
+  const doneCount = setupSteps.filter((s) => s.done).length;
 
   return (
-    <div className="min-h-screen bg-ivory">
-      {/* Header */}
-      <div className="bg-white border-b border-sand sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-vendor rounded-xl flex items-center justify-center">
-                <Store className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">Vendor Dashboard</h1>
-                <p className="text-xs text-ink-3">Manage your stores and products</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Link
-                href="/become-vendor"
-                className="flex items-center gap-2 px-4 py-2 bg-vendor text-white rounded-full text-sm font-medium hover:bg-vendor-dark transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Add Store</span>
-              </Link>
-              <Link
-                href="/vendor/stores"
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-sand text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all cursor-pointer"
-              >
-                <Store className="w-4 h-4" />
-                <span className="hidden sm:inline">All Stores</span>
-              </Link>
-            </div>
+    <div className="mx-auto w-full max-w-2xl px-4 pt-4 pb-8 sm:pt-6 lg:max-w-6xl lg:px-8 lg:pt-8">
+      {/* ── Greeting + shop ── */}
+      <header className="flex flex-wrap items-end justify-between gap-4 pb-5">
+        <div className="min-w-0">
+          <p className="text-[16px] text-label-2">Namaste{firstName ? `, ${firstName}` : ""}</p>
+          <h1 className="mt-0.5 text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-label sm:text-[34px]">
+            {shop.businessName}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-label-2">
+            <Pill tone={status.tone}>
+              {shop.status === "ACTIVE" && <span className="h-2 w-2 rounded-full bg-ok" aria-hidden />}
+              {status.label}
+            </Pill>
+            {shop.city && <span>{shop.city}</span>}
           </div>
         </div>
-      </div>
+        <div className="hidden gap-2 sm:flex">
+          <Button href={`/stores/${storeId}`} variant="secondary" size="md">
+            <Eye className="h-[18px] w-[18px]" aria-hidden />
+            See my shop
+          </Button>
+          <Button size="md" onClick={() => setShowShareModal(true)}>
+            <Share2 className="h-[18px] w-[18px]" aria-hidden />
+            Share shop
+          </Button>
+        </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Loading overlay */}
-        {loading && (
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-3 border border-sand">
-              <Loader2 className="w-6 h-6 text-accent animate-spin" />
-              <span className="text-ink-2 font-medium text-sm">Loading store data...</span>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-8">
+        <div>
+          {/* ── Orders waiting for an OK ── */}
+          {waiting > 0 && (
+            <Link
+              href="/vendor/approvals"
+              className="mb-5 flex items-center gap-4 rounded-2xl bg-tint p-4 text-white transition-transform active:scale-[0.99]"
+            >
+              <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15">
+                <span className="absolute inset-0 animate-ping rounded-full bg-white/20 motion-reduce:hidden" aria-hidden />
+                <Bell className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[18px] font-bold leading-tight">
+                  {waiting} new order{waiting === 1 ? "" : "s"} waiting
+                </span>
+                <span className="mt-0.5 block text-[15px] leading-snug text-white/85">
+                  Accept within 10 minutes · अभी देखें
+                </span>
+              </span>
+              <ChevronRight className="h-6 w-6 shrink-0" aria-hidden />
+            </Link>
+          )}
+
+          {/* ── Shop not live yet ── */}
+          {shop.status === "PENDING_APPROVAL" && (
+            <div className="mb-5">
+              <Notice tone="warn" icon={<Clock className="h-5 w-5 text-warn" aria-hidden />}>
+                <p className="font-semibold">LocalMart is checking your shop</p>
+                <p className="mt-0.5 text-label-2">
+                  Add your products now. Customers will see them as soon as your shop is approved.
+                </p>
+              </Notice>
             </div>
-          </div>
-        )}
+          )}
+          {(shop.status === "SUSPENDED" || shop.status === "REJECTED") && (
+            <div className="mb-5">
+              <Notice tone="bad" icon={<ShieldAlert className="h-5 w-5 text-bad" aria-hidden />}>
+                <p className="font-semibold">Customers can&apos;t see your shop right now</p>
+                <p className="mt-0.5 text-label-2">Please contact LocalMart support to open it again.</p>
+              </Notice>
+            </div>
+          )}
 
-        {/* Your Stores Section */}
-        <div className="bg-white rounded-2xl border border-sand shadow-sm mb-8">
-          <div className="p-6 border-b border-cream">
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-1">YOUR PORTFOLIO</div>
-                <h2 className="text-lg font-semibold text-ink font-[family-name:var(--font-family-heading)]">Your Stores</h2>
-                <p className="text-xs text-ink-3 mt-0.5">{stores.length} store{stores.length !== 1 ? 's' : ''}</p>
+          {/* ── Set-up checklist ── */}
+          {showSetup && (
+            <section className="mb-6">
+              <SectionHeader title={`Get your shop ready · ${doneCount} of ${setupSteps.length} done`} />
+              <div className="overflow-hidden rounded-2xl bg-card">
+                <div className="px-4 pt-4 pb-1" aria-hidden>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-fill">
+                    <div
+                      className="h-full rounded-full bg-ok transition-[width] duration-500"
+                      style={{ width: `${(doneCount / setupSteps.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <ol className="divide-y divide-hairline">
+                  {setupSteps.map((step, i) => (
+                    <li key={step.title} className="flex min-h-[64px] items-center gap-3 px-4 py-3">
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] font-bold ${
+                          step.done ? "bg-ok text-white" : "bg-fill text-label-2"
+                        }`}
+                        aria-hidden
+                      >
+                        {step.done ? <Check className="h-[18px] w-[18px]" strokeWidth={3} /> : i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block text-[16px] font-semibold leading-snug ${
+                            step.done ? "text-label-3" : "text-label"
+                          }`}
+                        >
+                          {step.title}
+                        </span>
+                        {!step.done && <span className="block text-[14px] leading-snug text-label-2">{step.body}</span>}
+                      </span>
+                      {!step.done &&
+                        (step.href ? (
+                          <Button href={step.href} size="md" className="shrink-0">
+                            {step.action}
+                          </Button>
+                        ) : (
+                          <Button size="md" variant="secondary" className="shrink-0" onClick={step.onClick}>
+                            {step.action}
+                          </Button>
+                        ))}
+                    </li>
+                  ))}
+                </ol>
               </div>
-              <Link
-                href="/vendor/stores"
-                className="text-sm text-accent hover:text-accent-dark font-medium cursor-pointer"
-              >
-                View All →
-              </Link>
+            </section>
+          )}
+
+          {/* ── Numbers ── */}
+          <section className="mb-6">
+            <SectionHeader title="Your shop at a glance" />
+            <StatGrid>
+              <StatTile
+                label="New orders"
+                value={stats.pendingOrders}
+                hint="Need your OK"
+                tone={stats.pendingOrders > 0 ? "warn" : undefined}
+                href="/vendor/orders"
+              />
+              <StatTile label="Delivered" value={stats.completedOrders} hint="All time" tone="ok" href="/vendor/orders" />
+              <StatTile label="All orders" value={stats.totalOrders} hint="All time" href="/vendor/orders" />
+              <StatTile label="Products" value={stats.totalProducts} hint="In your shop" href="/vendor/products" />
+            </StatGrid>
+          </section>
+
+          {/* ── One-tap actions ── */}
+          <section className="mb-6">
+            <SectionHeader title="What do you want to do?" />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <ActionTile
+                primary
+                href={`/vendor/products/new?${q}`}
+                icon={<Plus className="h-6 w-6" strokeWidth={2.4} />}
+                title="Add a product"
+                hindi="नया सामान जोड़ें"
+              />
+              <ActionTile
+                onClick={() => setShowShareModal(true)}
+                icon={<Share2 className="h-[22px] w-[22px]" />}
+                title="Share my shop"
+                hindi="दुकान का लिंक भेजें"
+              />
+              <ActionTile
+                href="/vendor/orders"
+                icon={<ReceiptText className="h-[22px] w-[22px]" />}
+                title="See orders"
+                hindi="ऑर्डर देखें"
+              />
+              <ActionTile
+                href={`/vendor/products/bulk-add?${q}`}
+                icon={<Layers className="h-[22px] w-[22px]" />}
+                title="Add many at once"
+                hindi="एक साथ कई सामान"
+              />
+              <ActionTile
+                href={`/vendor/broadcast?${q}`}
+                icon={<Megaphone className="h-[22px] w-[22px]" />}
+                title="Send an offer"
+                hindi="ग्राहकों को बताएं"
+              />
+              <ActionTile
+                href={`/vendor/products?${q}`}
+                icon={<Package className="h-[22px] w-[22px]" />}
+                title="My products"
+                hindi="मेरा सारा सामान"
+              />
             </div>
-          </div>
+          </section>
+        </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayedStores.map((store) => (
-                <VendorStoreCard
-                  key={store.id}
-                  store={{
-                    ...store,
-                    businessType: store.businessType || "GROCERY",
-                    storeDescription: store.storeDescription || null,
-                    storeImages: store.storeImages || null,
-                  }}
-                  isSelected={store.id === currentStoreId}
-                  onSelect={handleStoreSelect}
-                />
-              ))}
-
-              {/* Add Store Card */}
-              <Link
-                href="/become-vendor"
-                className="rounded-2xl border border-dashed border-sand hover:border-vendor hover:bg-vendor-xlight transition-all flex flex-col items-center justify-center gap-3 min-h-[320px] p-6 group cursor-pointer"
-              >
-                <div className="w-14 h-14 bg-vendor-light rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Plus className="w-7 h-7 text-vendor-dark" />
-                </div>
-                <div className="text-center">
-                  <span className="text-base font-semibold text-ink block font-[family-name:var(--font-family-heading)]">Add New Store</span>
-                  <span className="text-xs text-ink-3">Expand your business</span>
-                </div>
-              </Link>
-            </div>
-
-            {/* View More Button */}
-            {hasMoreStores && (
-              <div className="mt-6 text-center">
-                <button
-                  onClick={() => setShowAllStores(!showAllStores)}
-                  className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-ink-2 hover:text-ink hover:bg-ivory rounded-full transition-all border border-sand cursor-pointer"
-                >
-                  {showAllStores ? (
-                    <>
-                      Show Less <ChevronUp className="w-4 h-4" />
-                    </>
-                  ) : (
-                    <>
-                      View {stores.length - 3} More Store{stores.length - 3 !== 1 ? 's' : ''} <ChevronDown className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
+        <div>
+          {/* ── Latest orders ── */}
+          <section className="mb-6">
+            <SectionHeader title="Latest orders" href={shop.orders.length > 0 ? "/vendor/orders" : undefined} />
+            {shop.orders.length > 0 ? (
+              <List>
+                {shop.orders.map((order: any) => {
+                  const s = orderStatus(order.status);
+                  return (
+                    <Row
+                      key={order.id}
+                      href="/vendor/orders"
+                      leading={
+                        <IconBox tone="neutral" size={40}>
+                          <ReceiptText className="h-5 w-5 text-label-2" />
+                        </IconBox>
+                      }
+                      title={<span className="font-semibold tabular-nums">{rupees(Number(order.totalAmount))}</span>}
+                      subtitle={formatIST(order.placedAt ?? order.createdAt)}
+                      trailing={<Pill tone={s.tone}>{s.label}</Pill>}
+                    />
+                  );
+                })}
+              </List>
+            ) : (
+              <div className="rounded-2xl bg-card px-5 py-6 text-center">
+                <p className="text-[17px] font-semibold text-label">No orders yet</p>
+                <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-label-2">
+                  Share your shop link on WhatsApp to get your first order.
+                </p>
+                <Button variant="secondary" size="md" className="mt-4" onClick={() => setShowShareModal(true)}>
+                  <Share2 className="h-[18px] w-[18px]" aria-hidden />
+                  Share my shop
+                </Button>
               </div>
             )}
-          </div>
-        </div>
+          </section>
 
-        {/* Selected Store Dashboard */}
-        <div className="bg-white rounded-2xl p-6 mb-8 border border-sand shadow-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-ivory rounded-2xl flex items-center justify-center overflow-hidden border border-sand">
-                {vendor.storeLogo ? (
-                  <img src={vendor.storeLogo} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <Store className="w-8 h-8 text-ink-3" />
-                )}
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-1">ACTIVE STORE</div>
-                <h2 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">{vendor.businessName}</h2>
-                <p className="text-sm text-ink-2">{vendor.city}</p>
-                <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusStyles(vendor.status)}`}>
-                  {vendor.status === "ACTIVE" && <CheckCircle className="w-3 h-3" />}
-                  {vendor.status === "PENDING_APPROVAL" && <Clock className="w-3 h-3" />}
-                  {vendor.status.replace("_", " ")}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-vendor text-white rounded-full text-sm font-medium hover:bg-vendor-dark transition-all cursor-pointer"
-              >
-                <Share2 className="w-4 h-4" />
-                Share
-              </button>
-              <Link
-                href={`/stores/${currentStoreId}`}
-                target="_blank"
-                className="flex items-center gap-2 px-4 py-2 bg-white text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all border border-sand cursor-pointer"
-              >
-                <ExternalLink className="w-4 h-4" />
-                View
-              </Link>
-              <Link
-                href={`/vendor/settings?storeId=${currentStoreId}`}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-ink-2 rounded-full text-sm font-medium hover:bg-ivory hover:text-ink transition-all border border-sand cursor-pointer"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-vendor-xlight rounded-lg flex items-center justify-center mb-3">
-              <Share2 className="w-5 h-5 text-vendor" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Share Store</div>
-            <div className="text-xs text-ink-3 mt-0.5">QR + Links</div>
-          </button>
-          <Link
-            href={`/vendor/products/bulk-add?storeId=${currentStoreId}`}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
-              <Zap className="w-5 h-5 text-ink-2" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Bulk Add</div>
-            <div className="text-xs text-ink-3 mt-0.5">Quick Setup</div>
-          </Link>
-          <Link
-            href={`/vendor/products/new?storeId=${currentStoreId}`}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
-              <Package className="w-5 h-5 text-ink-2" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Add Product</div>
-            <div className="text-xs text-ink-3 mt-0.5">New listing</div>
-          </Link>
-          <Link
-            href={`/vendor/orders?storeId=${currentStoreId}`}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
-              <ShoppingCart className="w-5 h-5 text-ink-2" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Orders</div>
-            <div className="text-xs text-ink-3 mt-0.5">View all</div>
-          </Link>
-          <Link
-            href={`/vendor/broadcast?storeId=${currentStoreId}`}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
-              <Megaphone className="w-5 h-5 text-ink-2" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Broadcast</div>
-            <div className="text-xs text-ink-3 mt-0.5">Notify users</div>
-          </Link>
-          <Link
-            href={`/vendor/products?storeId=${currentStoreId}`}
-            className="p-4 bg-white border border-sand rounded-2xl hover:border-vendor hover:shadow-sm transition-all text-left group cursor-pointer"
-          >
-            <div className="w-9 h-9 bg-ivory rounded-lg flex items-center justify-center mb-3">
-              <Package className="w-5 h-5 text-ink-2" />
-            </div>
-            <div className="font-semibold text-sm text-ink font-[family-name:var(--font-family-heading)]">Products</div>
-            <div className="text-xs text-ink-3 mt-0.5">Manage catalog</div>
-          </Link>
-        </div>
-
-        {/* Pending Approval Notice */}
-        {vendor.status === "PENDING_APPROVAL" && (
-          <div className="bg-accent-light/40 border border-accent-light rounded-2xl p-5 mb-8">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 bg-accent-light rounded-xl flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-5 h-5 text-accent-dark" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-accent-dark text-sm font-[family-name:var(--font-family-heading)]">Awaiting Approval</h3>
-                <p className="text-sm text-ink-2 mt-1">
-                  This store is under review. You can add products now, but they
-                  will only be visible to customers after approval.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
-            <p className="text-sm text-ink-2 font-medium">Products</p>
-            <p className="text-3xl font-semibold text-ink mt-2 font-[family-name:var(--font-family-heading)]">{stats.totalProducts}</p>
-            <p className="text-xs text-ink-3 mt-1">Total in catalog</p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
-            <p className="text-sm text-ink-2 font-medium">Total Orders</p>
-            <p className="text-3xl font-semibold text-ink mt-2 font-[family-name:var(--font-family-heading)]">{stats.totalOrders}</p>
-            <p className="text-xs text-ink-3 mt-1">All time</p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
-            <p className="text-sm text-ink-2 font-medium">Pending</p>
-            <p className="text-3xl font-semibold text-accent-dark mt-2 font-[family-name:var(--font-family-heading)]">{stats.pendingOrders}</p>
-            <p className="text-xs text-ink-3 mt-1">Awaiting action</p>
-          </div>
-
-          <div className="bg-white rounded-2xl border border-sand shadow-sm p-5">
-            <p className="text-sm text-ink-2 font-medium">Completed</p>
-            <p className="text-3xl font-semibold text-tulsi mt-2 font-[family-name:var(--font-family-heading)]">{stats.completedOrders}</p>
-            <p className="text-xs text-ink-3 mt-1">Delivered</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Products */}
-          <div className="bg-white rounded-2xl border border-sand shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-cream">
-              <div className="flex justify-between items-center">
-                <h2 className="text-base font-semibold text-ink font-[family-name:var(--font-family-heading)]">Recent Products</h2>
-                <Link
-                  href={`/vendor/products?storeId=${currentStoreId}`}
-                  className="text-sm text-accent hover:text-accent-dark font-medium cursor-pointer"
-                >
-                  View all →
-                </Link>
-              </div>
-            </div>
-            <div className="p-5">
-              {vendor.products.length > 0 ? (
-                <div className="space-y-3">
-                  {vendor.products.map((product: any) => (
-                    <div
+          {/* ── Latest products ── */}
+          <section className="mb-6">
+            <SectionHeader title="Latest products" href={shop.products.length > 0 ? `/vendor/products?${q}` : undefined} />
+            {shop.products.length > 0 ? (
+              <List>
+                {shop.products.map((product: any) => {
+                  const stock = Number(product.stockQuantity ?? 0);
+                  return (
+                    <Row
                       key={product.id}
-                      className="flex justify-between items-center p-3 border border-sand rounded-xl hover:bg-ivory transition-colors"
-                    >
-                      <div>
-                        <div className="font-medium text-ink text-sm">{product.name}</div>
-                        <div className="text-xs text-ink-3 mt-0.5">
-                          ₹{product.price.toString()} · Stock {product.stockQuantity}
-                        </div>
-                      </div>
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                        product.isActive
-                          ? "bg-tulsi/10 text-tulsi"
-                          : "bg-cream text-ink-2"
-                      }`}>
-                        {product.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 border border-dashed border-sand rounded-xl">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">CATALOG · EMPTY</div>
-                  <p className="text-ink-2 mb-4 font-medium text-sm">No products yet</p>
-                  <Link
-                    href={`/vendor/products/new?storeId=${currentStoreId}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-vendor text-white rounded-full font-medium text-sm hover:bg-vendor-dark transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Your First Product
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Orders */}
-          <div className="bg-white rounded-2xl border border-sand shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-cream">
-              <div className="flex justify-between items-center">
-                <h2 className="text-base font-semibold text-ink font-[family-name:var(--font-family-heading)]">Recent Orders</h2>
-                <Link
-                  href={`/vendor/orders?storeId=${currentStoreId}`}
-                  className="text-sm text-vendor hover:text-vendor-dark font-medium cursor-pointer"
-                >
-                  View all →
-                </Link>
+                      href={`/vendor/products/${product.id}/edit`}
+                      leading={<Thumb src={firstImage(product.images)} alt={product.name} size={44} />}
+                      title={<span className="line-clamp-1">{product.name}</span>}
+                      subtitle={
+                        <>
+                          <span className="font-medium tabular-nums text-label">{rupees(Number(product.price))}</span>
+                          {" · "}
+                          <span className={stock === 0 ? "text-bad" : undefined}>
+                            {stock === 0 ? "Out of stock" : `${stock} in stock`}
+                          </span>
+                        </>
+                      }
+                      trailing={
+                        product.isActive ? (
+                          <Pill tone="ok">On sale</Pill>
+                        ) : (
+                          <Pill tone="neutral">Hidden</Pill>
+                        )
+                      }
+                    />
+                  );
+                })}
+              </List>
+            ) : (
+              <div className="rounded-2xl bg-card px-5 py-6 text-center">
+                <p className="text-[17px] font-semibold text-label">No products yet</p>
+                <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-label-2">
+                  Add a photo, a name and a price. Customers can order right away.
+                </p>
+                <Button href={`/vendor/products/new?${q}`} size="md" className="mt-4">
+                  <Plus className="h-[18px] w-[18px]" aria-hidden />
+                  Add your first product
+                </Button>
               </div>
-            </div>
-            <div className="p-5">
-              {vendor.orders.length > 0 ? (
-                <div className="space-y-3">
-                  {vendor.orders.map((order: any) => (
-                    <div
-                      key={order.id}
-                      className="flex justify-between items-center p-3 border border-sand rounded-xl hover:bg-ivory transition-colors"
-                    >
-                      <div>
-                        <div className="font-medium text-ink text-sm">{order.orderNumber}</div>
-                        <div className="text-xs text-ink-3 mt-0.5">₹{order.totalAmount.toString()}</div>
-                      </div>
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                        order.status === "DELIVERED"
-                          ? "bg-tulsi/10 text-tulsi"
-                          : order.status === "PENDING"
-                          ? "bg-accent-light text-accent-dark"
-                          : "bg-primary-xlight text-primary-dark"
-                      }`}>
-                        {order.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-10 border border-dashed border-sand rounded-xl">
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">ORDERS · NONE</div>
-                  <p className="text-ink-2 font-medium text-sm">No orders yet</p>
-                  <p className="text-xs text-ink-3 mt-1">Orders will appear here</p>
-                </div>
-              )}
-            </div>
-          </div>
+            )}
+          </section>
+
+          {/* ── Shop settings ── */}
+          <section className="mb-6">
+            <SectionHeader title="Your shop" />
+            <List>
+              <Row
+                href={`/vendor/settings?${q}`}
+                leading={<IconBox tone="brand" size={40}><Store className="h-5 w-5" /></IconBox>}
+                title="Shop details & photos"
+                subtitle="Name, address, phone, UPI"
+                chevron
+              />
+              <Row
+                href={`/stores/${storeId}`}
+                leading={<IconBox tone="brand" size={40}><Eye className="h-5 w-5" /></IconBox>}
+                title="See my shop"
+                subtitle="How customers see it"
+                chevron
+              />
+              <Row
+                href="/vendor/telegram"
+                leading={<IconBox tone="brand" size={40}><Send className="h-5 w-5" /></IconBox>}
+                title="Order alerts on Telegram"
+                subtitle="Get a message for every new order"
+                chevron
+              />
+            </List>
+          </section>
+
+          {/* ── All shops ── */}
+          <section className="mb-6">
+            <SectionHeader title={stores.length > 1 ? `Your shops · ${stores.length}` : "More shops"} />
+            <List>
+              {stores.length > 1 &&
+                stores.map((s) => {
+                  const st = shopStatus(s.status);
+                  return (
+                    <Row
+                      key={s.id}
+                      href={`/vendor/settings?storeId=${s.id}`}
+                      leading={<Thumb src={s.storeLogo} alt={s.businessName} size={40} />}
+                      title={<span className="line-clamp-1">{s.businessName}</span>}
+                      subtitle={s.city}
+                      trailing={<Pill tone={st.tone}>{st.label}</Pill>}
+                    />
+                  );
+                })}
+              <Row
+                href="/become-vendor"
+                leading={<IconBox tone="neutral" size={40}><Plus className="h-5 w-5" /></IconBox>}
+                title="Open another shop"
+                subtitle="Another branch or a new business"
+                chevron
+              />
+            </List>
+          </section>
         </div>
       </div>
 
-      {/* Share Store Modal */}
       <ShareStoreModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        storeId={currentStoreId}
-        storeName={vendor.businessName}
+        storeId={storeId}
+        storeName={shop.businessName}
         storeDescription={null}
       />
     </div>

@@ -11,7 +11,7 @@ interface Props {
 
 export default function Card({ children, href, onClick, interactive, className = "" }: Props) {
   const isInteractive = interactive || !!href || !!onClick;
-  const base = `bg-white rounded-2xl border border-sand overflow-hidden transition-all duration-300 ${
+  const base = `bg-white rounded-2xl border border-hairline overflow-hidden transition-all duration-300 ${
     isInteractive ? "hover:shadow-lg cursor-pointer" : "shadow-sm"
   } ${className}`;
 

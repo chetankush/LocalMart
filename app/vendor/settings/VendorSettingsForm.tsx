@@ -1,9 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
+import {
+  Camera,
+  Check,
+  ChevronDown,
+  Eye,
+  House,
+  Loader2,
+  MapPin,
+  Megaphone,
+  Package,
+  Pill as PillIcon,
+  Send,
+  Share2,
+  Shirt,
+  ShoppingCart,
+  Smartphone,
+  Store,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
+import ShareStoreModal from "@/components/ShareStoreModal";
+import { Button, Pill, Row, StickyBar, buttonClass } from "@/components/app/ui";
+import { Field, FormCard, inputClass, textareaClass } from "@/components/app/form";
+import { IconBox, List } from "@/components/app/seller";
 
 // Dynamically import map component to avoid SSR issues
 const LocationPicker = dynamic(
@@ -11,8 +36,8 @@ const LocationPicker = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-        <p className="text-gray-500">Loading map...</p>
+      <div className="flex h-72 items-center justify-center rounded-2xl bg-fill animate-pulse sm:h-96">
+        <p className="text-[15px] text-label-2">Loading map…</p>
       </div>
     ),
   }
@@ -41,6 +66,85 @@ interface VendorSettingsFormProps {
     websiteUrl: string | null;
   };
 }
+
+const MAX_PHOTOS = 10;
+
+// Shop type picked during onboarding — shown read-only
+const BUSINESS_TYPES: Record<string, { label: string; Icon: typeof Store }> = {
+  FASHION: { label: "Fashion & clothes", Icon: Shirt },
+  GROCERY: { label: "Grocery & daily needs", Icon: ShoppingCart },
+  ELECTRONICS: { label: "Electronics", Icon: Smartphone },
+  RESTAURANT: { label: "Restaurant & food", Icon: UtensilsCrossed },
+  PHARMACY: { label: "Medical shop", Icon: PillIcon },
+  HOME_SERVICES: { label: "Home & kitchen", Icon: House },
+  OTHER: { label: "Other", Icon: Package },
+};
+
+/* ─── Quick links at the top of the "My shop" tab ───────────────── */
+
+export function ShopShortcuts({
+  storeId,
+  storeName,
+  storeDescription,
+}: {
+  storeId: string;
+  storeName: string;
+  storeDescription?: string | null;
+}) {
+  const [sharing, setSharing] = useState(false);
+  const icon = "h-5 w-5";
+
+  return (
+    <section className="mb-6">
+      <List>
+        <Row
+          href={`/stores/${storeId}`}
+          leading={<IconBox tone="brand" size={40}><Eye className={icon} /></IconBox>}
+          title="See my shop"
+          subtitle="How customers see it"
+          chevron
+        />
+        <Row
+          onClick={() => setSharing(true)}
+          leading={<IconBox tone="brand" size={40}><Share2 className={icon} /></IconBox>}
+          title="Share my shop"
+          subtitle="Send your shop link on WhatsApp"
+          chevron
+        />
+        <Row
+          href="/vendor/telegram"
+          leading={<IconBox tone="brand" size={40}><Send className={icon} /></IconBox>}
+          title="Order alerts on Telegram"
+          subtitle="A message for every new order"
+          chevron
+        />
+        <Row
+          href={`/vendor/broadcast?storeId=${storeId}`}
+          leading={<IconBox tone="brand" size={40}><Megaphone className={icon} /></IconBox>}
+          title="Send an offer to customers"
+          subtitle="ग्राहकों को ऑफ़र भेजें"
+          chevron
+        />
+        <Row
+          href="/vendor/stores"
+          leading={<IconBox tone="brand" size={40}><Store className={icon} /></IconBox>}
+          title="All my shops"
+          subtitle="Switch shop or open a new one"
+          chevron
+        />
+      </List>
+      <ShareStoreModal
+        isOpen={sharing}
+        onClose={() => setSharing(false)}
+        storeId={storeId}
+        storeName={storeName}
+        storeDescription={storeDescription}
+      />
+    </section>
+  );
+}
+
+/* ─── Shop details form ─────────────────────────────────────────── */
 
 export default function VendorSettingsForm({
   vendor,
@@ -73,6 +177,11 @@ export default function VendorSettingsForm({
     websiteUrl: vendor.websiteUrl || "",
   });
 
+  // Social links are optional, so start folded unless the shop already has some
+  const [showSocial, setShowSocial] = useState(
+    () => Boolean(vendor.telegramLink || vendor.instagramHandle || vendor.facebookPage || vendor.websiteUrl)
+  );
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -103,12 +212,12 @@ export default function VendorSettingsForm({
       if (result.success) {
         return result.url;
       } else {
-        alert("Failed to upload image");
+        toast.error("Couldn't upload the photo. Please try again.");
         return null;
       }
     } catch (error: any) {
       console.error("Upload error:", error);
-      alert(error.message || "Failed to upload image");
+      toast.error(error?.message || "Couldn't upload the photo. Please try again.");
       return null;
     } finally {
       if (shouldManageLoading) {
@@ -120,16 +229,17 @@ export default function VendorSettingsForm({
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset so picking the same photo again still fires onChange
+    e.target.value = "";
     if (!file) return;
 
-    // Validate file
     if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
+      toast.error("That file isn't a photo. Please pick a photo.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image size must be less than 5MB");
+      toast.error("Photo is too big. Please pick one under 5 MB.");
       return;
     }
 
@@ -145,30 +255,23 @@ export default function VendorSettingsForm({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Check if adding these files would exceed the limit
     const currentImagesCount = formData.storeImages.length;
-    if (currentImagesCount + files.length > 10) {
-      alert("You can upload a maximum of 10 store images");
+    if (currentImagesCount + files.length > MAX_PHOTOS) {
+      toast.error(`You can add up to ${MAX_PHOTOS} photos. Remove one to add more.`);
+      e.target.value = "";
       return;
     }
 
     setUploadingStoreImage(true);
 
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        // Validate file
-        if (!file.type.startsWith("image/")) {
-          return null;
-        }
+      const list = Array.from(files);
+      const usable = list.filter((file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024);
+      if (usable.length < list.length) {
+        toast.error("Some photos were skipped. Use photos under 5 MB.");
+      }
 
-        if (file.size > 5 * 1024 * 1024) {
-          return null;
-        }
-
-        return await handleImageUpload(file, "store");
-      });
-
-      const uploadedUrls = await Promise.all(uploadPromises);
+      const uploadedUrls = await Promise.all(usable.map((file) => handleImageUpload(file, "store")));
       const validUrls = uploadedUrls.filter((url) => url !== null) as string[];
 
       if (validUrls.length > 0) {
@@ -179,10 +282,9 @@ export default function VendorSettingsForm({
       }
     } catch (error) {
       console.error("Error uploading store images:", error);
-      alert("Failed to upload some images");
+      toast.error("Some photos couldn't be uploaded. Please try again.");
     } finally {
       setUploadingStoreImage(false);
-      // Reset the input
       e.target.value = "";
     }
   };
@@ -196,13 +298,15 @@ export default function VendorSettingsForm({
     }));
   };
 
-  const handleLocationSelect = (lat: number, lng: number) => {
+  // Stable identity: LocationPicker rebuilds the map whenever this changes,
+  // so a new function on every keystroke would reset the map while typing
+  const handleLocationSelect = useCallback((lat: number, lng: number) => {
     setFormData((prev) => ({
       ...prev,
       latitude: lat,
       longitude: lng,
     }));
-  };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,543 +317,450 @@ export default function VendorSettingsForm({
       const data = await apiClient.updateVendorSettings(formData);
 
       if (data.success) {
-        alert("Settings updated successfully!");
+        toast.success("Changes saved · बदलाव सेव हो गए");
         router.refresh();
       } else {
-        alert((data as any).error || (data as any).message || "Failed to update settings");
+        toast.error((data as any).error || (data as any).message || "Couldn't save. Please try again.");
       }
     } catch (error: any) {
       console.error("Settings update error:", error);
-      alert(error?.message || "Something went wrong. Please try again.");
+      toast.error(error?.message || "Something went wrong. Please try again.");
     }
 
     setLoading(false);
   };
 
-  // Business type display config
-  const businessTypeLabels: { [key: string]: { label: string; icon: string; color: string } } = {
-    FASHION: { label: "Fashion & Clothing", icon: "👗", color: "bg-pink-100 text-pink-800 border-pink-300" },
-    GROCERY: { label: "Grocery & Daily Needs", icon: "🛒", color: "bg-green-100 text-green-800 border-green-300" },
-    ELECTRONICS: { label: "Electronics", icon: "📱", color: "bg-blue-100 text-blue-800 border-blue-300" },
-    RESTAURANT: { label: "Restaurant & Food", icon: "🍽️", color: "bg-orange-100 text-orange-800 border-orange-300" },
-    PHARMACY: { label: "Pharmacy & Medical", icon: "💊", color: "bg-red-100 text-red-800 border-red-300" },
-    HOME_SERVICES: { label: "Home & Kitchen", icon: "🏠", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-    OTHER: { label: "Other", icon: "📦", color: "bg-gray-100 text-gray-800 border-gray-300" },
-  };
-
-  const currentBusinessType = businessTypeLabels[vendor.businessType?.toUpperCase()] || businessTypeLabels.OTHER;
+  const businessType = BUSINESS_TYPES[vendor.businessType?.toUpperCase()] || BUSINESS_TYPES.OTHER;
+  const BusinessIcon = businessType.Icon;
+  const uploading = uploadingLogo || uploadingBanner || uploadingStoreImage;
+  const photoCount = formData.storeImages.length;
+  const pinSet = Boolean(formData.latitude && formData.longitude);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Business Type Badge */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Store Category</h2>
-            <p className="text-sm text-gray-500">This is the category you selected during onboarding</p>
-          </div>
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-semibold ${currentBusinessType.color}`}>
-            <span className="text-xl">{currentBusinessType.icon}</span>
-            <span>{currentBusinessType.label}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Store Images Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Store Images</h2>
-
-        {/* Store Logo */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Store Logo
-          </label>
-          <div className="flex items-center gap-6">
+    <form onSubmit={handleSubmit}>
+      {/* ── Photos ── */}
+      <FormCard title="Shop photos" description="Good photos help customers trust your shop.">
+        {/* Logo */}
+        <div className="flex items-center gap-4">
+          <label
+            htmlFor="logo-upload"
+            aria-disabled={uploadingLogo}
+            className={`relative flex h-28 w-28 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl bg-fill text-center transition-colors active:bg-fill-strong aria-disabled:cursor-wait ${
+              formData.storeLogo ? "" : "border-2 border-dashed border-hairline"
+            }`}
+          >
             {formData.storeLogo ? (
-              <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
-                <Image
-                  src={formData.storeLogo}
-                  alt="Store Logo"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
-                <svg
-                  className="w-12 h-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
+              <Image src={formData.storeLogo} alt="Shop logo" fill className="object-cover" />
+            ) : !uploadingLogo ? (
+              <>
+                <Camera className="h-7 w-7 text-label-2" aria-hidden />
+                <span className="mt-1.5 text-[14px] font-semibold leading-tight text-label">Add logo</span>
+                <span className="text-[13px] leading-tight text-label-2">लोगो जोड़ें</span>
+              </>
+            ) : null}
+            {uploadingLogo && (
+              <span className="absolute inset-0 flex items-center justify-center bg-white/70">
+                <Loader2 className="h-6 w-6 animate-spin text-label-2" aria-hidden />
+                <span className="sr-only">Uploading logo</span>
+              </span>
             )}
-            <div>
-              <input
-                type="file"
-                id="logo-upload"
-                accept="image/*"
-                onChange={handleLogoChange}
-                className="hidden"
-                disabled={uploadingLogo}
-              />
+          </label>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-label">Shop logo</p>
+            <p className="mt-0.5 text-[14px] leading-snug text-label-2">A square photo works best</p>
+            {formData.storeLogo && (
               <label
                 htmlFor="logo-upload"
-                className={`inline-block px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer ${
-                  uploadingLogo
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
+                aria-disabled={uploadingLogo}
+                className={`${buttonClass("secondary", "md")} mt-3 aria-disabled:pointer-events-none aria-disabled:opacity-40`}
               >
-                {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                <Camera className="h-[18px] w-[18px]" aria-hidden />
+                Change logo
               </label>
-              <p className="text-xs text-gray-500 mt-2">
-                Recommended: Square image, at least 200x200px
-              </p>
-            </div>
+            )}
           </div>
+          <input
+            type="file"
+            id="logo-upload"
+            accept="image/*"
+            onChange={handleLogoChange}
+            className="hidden"
+            disabled={uploadingLogo}
+          />
         </div>
 
-        {/* Store Images Gallery */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Store Images (Up to 10 images)
-          </label>
-          <p className="text-xs text-gray-500 mb-4">
-            Upload photos of your store, products, or interior to showcase your business
-          </p>
+        {/* Shop photos gallery */}
+        <div className="border-t border-hairline pt-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <p className="text-[15px] font-semibold text-label">Photos of your shop</p>
+            <span className="text-[14px] tabular-nums text-label-2">
+              {photoCount} of {MAX_PHOTOS}
+            </span>
+          </div>
 
-          {/* Display existing images */}
-          {formData.storeImages.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
-              {formData.storeImages.map((imageUrl: string, index: number) => (
-                <div
-                  key={index}
-                  className="relative group rounded-lg overflow-hidden border-2 border-gray-200 aspect-square"
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {formData.storeImages.map((imageUrl: string, index: number) => (
+              <div key={index} className="relative aspect-square overflow-hidden rounded-xl bg-fill">
+                <Image src={imageUrl} alt={`Shop photo ${index + 1}`} fill className="object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveStoreImage(index)}
+                  className="absolute right-0 top-0 flex h-11 w-11 items-start justify-end p-1.5 cursor-pointer"
+                  aria-label={`Remove photo ${index + 1}`}
                 >
-                  <Image
-                    src={imageUrl}
-                    alt={`Store image ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveStoreImage(index)}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 cursor-pointer"
-                    aria-label="Remove image"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+                    <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                  </span>
+                </button>
+              </div>
+            ))}
 
-          {/* Upload button */}
-          {formData.storeImages.length < 10 && (
-            <div>
-              <input
-                type="file"
-                id="store-images-upload"
-                accept="image/*"
-                multiple
-                onChange={handleStoreImagesChange}
-                className="hidden"
-                disabled={uploadingStoreImage}
-              />
+            {photoCount < MAX_PHOTOS && (
               <label
                 htmlFor="store-images-upload"
-                className={`inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer ${
-                  uploadingStoreImage
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                aria-disabled={uploadingStoreImage}
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-hairline bg-fill px-2 text-center transition-colors active:bg-fill-strong aria-disabled:cursor-wait ${
+                  photoCount === 0 ? "col-span-3 h-40 sm:col-span-4" : "aspect-square"
                 }`}
               >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                {uploadingStoreImage ? "Uploading..." : "Add Store Images"}
+                {uploadingStoreImage ? (
+                  <>
+                    <Loader2 className="h-7 w-7 animate-spin text-label-2" aria-hidden />
+                    <span className="mt-1.5 text-[14px] font-medium text-label-2">Uploading…</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className={photoCount === 0 ? "h-8 w-8 text-label-2" : "h-6 w-6 text-label-2"} aria-hidden />
+                    <span className="mt-1.5 text-[15px] font-semibold leading-tight text-label">Add photo</span>
+                    <span className="text-[13px] leading-tight text-label-2">फ़ोटो जोड़ें</span>
+                    {photoCount === 0 && (
+                      <span className="mt-2 text-[14px] text-label-2">Shop front, inside, or your products</span>
+                    )}
+                  </>
+                )}
               </label>
-              <p className="text-xs text-gray-500 mt-2">
-                {formData.storeImages.length} / 10 images uploaded
-              </p>
-            </div>
-          )}
+            )}
+          </div>
+          <input
+            type="file"
+            id="store-images-upload"
+            accept="image/*"
+            multiple
+            onChange={handleStoreImagesChange}
+            className="hidden"
+            disabled={uploadingStoreImage}
+          />
         </div>
-      </div>
+      </FormCard>
 
-      {/* Store Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Store Information</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Business Name *
-            </label>
-            <input
-              type="text"
-              name="businessName"
-              value={formData.businessName}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Store Description
-            </label>
-            <textarea
-              name="storeDescription"
-              value={formData.storeDescription}
-              onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Tell customers about your store..."
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              This will be shown on your store page
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Email *
-              </label>
-              <input
-                type="email"
-                name="contactEmail"
-                value={formData.contactEmail}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Phone *
-              </label>
-              <input
-                type="tel"
-                name="contactPhone"
-                value={formData.contactPhone}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      {/* ── Name + description ── */}
+      <FormCard title="Shop details">
+        <div className="flex items-center gap-3 rounded-xl bg-fill px-3 py-3">
+          <IconBox tone="brand" size={40}>
+            <BusinessIcon className="h-5 w-5" />
+          </IconBox>
+          <div className="min-w-0">
+            <p className="text-[13px] text-label-2">Shop type</p>
+            <p className="text-[16px] font-semibold leading-snug text-label">{businessType.label}</p>
           </div>
         </div>
-      </div>
 
-      {/* Payments */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-2">UPI Payments · UPI से पेमेंट</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Add your UPI ID so customers can pay you directly with GPay, PhonePe or Paytm.
-          The money comes straight to your account.
-        </p>
-        <label htmlFor="upiId" className="block text-sm font-medium text-gray-700 mb-1">
-          Your UPI ID
-        </label>
-        <input
-          id="upiId"
-          type="text"
-          name="upiId"
-          value={formData.upiId}
-          onChange={handleChange}
-          placeholder="e.g. radhesarees@okaxis"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          Find it in your UPI app under your profile or QR code. A business UPI ID (PhonePe Business,
-          Paytm for Business, GPay for Business) works best for larger amounts. Leave empty to accept
-          cash only.
-        </p>
-      </div>
+        <Field label="Shop name" htmlFor="businessName" hint="Customers see this name">
+          <input
+            id="businessName"
+            type="text"
+            name="businessName"
+            value={formData.businessName}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
 
-      {/* Social Media & Links */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-2">Social Media & Links</h2>
-        <p className="text-sm text-gray-600 mb-6">
-          Add your social media links to help customers connect with you
-        </p>
+        <Field label="About your shop" htmlFor="storeDescription" hint="Shown on your shop page" optional>
+          <textarea
+            id="storeDescription"
+            name="storeDescription"
+            value={formData.storeDescription}
+            onChange={handleChange}
+            rows={4}
+            className={textareaClass}
+            placeholder="e.g. Silk and cotton sarees since 1995. Free delivery nearby."
+          />
+        </Field>
+      </FormCard>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.304-1.654a11.882 11.882 0 005.713 1.456h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                WhatsApp Number
-              </div>
-            </label>
-            <input
-              type="text"
-              name="whatsappNumber"
-              value={formData.whatsappNumber}
-              onChange={handleChange}
-              placeholder="+919876543210"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +91 for India)</p>
-          </div>
+      {/* ── Contact ── */}
+      <FormCard title="Contact" description="Customers use these to reach you.">
+        <Field label="Phone number" htmlFor="contactPhone">
+          <input
+            id="contactPhone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            name="contactPhone"
+            value={formData.contactPhone}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
-                </svg>
-                Telegram Link
-              </div>
-            </label>
-            <input
-              type="url"
-              name="telegramLink"
-              value={formData.telegramLink}
-              onChange={handleChange}
-              placeholder="https://t.me/yourstore"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-pink-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                </svg>
-                Instagram Handle
-              </div>
-            </label>
-            <div className="relative">
-              <span className="absolute left-4 top-2.5 text-gray-500">@</span>
-              <input
-                type="text"
-                name="instagramHandle"
-                value={formData.instagramHandle}
-                onChange={handleChange}
-                placeholder="yourstore"
-                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Facebook Page
-              </div>
-            </label>
-            <input
-              type="url"
-              name="facebookPage"
-              value={formData.facebookPage}
-              onChange={handleChange}
-              placeholder="https://facebook.com/yourstore"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-                Website URL
-              </div>
-            </label>
-            <input
-              type="url"
-              name="websiteUrl"
-              value={formData.websiteUrl}
-              onChange={handleChange}
-              placeholder="https://yourstore.com"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Address Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Address Information</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Street Address *
-            </label>
-            <input
-              type="text"
-              name="street"
-              value={formData.street}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Locality/Area
-              </label>
-              <input
-                type="text"
-                name="locality"
-                value={formData.locality}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                PIN Code
-              </label>
-              <input
-                type="text"
-                name="pincode"
-                value={formData.pincode}
-                onChange={handleChange}
-                pattern="[0-9]{6}"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                City *
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                State *
-              </label>
-              <input
-                type="text"
-                name="state"
-                value={formData.state}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Location on Map */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-2">Store Location</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Click on the map to set your exact store location
-        </p>
-
-        <LocationPicker
-          initialLat={formData.latitude}
-          initialLng={formData.longitude}
-          onLocationSelect={handleLocationSelect}
-        />
-
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Latitude
-            </label>
-            <input
-              type="number"
-              value={formData.latitude}
-              readOnly
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Longitude
-            </label>
-            <input
-              type="number"
-              value={formData.longitude}
-              readOnly
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading || uploadingLogo || uploadingBanner || uploadingStoreImage}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        <Field
+          label="WhatsApp number"
+          htmlFor="whatsappNumber"
+          hint="With +91 in front, e.g. +919876543210"
+          optional
         >
-          {loading ? "Saving..." : "Save Changes"}
-        </button>
+          <input
+            id="whatsappNumber"
+            type="tel"
+            inputMode="tel"
+            name="whatsappNumber"
+            value={formData.whatsappNumber}
+            onChange={handleChange}
+            placeholder="+919876543210"
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Email" htmlFor="contactEmail">
+          <input
+            id="contactEmail"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            name="contactEmail"
+            value={formData.contactEmail}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
+      </FormCard>
+
+      {/* ── UPI ── */}
+      <FormCard
+        title={
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>Payments · UPI से पेमेंट</span>
+            {formData.upiId.trim() ? (
+              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
+                UPI on
+              </Pill>
+            ) : (
+              <Pill tone="neutral">Cash only</Pill>
+            )}
+          </span>
+        }
+        description="Customers pay you directly on this UPI ID with GPay, PhonePe or Paytm. The money comes straight to your bank."
+      >
+        <Field
+          label="Your UPI ID"
+          htmlFor="upiId"
+          hint="Find it in your UPI app under your profile or QR code. A business UPI ID works best for big amounts. Leave empty to take cash only."
+          optional
+        >
+          <input
+            id="upiId"
+            type="text"
+            name="upiId"
+            value={formData.upiId}
+            onChange={handleChange}
+            placeholder="e.g. radhesarees@okaxis"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className={inputClass}
+          />
+        </Field>
+      </FormCard>
+
+      {/* ── Address + map pin ── */}
+      <FormCard title="Address & map" description="Customers nearby find your shop with this.">
+        <Field label="Shop address" htmlFor="street" hint="Shop number, building and street">
+          <input
+            id="street"
+            type="text"
+            name="street"
+            value={formData.street}
+            onChange={handleChange}
+            required
+            autoComplete="street-address"
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Area / locality" htmlFor="locality" optional>
+          <input
+            id="locality"
+            type="text"
+            name="locality"
+            value={formData.locality}
+            onChange={handleChange}
+            className={inputClass}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="City" htmlFor="city">
+            <input
+              id="city"
+              type="text"
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </Field>
+          <Field label="State" htmlFor="state">
+            <input
+              id="state"
+              type="text"
+              name="state"
+              value={formData.state}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            />
+          </Field>
+        </div>
+
+        <Field label="PIN code" htmlFor="pincode" hint="6 numbers" optional className="sm:w-1/2">
+          <input
+            id="pincode"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            name="pincode"
+            value={formData.pincode}
+            onChange={handleChange}
+            pattern="[0-9]{6}"
+            title="PIN code is 6 numbers"
+            className={`${inputClass} tabular-nums`}
+          />
+        </Field>
+
+        <div className="border-t border-hairline pt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] font-semibold text-label">Shop on the map</p>
+            {pinSet ? (
+              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
+                Pin is set
+              </Pill>
+            ) : (
+              <Pill tone="warn" icon={<MapPin className="h-3.5 w-3.5" aria-hidden />}>
+                Pin not set yet
+              </Pill>
+            )}
+          </div>
+          <LocationPicker
+            initialLat={formData.latitude}
+            initialLng={formData.longitude}
+            onLocationSelect={handleLocationSelect}
+          />
+        </div>
+      </FormCard>
+
+      {/* ── Social (folded) ── */}
+      <section className="mb-4 overflow-hidden rounded-2xl bg-card">
         <button
           type="button"
-          onClick={() => router.push("/vendor/dashboard")}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+          onClick={() => setShowSocial((v) => !v)}
+          aria-expanded={showSocial}
+          aria-controls="social-links"
+          className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-fill sm:px-5 cursor-pointer"
         >
-          Cancel
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold leading-snug text-label">
+              Social links <span className="font-normal text-label-3">· optional</span>
+            </span>
+            <span className="mt-0.5 block text-[14px] leading-snug text-label-2">
+              Instagram, Facebook, Telegram group, website
+            </span>
+          </span>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-label-3 transition-transform ${showSocial ? "rotate-180" : ""}`}
+            aria-hidden
+          />
         </button>
-      </div>
+
+        {showSocial && (
+          <div id="social-links" className="space-y-5 px-4 pb-5 sm:px-5">
+            <Field label="Instagram" htmlFor="instagramHandle" optional>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">
+                  @
+                </span>
+                <input
+                  id="instagramHandle"
+                  type="text"
+                  name="instagramHandle"
+                  value={formData.instagramHandle}
+                  onChange={handleChange}
+                  placeholder="yourshop"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  className={`${inputClass} pl-8`}
+                />
+              </div>
+            </Field>
+
+            <Field label="Facebook page" htmlFor="facebookPage" optional>
+              <input
+                id="facebookPage"
+                type="url"
+                inputMode="url"
+                name="facebookPage"
+                value={formData.facebookPage}
+                onChange={handleChange}
+                placeholder="https://facebook.com/yourshop"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field
+              label="Telegram group or channel"
+              htmlFor="telegramLink"
+              hint="For new-order alerts, use “Order alerts on Telegram” above"
+              optional
+            >
+              <input
+                id="telegramLink"
+                type="url"
+                inputMode="url"
+                name="telegramLink"
+                value={formData.telegramLink}
+                onChange={handleChange}
+                placeholder="https://t.me/yourshop"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Website" htmlFor="websiteUrl" optional>
+              <input
+                id="websiteUrl"
+                type="url"
+                inputMode="url"
+                name="websiteUrl"
+                value={formData.websiteUrl}
+                onChange={handleChange}
+                placeholder="https://yourshop.com"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        )}
+      </section>
+
+      {/* ── Save ── */}
+      <StickyBar aboveTabBar>
+        <Button type="submit" full loading={loading} disabled={loading || uploading}>
+          {loading ? "Saving…" : uploading ? "Wait, photo uploading…" : "Save changes"}
+        </Button>
+      </StickyBar>
     </form>
   );
 }

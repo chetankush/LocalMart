@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { BellRing, LogIn, RefreshCw, WifiOff } from 'lucide-react';
+import { Button, LargeTitle, Notice, Page } from '@/components/app/ui';
+import { MessageCard } from '@/components/app/seller';
 import { useApprovals } from '../_approvals/ApprovalsPollerContext';
 import { ApprovalCard } from './_components/ApprovalCard';
 import { EnableSoundBanner } from './_components/EnableSoundBanner';
@@ -28,70 +30,65 @@ export default function ApprovalsPage() {
   // Auth-expired takes precedence over everything
   if (status === 'auth-expired') {
     return (
-      <main className="min-h-screen bg-ivory">
-        <div className="bg-laal text-white px-4 py-3 text-sm flex items-center justify-between">
-          <span>Your session expired.</span>
-          <Link
-            href="/sign-in"
-            className="px-3 py-1 bg-white text-laal rounded-full text-xs font-semibold"
-          >
-            Sign in again
-          </Link>
-        </div>
-      </main>
+      <MessageCard
+        icon={<LogIn className="h-8 w-8" aria-hidden />}
+        title="Please sign in again"
+        body="You were signed out. Sign in to keep getting new orders."
+      >
+        <Button href="/sign-in" full>
+          Sign in
+        </Button>
+      </MessageCard>
     );
   }
 
   return (
-    <main className="min-h-screen bg-ivory">
+    <Page>
+      <LargeTitle
+        title="New orders"
+        back={{ href: '/vendor/orders', label: 'All orders' }}
+        subtitle={
+          filtered.length > 0
+            ? `${filtered.length} waiting · Accept or reject within 10 minutes`
+            : 'Orders that need your OK show up here'
+        }
+        trailing={
+          <button
+            type="button"
+            onClick={handlePullRefresh}
+            disabled={pulling}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-card text-label-2 hover:text-label disabled:opacity-50 cursor-pointer"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${pulling ? 'animate-spin' : ''}`} aria-hidden />
+          </button>
+        }
+      />
+
       <EnableSoundBanner />
 
-      {/* Sticky page header */}
-      <div className="sticky top-12 z-30 bg-ivory/95 backdrop-blur border-b border-sand">
-        <div className="max-w-3xl mx-auto px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h1 className="text-lg md:text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">
-              Awaiting your OK
-              <span className="ml-2 text-ink-3 font-normal">
-                · {filtered.length} order{filtered.length === 1 ? '' : 's'}
-              </span>
-            </h1>
-            <button
-              type="button"
-              onClick={handlePullRefresh}
-              disabled={pulling}
-              className="text-xs text-ink-3 hover:text-ink-2 px-2 py-1 rounded disabled:opacity-50"
-            >
-              {pulling ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </div>
-          <StoreFilterChips
-            selectedStoreId={selectedStoreId}
-            onSelect={setSelectedStoreId}
-          />
+      <StoreFilterChips selectedStoreId={selectedStoreId} onSelect={setSelectedStoreId} />
+
+      {status === 'error' && (
+        <div className="mb-4">
+          <Notice tone="warn" icon={<WifiOff className="h-5 w-5 text-warn" aria-hidden />}>
+            Can&apos;t reach LocalMart right now. We&apos;ll keep trying.
+          </Notice>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        {status === 'error' && (
-          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm text-amber-900">
-            Couldn't refresh. We'll keep trying.
-          </div>
-        )}
-
-        {status === 'loading' && orders.length === 0 ? (
-          <SkeletonStack />
-        ) : filtered.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-4">
-            {filtered.map((order) => (
-              <ApprovalCard key={order.id} order={order} />
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
+      {status === 'loading' && orders.length === 0 ? (
+        <SkeletonStack />
+      ) : filtered.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((order) => (
+            <ApprovalCard key={order.id} order={order} />
+          ))}
+        </div>
+      )}
+    </Page>
   );
 }
 
@@ -99,19 +96,21 @@ function SkeletonStack() {
   return (
     <div className="space-y-4" aria-busy>
       {[0, 1].map((i) => (
-        <div
-          key={i}
-          className="bg-white rounded-2xl border border-sand p-6 animate-pulse"
-        >
-          <div className="flex gap-6">
-            <div className="w-[120px] h-[120px] rounded-full bg-sand/50 flex-shrink-0" />
-            <div className="flex-1 space-y-3">
-              <div className="h-3 bg-sand/50 rounded w-1/3" />
-              <div className="h-4 bg-sand/50 rounded w-1/2" />
-              <div className="h-3 bg-sand/50 rounded w-2/3" />
-              <div className="h-3 bg-sand/50 rounded w-1/2" />
-              <div className="h-3 bg-sand/50 rounded w-1/3" />
+        <div key={i} className="animate-pulse rounded-3xl bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 rounded-full bg-fill" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-1/2 rounded bg-fill" />
+              <div className="h-3 w-1/3 rounded bg-fill" />
             </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-3 w-2/3 rounded bg-fill" />
+            <div className="h-3 w-1/2 rounded bg-fill" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="h-12 rounded-full bg-fill" />
+            <div className="h-12 rounded-full bg-fill" />
           </div>
         </div>
       ))}
@@ -121,14 +120,15 @@ function SkeletonStack() {
 
 function EmptyState() {
   return (
-    <div className="text-center py-16">
-      <div className="text-5xl mb-3">🎉</div>
-      <h2 className="text-lg font-semibold text-ink mb-1">
-        You're all caught up.
-      </h2>
-      <p className="text-sm text-ink-2">
-        We'll chime when a new order lands.
+    <div className="rounded-3xl bg-card px-6 py-12 text-center">
+      <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ok-soft text-ok">
+        <BellRing className="h-8 w-8" aria-hidden />
+      </span>
+      <h2 className="text-[20px] font-semibold text-label">You&apos;re all caught up</h2>
+      <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">
+        Keep this page open. A sound plays when a new order comes in.
       </p>
+      <p className="mt-1 text-[15px] text-label-3">नया ऑर्डर आने पर आवाज़ आएगी</p>
     </div>
   );
 }

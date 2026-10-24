@@ -1,8 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  Dumbbell,
+  Home,
+  Info,
+  Milk,
+  Package,
+  Pill as PillIcon,
+  ShoppingCart,
+  Shirt,
+  Smartphone,
+  Sparkles,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react';
 import { useBusinessCategories } from '@/hooks/useBusinessCategories';
+import { Button, Notice, StickyBar, StickyBarSpacer } from '@/components/app/ui';
+import { ChoiceCard, Field, RupeeInput, inputClass } from '@/components/app/form';
 
 interface VendorOnboardingWizardProps {
   userId: string;
@@ -26,10 +43,68 @@ const INITIAL_FORM = {
   minOrderAmount: '100',
 };
 
+type FormField = keyof typeof INITIAL_FORM;
+type FieldErrors = Partial<Record<FormField, string>>;
+
+const STEPS: Record<Step, { title: string; hindi: string }> = {
+  1: { title: 'Your shop', hindi: 'आपकी दुकान' },
+  2: { title: 'Address', hindi: 'दुकान का पता' },
+  3: { title: 'Delivery', hindi: 'डिलीवरी' },
+};
+
+// Categories may carry emojis from the API; we show icons instead
+const ICONS: Record<string, LucideIcon> = {
+  GROCERY: ShoppingCart,
+  RESTAURANT: UtensilsCrossed,
+  PHARMACY: PillIcon,
+  ELECTRONICS: Smartphone,
+  FASHION: Shirt,
+  HOME_SERVICES: Home,
+  COSMETICS: Sparkles,
+  DAIRY: Milk,
+  SPORTS: Dumbbell,
+  OTHER: Package,
+};
+
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
+
+/** White card for one step: thin progress bar, "Step 1 of 3", title, fields */
+function StepCard({ step, total, title, hindi, children }: { step: number; total: number; title: string; hindi: string; children: ReactNode }) {
+  return (
+    <section className="mb-4 rounded-2xl bg-card p-4 sm:p-5">
+      {/* One segment per step, filled up to this one */}
+      <div
+        className="flex gap-1.5"
+        role="progressbar"
+        aria-label={`Step ${step} of ${total}`}
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-valuenow={step}
+      >
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i < step ? "bg-tint" : "bg-fill-strong"}`}
+          />
+        ))}
+      </div>
+      <div className="mt-4">
+        <p className="text-[14px] font-semibold text-tint">
+          Step {step} of {total}
+        </p>
+        <h2 className="mt-0.5 text-[20px] font-bold leading-tight text-label">{title}</h2>
+        <p className="mt-0.5 text-[14px] text-label-2">{hindi}</p>
+        <div className="mt-5 space-y-5">{children}</div>
+      </div>
+    </section>
+  );
+}
+
 export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   // Use shared hook for dynamic business categories
   const { categories: businessCategories, loading: categoriesLoading } = useBusinessCategories(true);
@@ -61,42 +136,73 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
   }, [userId, formData, currentStep]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const name = e.target.name as FormField;
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: e.target.value,
     }));
+    setErrors(prev => ({ ...prev, [name]: undefined }));
+  };
+
+  const pickType = (value: string) => {
+    setFormData(prev => ({ ...prev, businessType: value }));
+    setErrors(prev => ({ ...prev, businessType: undefined }));
+  };
+
+  // What's missing on a step, in plain words
+  const stepErrors = (step: Step): FieldErrors => {
+    const e: FieldErrors = {};
+    if (step === 1) {
+      if (!formData.businessName.trim()) e.businessName = 'Add your shop name — customers will see it';
+      if (!formData.businessType) e.businessType = 'Pick what your shop sells';
+      if (!formData.contactEmail.trim()) e.contactEmail = 'Add an email — we send order and shop updates here';
+      if (formData.contactPhone && !/^[0-9]{10}$/.test(formData.contactPhone)) {
+        e.contactPhone = 'A mobile number has 10 numbers — no +91 or spaces';
+      }
+    }
+    if (step === 2) {
+      if (!formData.street.trim()) e.street = 'Add your shop address so customers can find you';
+      if (!formData.city.trim()) e.city = 'Add your city';
+      if (!formData.state.trim()) e.state = 'Add your state';
+      if (!formData.zipCode) e.zipCode = 'Add your PIN code';
+      else if (!/^[0-9]{6}$/.test(formData.zipCode)) e.zipCode = 'A PIN code has 6 numbers';
+    }
+    if (step === 3) {
+      if (!formData.deliveryRadius) e.deliveryRadius = 'Say how far you deliver, like 5 km';
+      if (!formData.deliveryCharge) e.deliveryCharge = 'Add a delivery charge — put 0 for free delivery';
+      if (!formData.minOrderAmount) e.minOrderAmount = 'Add the smallest order you take — put 0 for any amount';
+    }
+    return e;
   };
 
   const validateStep = (step: Step): boolean => {
-    switch (step) {
-      case 1:
-        return !!(formData.businessName && formData.businessType && formData.contactEmail);
-      case 2:
-        return !!(formData.street && formData.city && formData.state && formData.zipCode);
-      case 3:
-        return !!(formData.deliveryRadius && formData.deliveryCharge && formData.minOrderAmount);
-      default:
-        return false;
+    const e = stepErrors(step);
+    setErrors(e);
+    const first = Object.keys(e)[0];
+    if (first) {
+      const el = document.getElementById(`ob-${first}`);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (el instanceof HTMLInputElement) el.focus({ preventScroll: true });
+      return false;
     }
+    return true;
   };
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
       setCurrentStep((prev) => (prev + 1) as Step);
-    } else {
-      alert('Please fill in all required fields');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleBack = () => {
+    setErrors({});
     setCurrentStep((prev) => (prev - 1) as Step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) {
-      alert('Please fill in all required fields');
-      return;
-    }
+    if (!validateStep(3)) return;
 
     setLoading(true);
 
@@ -108,332 +214,262 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem(STORAGE_KEY(userId));
         }
+        toast.success('Your shop is set up. Now add your products.');
         router.push('/vendor/onboarding/add-products');
       } else {
-        alert((data as any).error || (data as any).message || 'Failed to complete onboarding');
+        toast.error((data as { error?: string }).error || data.message || "Couldn't set up your shop. Please try again.");
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Onboarding error:', error);
-      alert(error?.message || 'Something went wrong. Please try again.');
+      toast.error((error instanceof Error && error.message) || 'Something went wrong. Check your internet and try again.');
     }
 
     setLoading(false);
   };
 
-  const steps = [
-    { number: 1, title: 'Business Info', description: 'Tell us about your store' },
-    { number: 2, title: 'Location', description: 'Where is your store?' },
-    { number: 3, title: 'Delivery', description: 'Set up delivery options' },
-  ];
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentStep < 3) handleNext();
+    else handleSubmit();
+  };
+
+  const step = STEPS[currentStep];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          {steps.map((step, index) => (
-            <div key={step.number} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center font-semibold text-lg transition-all ${
-                    currentStep >= step.number
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-500'
-                  }`}
-                >
-                  {currentStep > step.number ? (
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    step.number
-                  )}
-                </div>
-                <div className="text-center mt-2">
-                  <p className="text-sm font-medium text-gray-900">{step.title}</p>
-                  <p className="text-xs text-gray-500">{step.description}</p>
-                </div>
-              </div>
-              {index < steps.length - 1 && (
-                <div
-                  className={`h-1 flex-1 mx-4 rounded transition-all ${
-                    currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Form Content */}
-      <div className="bg-white rounded-lg shadow-lg p-8">
+    <form onSubmit={onFormSubmit} noValidate>
+      <StepCard step={currentStep} total={3} title={step.title} hindi={step.hindi}>
         {/* Step 1: Business Info */}
         {currentStep === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Business Information</h2>
-              <p className="text-gray-600">Let's start with the basics about your store</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Business Name <span className="text-red-500">*</span>
-              </label>
+          <>
+            <Field label="Shop name" htmlFor="ob-businessName" hint="Customers see this name" error={errors.businessName}>
               <input
+                id="ob-businessName"
                 type="text"
                 name="businessName"
                 value={formData.businessName}
                 onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                placeholder="E.g., Sharma General Store"
+                aria-invalid={!!errors.businessName}
+                autoComplete="organization"
+                className={inputClass}
+                placeholder="e.g. Sharma General Store"
               />
-            </div>
+            </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Business Type <span className="text-red-500">*</span>
-              </label>
-              {categoriesLoading ? (
-                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
-                  Loading categories...
-                </div>
-              ) : (
-                <select
-                  name="businessType"
-                  value={formData.businessType}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
-                >
-                  {businessCategories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.icon && `${category.icon} `}{category.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                This helps us suggest relevant products for your store
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  name="contactEmail"
-                  value={formData.contactEmail}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="store@example.com"
-                />
+            <Field
+              label="What does your shop sell?"
+              hint="We use this to suggest products for your shop"
+              error={errors.businessType}
+            >
+              <div id="ob-businessType" role="radiogroup" aria-label="What does your shop sell?" className="grid gap-3 sm:grid-cols-2">
+                {categoriesLoading
+                  ? [0, 1, 2, 3].map((i) => <div key={i} className="h-[76px] animate-pulse rounded-2xl bg-fill" />)
+                  : businessCategories.map((category) => {
+                      const Icon = ICONS[category.value] || Package;
+                      return (
+                        <ChoiceCard
+                          key={category.value}
+                          selected={formData.businessType === category.value}
+                          onSelect={() => pickType(category.value)}
+                          icon={<Icon className="h-[22px] w-[22px]" aria-hidden />}
+                          title={category.name}
+                          description={category.description || undefined}
+                        />
+                      );
+                    })}
               </div>
+            </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Phone
-                </label>
-                <input
-                  type="tel"
-                  name="contactPhone"
-                  value={formData.contactPhone}
-                  onChange={handleChange}
-                  pattern="[0-9]{10}"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="9876543210"
-                />
-                <p className="text-xs text-gray-500 mt-1">10 digits, no spaces</p>
-              </div>
-            </div>
-          </div>
+            <Field
+              label="Email"
+              htmlFor="ob-contactEmail"
+              hint="We send order and shop updates here"
+              error={errors.contactEmail}
+            >
+              <input
+                id="ob-contactEmail"
+                type="email"
+                inputMode="email"
+                name="contactEmail"
+                value={formData.contactEmail}
+                onChange={handleChange}
+                aria-invalid={!!errors.contactEmail}
+                autoComplete="email"
+                className={inputClass}
+                placeholder="you@example.com"
+              />
+            </Field>
+
+            <Field
+              label="Shop phone number"
+              htmlFor="ob-contactPhone"
+              optional
+              hint="10 digits, no +91. Customers can call you."
+              error={errors.contactPhone}
+            >
+              <input
+                id="ob-contactPhone"
+                type="tel"
+                inputMode="numeric"
+                name="contactPhone"
+                value={formData.contactPhone}
+                onChange={handleChange}
+                maxLength={10}
+                aria-invalid={!!errors.contactPhone}
+                autoComplete="tel-national"
+                className={cx(inputClass, 'tabular-nums')}
+                placeholder="98765 43210"
+              />
+            </Field>
+          </>
         )}
 
         {/* Step 2: Location */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Store Location</h2>
-              <p className="text-gray-600">Where can customers find your store?</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Street Address <span className="text-red-500">*</span>
-              </label>
+          <>
+            <Field
+              label="Shop address"
+              htmlFor="ob-street"
+              hint="Shop number, street and a landmark"
+              error={errors.street}
+            >
               <input
+                id="ob-street"
                 type="text"
                 name="street"
                 value={formData.street}
                 onChange={handleChange}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-invalid={!!errors.street}
+                autoComplete="street-address"
+                className={inputClass}
                 placeholder="Shop No. 12, Main Market"
               />
-            </div>
+            </Field>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  City <span className="text-red-500">*</span>
-                </label>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="City" htmlFor="ob-city" error={errors.city}>
                 <input
+                  id="ob-city"
                   type="text"
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Mumbai"
+                  aria-invalid={!!errors.city}
+                  autoComplete="address-level2"
+                  className={inputClass}
+                  placeholder="Guna"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  State <span className="text-red-500">*</span>
-                </label>
+              </Field>
+              <Field label="State" htmlFor="ob-state" error={errors.state}>
                 <input
+                  id="ob-state"
                   type="text"
                   name="state"
                   value={formData.state}
                   onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Maharashtra"
+                  aria-invalid={!!errors.state}
+                  autoComplete="address-level1"
+                  className={inputClass}
+                  placeholder="Madhya Pradesh"
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  PIN Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="zipCode"
-                  value={formData.zipCode}
-                  onChange={handleChange}
-                  required
-                  pattern="[0-9]{6}"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="400001"
-                />
-              </div>
+              </Field>
             </div>
-          </div>
+
+            <Field label="PIN code" htmlFor="ob-zipCode" error={errors.zipCode}>
+              <input
+                id="ob-zipCode"
+                type="text"
+                inputMode="numeric"
+                name="zipCode"
+                value={formData.zipCode}
+                onChange={handleChange}
+                maxLength={6}
+                aria-invalid={!!errors.zipCode}
+                autoComplete="postal-code"
+                className={cx(inputClass, 'tabular-nums sm:max-w-[200px]')}
+                placeholder="473001"
+              />
+            </Field>
+          </>
         )}
 
         {/* Step 3: Delivery Settings */}
         {currentStep === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Delivery Settings</h2>
-              <p className="text-gray-600">Configure how you'll deliver to customers</p>
-            </div>
+          <>
+            <Notice tone="info" icon={<Info className="h-5 w-5 text-info" aria-hidden />}>
+              You can change these any time from My shop.
+            </Notice>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <svg className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="font-medium text-blue-900">Quick Setup</p>
-                  <p className="text-sm text-blue-700 mt-1">
-                    You can change these settings anytime from your vendor dashboard
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Delivery Radius (km) <span className="text-red-500">*</span>
-                </label>
+            <Field
+              label="How far do you deliver?"
+              htmlFor="ob-deliveryRadius"
+              hint="Distance from your shop"
+              error={errors.deliveryRadius}
+            >
+              <div className="relative sm:max-w-[200px]">
                 <input
+                  id="ob-deliveryRadius"
                   type="number"
+                  inputMode="numeric"
                   name="deliveryRadius"
                   value={formData.deliveryRadius}
                   onChange={handleChange}
-                  required
                   min="1"
                   max="50"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-invalid={!!errors.deliveryRadius}
+                  className={cx(inputClass, 'pr-12 tabular-nums')}
                 />
-                <p className="text-xs text-gray-500 mt-1">How far you deliver</p>
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">km</span>
               </div>
+            </Field>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Delivery Charge (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Delivery charge"
+                htmlFor="ob-deliveryCharge"
+                hint="For each order. Put 0 for free delivery."
+                error={errors.deliveryCharge}
+              >
+                <RupeeInput
+                  id="ob-deliveryCharge"
                   name="deliveryCharge"
                   value={formData.deliveryCharge}
                   onChange={handleChange}
-                  required
                   min="0"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-invalid={!!errors.deliveryCharge}
                 />
-                <p className="text-xs text-gray-500 mt-1">Per order charge</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Min Order (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
+              </Field>
+              <Field
+                label="Smallest order you take"
+                htmlFor="ob-minOrderAmount"
+                hint="Customers can't order for less than this"
+                error={errors.minOrderAmount}
+              >
+                <RupeeInput
+                  id="ob-minOrderAmount"
                   name="minOrderAmount"
                   value={formData.minOrderAmount}
                   onChange={handleChange}
-                  required
                   min="0"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-invalid={!!errors.minOrderAmount}
                 />
-                <p className="text-xs text-gray-500 mt-1">Minimum order value</p>
-              </div>
+              </Field>
             </div>
-          </div>
+          </>
         )}
+      </StepCard>
 
-        {/* Navigation Buttons */}
-        <div className="flex gap-4 mt-8 pt-6 border-t">
-          {currentStep > 1 && (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              Back
-            </button>
-          )}
-
-          {currentStep < 3 ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
-            >
-              Continue
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            >
-              {loading ? 'Setting up...' : 'Complete Setup & Add Products'}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      <StickyBarSpacer />
+      {/* No tab bar on onboarding screens, so the bar sits at the very bottom */}
+      <StickyBar>
+        {currentStep > 1 && (
+          <Button variant="secondary" onClick={handleBack} disabled={loading} className="w-28 shrink-0 sm:w-36">
+            Back
+          </Button>
+        )}
+        <Button type="submit" loading={loading} className="flex-1">
+          {currentStep < 3 ? 'Next' : loading ? 'Setting up…' : 'Finish and add products'}
+        </Button>
+      </StickyBar>
+    </form>
   );
 }

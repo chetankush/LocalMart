@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { toast } from 'sonner';
+import { Check, CheckCircle2, Plus, Search } from 'lucide-react';
+import { useConfirm } from '@/hooks/useConfirm';
+import { Button, LargeTitle, Notice, Pill, Row, StickyBar, StickyBarSpacer, rupees } from '@/components/app/ui';
+import { Field, RupeeInput, inputClass } from '@/components/app/form';
+import { IconBox, List, SectionHeader } from '@/components/app/seller';
 
 interface Category {
   id: string;
@@ -38,21 +43,35 @@ interface ProductOnboardingClientProps {
   hasExistingProducts: boolean;
 }
 
+// A ticked suggestion with the shop's own price and stock
+interface Picked {
+  template: ProductTemplate;
+  price: string;
+  stock: string;
+}
+
+type RowErrors = Record<string, { price?: string; stock?: string }>;
+
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(' ');
+
+// businessType is passed in but not used here yet
 export default function ProductOnboardingClient({
   vendorId,
-  businessType,
   categories,
   hasExistingProducts,
 }: ProductOnboardingClientProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [selectedCategory, setSelectedCategory] = useState<string>(categories[0]?.id || '');
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [addedProducts, setAddedProducts] = useState<AddedProduct[]>([]);
-  const [showQuickAdd, setShowQuickAdd] = useState<string | null>(null);
-  const [quickAddData, setQuickAddData] = useState({ price: '', stock: '' });
+  const [picked, setPicked] = useState<Record<string, Picked>>({});
+  const [rowErrors, setRowErrors] = useState<RowErrors>({});
   const [addingProduct, setAddingProduct] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [addTotal, setAddTotal] = useState(0);
 
   // Fetch templates
   useEffect(() => {
@@ -88,14 +107,26 @@ export default function ProductOnboardingClient({
     );
   });
 
-  const handleQuickAdd = async (template: ProductTemplate) => {
-    if (!quickAddData.price || !quickAddData.stock) {
-      alert('Please enter price and stock quantity');
-      return;
-    }
+  const pickedList = Object.values(picked);
+  const pickedCount = pickedList.length;
 
-    setAddingProduct(true);
+  const togglePick = (template: ProductTemplate) => {
+    setPicked((prev) => {
+      const next = { ...prev };
+      if (next[template.id]) delete next[template.id];
+      else next[template.id] = { template, price: template.suggestedPrice?.toString() || '', stock: '50' };
+      return next;
+    });
+    setRowErrors((prev) => ({ ...prev, [template.id]: {} }));
+  };
 
+  const updatePick = (id: string, field: 'price' | 'stock', value: string) => {
+    setPicked((prev) => (prev[id] ? { ...prev, [id]: { ...prev[id], [field]: value } } : prev));
+    setRowErrors((prev) => ({ ...prev, [id]: { ...prev[id], [field]: undefined } }));
+  };
+
+  // Create one product from a suggestion (same request as before, one per ticked row)
+  const handleQuickAdd = async ({ template, price, stock }: Picked): Promise<boolean> => {
     try {
       const { apiClient } = await import('@/lib/api/client');
 
@@ -106,10 +137,10 @@ export default function ProductOnboardingClient({
         description: template.description,
         categoryId: template.category.id,
         images: [], // No images for now - vendor can add later
-        price: parseFloat(quickAddData.price),
+        price: parseFloat(price),
         compareAtPrice: null,
         sku: null,
-        stockQuantity: parseInt(quickAddData.stock),
+        stockQuantity: parseInt(stock),
         lowStockThreshold: 10,
         weight: template.suggestedWeight,
         isActive: true,
@@ -122,39 +153,90 @@ export default function ProductOnboardingClient({
           {
             templateId: template.id,
             name: template.name,
-            price: parseFloat(quickAddData.price),
-            stockQuantity: parseInt(quickAddData.stock),
+            price: parseFloat(price),
+            stockQuantity: parseInt(stock),
           },
         ]);
 
-        // Record template usage
+        // Record template usage — the product already exists, so a failure here is not an error
         await fetch(`/api/product-templates/${template.id}/use`, {
           method: 'POST',
-        });
+        }).catch(() => undefined);
 
-        // Reset and close modal
-        setShowQuickAdd(null);
-        setQuickAddData({ price: '', stock: '' });
-
-        // Show success feedback
-        alert(`✓ ${template.name} added successfully!`);
-      } else {
-        alert(data.error || 'Failed to add product');
+        return true;
       }
+      console.error('Product creation failed:', (data as { error?: string }).error || data.message);
+      return false;
     } catch (error) {
       console.error('Product creation error:', error);
-      alert('Something went wrong. Please try again.');
+      return false;
     }
-
-    setAddingProduct(false);
   };
 
-  const handleFinishOnboarding = () => {
+  const handleAddPicked = async () => {
+    if (pickedCount === 0 || addingProduct) return;
+
+    // Every ticked product needs a price and a stock count
+    const errs: RowErrors = {};
+    for (const p of pickedList) {
+      const e: { price?: string; stock?: string } = {};
+      if (!p.price || isNaN(parseFloat(p.price))) e.price = 'Add a price — customers need it to order';
+      if (!p.stock || isNaN(parseInt(p.stock))) e.stock = 'Add how many you have';
+      if (e.price || e.stock) errs[p.template.id] = e;
+    }
+    setRowErrors(errs);
+    const firstBad = pickedList.find((p) => errs[p.template.id]);
+    if (firstBad) {
+      // Show the row that needs fixing, even if it's in another category
+      if (firstBad.template.category.id !== selectedCategory && categories.some((c) => c.id === firstBad.template.category.id)) {
+        setSelectedCategory(firstBad.template.category.id);
+      }
+      setSearchQuery('');
+      toast.error(`Add a price and stock for ${firstBad.template.name}`);
+      setTimeout(() => {
+        document.getElementById(`price-${firstBad.template.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 100);
+      return;
+    }
+
+    setAddingProduct(true);
+    setAddTotal(pickedList.length);
+    const failed: string[] = [];
+    let added = 0;
+    for (const [i, p] of pickedList.entries()) {
+      setProgress(i + 1);
+      if (await handleQuickAdd(p)) {
+        added += 1;
+        setPicked((prev) => {
+          const next = { ...prev };
+          delete next[p.template.id];
+          return next;
+        });
+      } else {
+        failed.push(p.template.name);
+      }
+    }
+    setAddingProduct(false);
+    setProgress(0);
+
+    if (failed.length === 0) {
+      toast.success(`${added} product${added === 1 ? '' : 's'} added to your shop`);
+      router.push('/vendor/dashboard');
+      return;
+    }
+    if (added > 0) toast.success(`${added} product${added === 1 ? '' : 's'} added`);
+    toast.error(`Couldn't add ${failed.join(', ')}. They are still ticked — tap Add to try again.`);
+  };
+
+  const handleFinishOnboarding = async () => {
     if (addedProducts.length === 0) {
-      const confirmSkip = window.confirm(
-        'You haven\'t added any products yet. Are you sure you want to continue? You can add products later from your dashboard.'
-      );
-      if (!confirmSkip) return;
+      const ok = await confirm({
+        title: 'Skip adding products?',
+        description: 'You can add products any time from your shop.',
+        confirmLabel: 'Skip for now',
+        cancelLabel: 'Add products',
+      });
+      if (!ok) return;
     }
 
     router.push('/vendor/dashboard');
@@ -164,281 +246,201 @@ export default function ProductOnboardingClient({
     router.push('/vendor/products/new');
   };
 
-  const getCategoryIcon = (categoryName: string) => {
-    const icons: { [key: string]: string } = {
-      grocery: '🛒',
-      fashion: '👕',
-      pharmacy: '💊',
-      electronics: '📱',
-      'home services': '🔧',
-      restaurant: '🍽️',
-    };
-    return icons[categoryName.toLowerCase()] || '📦';
-  };
+  const categoryName = categories.find((c) => c.id === selectedCategory)?.name;
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-3">
-          ⚡ Quick Start: Add Your Products
-        </h1>
-        <p className="text-lg text-gray-600">
-          Save time! Select products from our suggestions and customize them with your details
-        </p>
-        {addedProducts.length > 0 && (
-          <div className="mt-4 inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full font-medium">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {addedProducts.length} product{addedProducts.length > 1 ? 's' : ''} added
-          </div>
-        )}
-      </div>
+    <>
+      <LargeTitle
+        title={hasExistingProducts ? 'Add more products' : 'Add your first products'}
+        subtitle="Tick what you sell and set your price · अपना सामान चुनें"
+      />
 
-      {/* Category Selector */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Product Category</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`p-4 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer ${
-                selectedCategory === category.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-blue-300'
-              }`}
-            >
-              <div className="text-3xl mb-2">{getCategoryIcon(category.name)}</div>
-              <div className="text-sm font-medium text-gray-900">{category.name}</div>
-            </button>
-          ))}
+      {addedProducts.length > 0 && (
+        <div className="mb-4">
+          <Notice tone="ok" icon={<CheckCircle2 className="h-5 w-5 text-ok" aria-hidden />}>
+            {addedProducts.length} product{addedProducts.length > 1 ? 's' : ''} added to your shop
+          </Notice>
         </div>
-      </div>
+      )}
 
-      {/* Search Bar */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      {/* Category chips */}
+      {categories.length > 0 && (
+        <div
+          role="group"
+          aria-label="Product type"
+          className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {categories.map((category) => {
+            const on = selectedCategory === category.id;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setSelectedCategory(category.id)}
+                className={cx(
+                  'h-11 shrink-0 whitespace-nowrap rounded-full px-4 text-[15px] transition-colors cursor-pointer',
+                  on ? 'bg-tint-soft font-semibold text-tint' : 'bg-card font-medium text-label-2 hover:text-label',
+                )}
+              >
+                {category.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3" aria-hidden />
         <input
-          type="text"
-          placeholder="Search products... (e.g., oil, soap, saree)"
+          type="search"
+          placeholder="Search, e.g. oil, soap, saree"
+          aria-label="Search suggestions"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+          className={cx(inputClass, 'pl-11')}
         />
       </div>
 
-      {/* Product Templates Grid */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Popular Products in {categories.find((c) => c.id === selectedCategory)?.name}
-          </h2>
-          <button
-            onClick={handleAddManually}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-          >
-            + Add Custom Product
-          </button>
-        </div>
-
+      {/* Suggestions */}
+      <section className="mb-6">
+        <SectionHeader title={categoryName ? `Suggestions · ${categoryName}` : 'Suggestions'} />
         {loadingTemplates ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
+          <List>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-4">
+                <div className="h-7 w-7 animate-pulse rounded-lg bg-fill" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-1/2 animate-pulse rounded-2xl bg-fill" />
+                  <div className="h-3 w-1/3 animate-pulse rounded-2xl bg-fill" />
+                </div>
+              </div>
+            ))}
+          </List>
         ) : filteredTemplates.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
+          <List>
             {filteredTemplates.map((template) => {
               const isAdded = addedProducts.some((p) => p.templateId === template.id);
-
+              const pick = picked[template.id];
+              const err = rowErrors[template.id] || {};
               return (
-                <div
-                  key={template.id}
-                  className={`border rounded-lg p-4 hover:shadow-lg transition-all ${
-                    isAdded ? 'bg-green-50 border-green-300' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{template.name}</h3>
-                      {template.isPopular && (
-                        <span className="inline-block text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">
-                          Popular
+                <div key={template.id} className={cx('px-4 py-3', pick && 'bg-tint-soft/40')}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={!!pick || isAdded}
+                    disabled={isAdded || addingProduct}
+                    onClick={() => togglePick(template)}
+                    className="flex min-h-[48px] w-full items-start gap-3 text-left cursor-pointer disabled:cursor-default"
+                  >
+                    <span
+                      aria-hidden
+                      className={cx(
+                        'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 transition-colors',
+                        isAdded ? 'border-ok bg-ok text-white' : pick ? 'border-tint bg-tint text-white' : 'border-label/25 bg-card',
+                      )}
+                    >
+                      {(pick || isAdded) && <Check className="h-[18px] w-[18px]" strokeWidth={3} />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[16px] font-semibold leading-snug text-label">{template.name}</span>
+                      {template.description && (
+                        <span className="mt-0.5 block text-[14px] leading-snug text-label-2 line-clamp-1">
+                          {template.description}
                         </span>
                       )}
-                    </div>
-                    {isAdded && (
-                      <svg
-                        className="w-6 h-6 text-green-600 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{template.description}</p>
-
-                  {template.suggestedPrice && (
-                    <p className="text-sm text-gray-500 mb-3">
-                      Suggested Price: <span className="font-medium text-green-600">₹{template.suggestedPrice}</span>
-                    </p>
-                  )}
-
-                  {template.tags && template.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {template.tags.slice(0, 3).map((tag: string, index: number) => (
-                        <span
-                          key={index}
-                          className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
-                        >
-                          {tag}
+                      {template.suggestedPrice ? (
+                        <span className="mt-0.5 block text-[14px] text-label-2">
+                          Usually <span className="tabular-nums">{rupees(template.suggestedPrice)}</span>
                         </span>
-                      ))}
-                    </div>
-                  )}
+                      ) : null}
+                    </span>
+                    {isAdded ? (
+                      <Pill tone="ok">Added</Pill>
+                    ) : template.isPopular ? (
+                      <Pill tone="neutral">Popular</Pill>
+                    ) : null}
+                  </button>
 
-                  {!isAdded && (
-                    <button
-                      onClick={() => {
-                        setShowQuickAdd(template.id);
-                        setQuickAddData({
-                          price: template.suggestedPrice?.toString() || '',
-                          stock: '50',
-                        });
-                      }}
-                      className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer"
-                    >
-                      Quick Add
-                    </button>
+                  {pick && (
+                    <div className="mt-3 grid grid-cols-2 gap-3 pl-10">
+                      <Field label="Your price" htmlFor={`price-${template.id}`} error={err.price}>
+                        <RupeeInput
+                          id={`price-${template.id}`}
+                          value={pick.price}
+                          onChange={(e) => updatePick(template.id, 'price', e.target.value)}
+                          placeholder="0"
+                          disabled={addingProduct}
+                          aria-invalid={!!err.price}
+                        />
+                      </Field>
+                      <Field label="In stock" htmlFor={`stock-${template.id}`} error={err.stock}>
+                        <input
+                          id={`stock-${template.id}`}
+                          type="number"
+                          inputMode="numeric"
+                          min="0"
+                          value={pick.stock}
+                          onChange={(e) => updatePick(template.id, 'stock', e.target.value)}
+                          disabled={addingProduct}
+                          aria-invalid={!!err.stock}
+                          className={cx(inputClass, 'tabular-nums')}
+                        />
+                      </Field>
+                    </div>
                   )}
                 </div>
               );
             })}
-          </div>
+          </List>
         ) : (
-          <div className="text-center py-12 text-gray-500">
-            <p className="mb-4">No products found in this category.</p>
-            <button
-              onClick={handleAddManually}
-              className="text-blue-600 hover:underline font-medium cursor-pointer"
-            >
-              Add custom product manually
-            </button>
+          <div className="rounded-2xl bg-card px-5 py-8 text-center">
+            <p className="text-[17px] font-semibold text-label">No suggestions here</p>
+            <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-label-2">
+              {searchQuery ? 'Try another word, or add the product yourself.' : 'Add the product yourself with a photo, name and price.'}
+            </p>
+            <Button variant="secondary" size="md" className="mt-4" onClick={handleAddManually}>
+              <Plus className="h-[18px] w-[18px]" aria-hidden />
+              Add your own product
+            </Button>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Quick Add Modal */}
-      {showQuickAdd && (
-        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">
-              Quick Add:{' '}
-              {templates.find((t) => t.id === showQuickAdd)?.name}
-            </h3>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Your Selling Price (₹) *
-                </label>
-                <input
-                  type="number"
-                  value={quickAddData.price}
-                  onChange={(e) =>
-                    setQuickAddData((prev) => ({ ...prev, price: e.target.value }))
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your price"
-                  step="0.01"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Stock Quantity *
-                </label>
-                <input
-                  type="number"
-                  value={quickAddData.stock}
-                  onChange={(e) =>
-                    setQuickAddData((prev) => ({ ...prev, stock: e.target.value }))
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="How many items do you have?"
-                  min="0"
-                />
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
-                  💡 You can add images and more details later from your product dashboard
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowQuickAdd(null);
-                  setQuickAddData({ price: '', stock: '' });
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium cursor-pointer"
-                disabled={addingProduct}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() =>
-                  handleQuickAdd(templates.find((t) => t.id === showQuickAdd)!)
-                }
-                disabled={addingProduct}
-                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 cursor-pointer"
-              >
-                {addingProduct ? 'Adding...' : 'Add Product'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Not in the list */}
+      {filteredTemplates.length > 0 && !loadingTemplates && (
+        <section className="mb-6">
+          <List>
+            <Row
+              onClick={handleAddManually}
+              leading={
+                <IconBox tone="neutral" size={40}>
+                  <Plus className="h-5 w-5" />
+                </IconBox>
+              }
+              title="Can't find it? Add your own"
+              subtitle="With your own photo, name and price"
+              chevron
+            />
+          </List>
+        </section>
       )}
 
-      {/* Bottom Action Bar */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 shadow-lg rounded-t-lg p-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600">
-              {addedProducts.length === 0
-                ? 'Add at least one product to get started'
-                : `Great! You've added ${addedProducts.length} product${
-                    addedProducts.length > 1 ? 's' : ''
-                  }`}
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleAddManually}
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium cursor-pointer"
-            >
-              Add Custom Product
-            </button>
-            <button
-              onClick={handleFinishOnboarding}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold cursor-pointer"
-            >
-              {addedProducts.length > 0 ? 'Go to Dashboard →' : 'Skip for Now →'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      <StickyBarSpacer />
+      {/* No tab bar on onboarding screens, so the bar sits at the very bottom */}
+      <StickyBar>
+        <Button variant="secondary" onClick={handleFinishOnboarding} disabled={addingProduct} className="shrink-0">
+          {addedProducts.length > 0 ? 'Go to my shop' : 'Skip for now'}
+        </Button>
+        <Button onClick={handleAddPicked} loading={addingProduct} disabled={addingProduct || pickedCount === 0} className="flex-1">
+          {addingProduct
+            ? `Adding ${progress} of ${addTotal}…`
+            : pickedCount === 0
+              ? 'Add products'
+              : `Add ${pickedCount} product${pickedCount === 1 ? '' : 's'}`}
+        </Button>
+      </StickyBar>
+    </>
   );
 }

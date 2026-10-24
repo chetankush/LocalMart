@@ -1,9 +1,10 @@
 import { requireRole } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import VendorSettingsForm from "@/app/vendor/settings/VendorSettingsForm";
+import VendorSettingsForm, { ShopShortcuts } from "@/app/vendor/settings/VendorSettingsForm";
 import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
 import { NotificationSoundSettings } from "@/app/vendor/settings/NotificationSoundSettings";
+import { LargeTitle, Page, StickyBarSpacer } from "@/components/app/ui";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -37,12 +38,16 @@ async function getVendorSettings(authToken: string, storeId?: string) {
   }
 }
 
+/**
+ * "My shop" tab: quick links first (see shop, share, Telegram, offers),
+ * then the shop's look, its details form and the new-order sound.
+ */
 export default async function VendorSettingsPage({
   searchParams,
 }: {
   searchParams: Promise<{ storeId?: string }>;
 }) {
-  const user = await requireRole(["VENDOR"]);
+  await requireRole(["VENDOR"]);
   const params = await searchParams;
   const storeId = params.storeId;
 
@@ -60,27 +65,23 @@ export default async function VendorSettingsPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Store Settings</h1>
-          <p className="text-sm text-gray-600">
-            Manage your store information, images, and location
-          </p>
-        </div>
-      </div>
+    <Page>
+      <LargeTitle title="My shop" subtitle={vendor.businessName} />
 
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-        {/* Theme Selector */}
-        <ThemeSelectorWrapper currentTheme={vendor.storeTheme} storeId={storeId} />
+      <ShopShortcuts
+        storeId={vendor.id}
+        storeName={vendor.businessName}
+        storeDescription={vendor.storeDescription}
+      />
 
-        {/* Settings Form */}
-        <VendorSettingsForm vendor={vendor} />
+      <ThemeSelectorWrapper currentTheme={vendor.storeTheme} storeId={storeId} />
 
-        {/* Per-store new-order chime mute */}
-        <NotificationSoundSettings />
-      </div>
-    </div>
+      <VendorSettingsForm vendor={vendor} />
+
+      {/* Per-store new-order chime mute */}
+      <NotificationSoundSettings />
+
+      <StickyBarSpacer />
+    </Page>
   );
 }

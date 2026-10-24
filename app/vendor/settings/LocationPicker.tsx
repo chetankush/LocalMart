@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { toast } from "sonner";
+import { Search } from "lucide-react";
+import { Button } from "@/components/app/ui";
+import { inputClass } from "@/components/app/form";
 
 interface LocationPickerProps {
   initialLat: number;
@@ -113,9 +117,12 @@ export default function LocationPicker({
         const { lat, lon } = data[0];
         updateMarker(parseFloat(lat), parseFloat(lon));
         mapInstanceRef.current?.setZoom(16);
+      } else {
+        toast.error("Couldn't find that place. Try your area or city name.");
       }
     } catch {
-      // Silently fail — user can still click map
+      // Search is a shortcut — the shop can still tap the map
+      toast.error("Search isn't working right now. Tap the map at your shop instead.");
     } finally {
       setSearching(false);
     }
@@ -123,30 +130,33 @@ export default function LocationPicker({
 
   return (
     <div>
-      {/* Search bar */}
-      <div className="flex gap-2 mb-3">
+      {/* Search bar — type="button" + preventDefault so it never submits the settings form */}
+      <div className="mb-3 flex gap-2">
         <input
-          type="text"
+          type="search"
+          enterKeyHint="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          placeholder="Search for your location..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
+          }}
+          placeholder="Search your area or street"
+          aria-label="Search your area or street"
+          className={`${inputClass} min-w-0 flex-1`}
         />
-        <button
-          onClick={handleSearch}
-          disabled={searching}
-          className="px-4 py-2 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] disabled:opacity-50 text-sm font-medium"
-        >
-          {searching ? "..." : "Search"}
-        </button>
+        <Button type="button" variant="secondary" onClick={handleSearch} loading={searching} className="shrink-0">
+          {!searching && <Search className="h-[18px] w-[18px]" aria-hidden />}
+          Search
+        </Button>
       </div>
 
       {/* Map */}
-      <div ref={mapRef} className="h-96 w-full rounded-lg shadow-sm z-0" />
-      <p className="text-xs text-gray-500 mt-2">
-        Drag the marker or click on the map to set your exact location. Use the
-        search box to find your address quickly.
+      <div ref={mapRef} className="relative isolate z-0 h-72 w-full overflow-hidden rounded-2xl bg-fill sm:h-96" />
+      <p className="mt-2 text-[14px] leading-snug text-label-2">
+        Drag the pin or tap the map at your shop. पिन को अपनी दुकान पर रखें।
       </p>
     </div>
   );

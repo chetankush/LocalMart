@@ -86,12 +86,21 @@ export default async function VendorOrdersPage() {
 
   const orders = result.orders;
   const newCount = orders.filter((o: any) => o.status === "PENDING" || o.status === "PRE_ORDER").length;
+  const activeCount = orders.filter((o: any) =>
+    ["ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY"].includes(o.status)
+  ).length;
 
   return (
     <Page>
       <LargeTitle
         title="Orders"
-        subtitle={newCount > 0 ? `${newCount} new order${newCount === 1 ? "" : "s"} waiting for you` : "All caught up"}
+        subtitle={
+          newCount > 0
+            ? `${newCount} new order${newCount === 1 ? "" : "s"} waiting for you`
+            : activeCount > 0
+              ? `${activeCount} order${activeCount === 1 ? "" : "s"} to pack and deliver`
+              : "All caught up"
+        }
       />
       <OrdersList orders={orders} />
     </Page>

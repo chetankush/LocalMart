@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Settings, ExternalLink, Package, ShoppingCart, Store } from "lucide-react";
+import { Eye, MapPin, Settings, Store } from "lucide-react";
+import { Pill } from "@/components/app/ui";
+import { shopStatus } from "@/components/app/seller";
 
 interface VendorStoreCardProps {
   store: {
@@ -23,160 +24,101 @@ interface VendorStoreCardProps {
   isSelected?: boolean;
   onSelect?: (storeId: string) => void;
   showStats?: boolean;
+  /** Kept for callers; both card actions always show */
   showManageButton?: boolean;
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  GROCERY: "Grocery",
+  RESTAURANT: "Food",
+  PHARMACY: "Medical",
+  ELECTRONICS: "Electronics",
+  FASHION: "Fashion",
+  HOME_SERVICES: "Services",
+  OTHER: "Shop",
+};
+
+/** One of the seller's shops: photo, name, place, status and two clear actions */
 export default function VendorStoreCard({
   store,
   isSelected = false,
   onSelect,
   showStats = false,
-  showManageButton = false,
 }: VendorStoreCardProps) {
-  // Get all available images
-  const allImages = [
-    ...(store.storeLogo ? [store.storeLogo] : []),
-    ...(store.storeImages || []),
-  ].filter(Boolean);
-
-  const getStatusBadge = () => {
-    switch (store.status) {
-      case "ACTIVE":
-        return (
-          <span className="bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-            Open
-          </span>
-        );
-      case "PENDING_APPROVAL":
-        return (
-          <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full text-xs font-medium">
-            ⏳ Pending
-          </span>
-        );
-      case "SUSPENDED":
-        return (
-          <span className="bg-red-100 text-red-700 px-2.5 py-1 rounded-full text-xs font-medium">
-            Suspended
-          </span>
-        );
-      default:
-        return (
-          <span className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs font-medium">
-            {store.status}
-          </span>
-        );
-    }
-  };
+  const photo = [store.storeImages?.[0], store.storeLogo].find(Boolean) as string | undefined;
+  const status = shopStatus(store.status);
 
   return (
-    <div
-      className={`w-full rounded-3xl bg-white p-4 border-2 transition-all duration-300 cursor-pointer relative ${
-        isSelected
-          ? "border-blue-500"
-          : "border-gray-200 hover:border-gray-400"
-      }`}
-      onClick={() => onSelect?.(store.id)}
+    <article
+      className={`overflow-hidden rounded-3xl bg-card transition-shadow ${
+        isSelected ? "ring-2 ring-tint" : ""
+      } ${onSelect ? "cursor-pointer" : ""}`}
+      onClick={onSelect ? () => onSelect(store.id) : undefined}
     >
-      {/* Selected Badge */}
-      {isSelected && (
-        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-medium z-10 shadow-md">
-          Selected
-        </div>
-      )}
-
-      {/* Image Section */}
-      <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-gradient-to-br from-orange-100 to-orange-200">
-        {allImages.length > 0 ? (
-          <Image
-            src={allImages[0]}
-            alt={store.businessName}
-            fill
-            className="object-cover hover:scale-105 transition-transform duration-300"
-          />
+      <div className="relative aspect-[16/9] w-full bg-fill">
+        {photo ? (
+          <Image src={photo} alt={store.businessName} fill sizes="(min-width: 1024px) 33vw, 100vw" className="object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-orange-100 to-orange-200">
-            <Store className="w-20 h-20 text-orange-400" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Store className="h-14 w-14 text-label-3" strokeWidth={1.5} aria-hidden />
+          </div>
+        )}
+        <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[13px] font-semibold text-label">
+          {TYPE_LABEL[store.businessType] ?? "Shop"}
+        </span>
+      </div>
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="min-w-0 text-[18px] font-bold leading-snug text-label line-clamp-2">{store.businessName}</h2>
+          <Pill tone={status.tone}>{status.label}</Pill>
+        </div>
+        {store.storeDescription && (
+          <p className="mt-1 text-[15px] leading-snug text-label-2 line-clamp-2">{store.storeDescription}</p>
+        )}
+        <p className="mt-1.5 flex items-center gap-1 text-[15px] text-label-2">
+          <MapPin className="h-4 w-4 shrink-0" aria-hidden />
+          {store.city}
+        </p>
+
+        {showStats && (
+          <div className="mt-4 grid grid-cols-3 divide-x divide-hairline rounded-2xl bg-fill py-3 text-center">
+            <div>
+              <p className="text-[20px] font-bold tabular-nums text-label">{store.productCount || 0}</p>
+              <p className="text-[13px] text-label-2">Products</p>
+            </div>
+            <div>
+              <p className="text-[20px] font-bold tabular-nums text-label">{store.orderCount || 0}</p>
+              <p className="text-[13px] text-label-2">Orders</p>
+            </div>
+            <div>
+              <p className={`text-[20px] font-bold tabular-nums ${store.pendingOrders ? "text-warn" : "text-label"}`}>
+                {store.pendingOrders || 0}
+              </p>
+              <p className="text-[13px] text-label-2">New</p>
+            </div>
           </div>
         )}
 
-        {/* Category Badge */}
-        <div className="absolute top-4 left-4 bg-white px-3 py-1.5 rounded-full shadow-sm text-xs font-medium uppercase">
-          {store.businessType.replace("_", " ")}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="absolute top-4 right-4 flex gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Link
+            href={`/stores/${store.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-11 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill"
+          >
+            <Eye className="h-[18px] w-[18px]" aria-hidden />
+            See shop
+          </Link>
           <Link
             href={`/vendor/settings?storeId=${store.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition cursor-pointer"
+            className="flex h-11 items-center justify-center gap-2 rounded-full bg-label text-[15px] font-semibold text-white hover:bg-navy-2"
           >
-            <Settings className="w-4 h-4 text-gray-600" />
-          </Link>
-          <Link
-            href={`/stores/${store.id}`}
-            target="_blank"
-            onClick={(e) => e.stopPropagation()}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md hover:bg-gray-50 transition cursor-pointer"
-          >
-            <ExternalLink className="w-4 h-4 text-gray-600" />
+            <Settings className="h-[18px] w-[18px]" aria-hidden />
+            Manage
           </Link>
         </div>
       </div>
-
-      {/* Content Section */}
-      <div className="mt-4">
-        <h2 className="text-xl font-bold text-gray-900 line-clamp-1">
-          {store.businessName}
-        </h2>
-
-        {store.storeDescription && (
-          <p className="text-gray-500 text-sm mt-1 line-clamp-1">
-            {store.storeDescription}
-          </p>
-        )}
-
-        <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-2">
-          <MapPin className="w-4 h-4" />
-          <span>{store.city}</span>
-        </div>
-
-        {/* Stats Row (optional) */}
-        {showStats && (
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
-            <div className="flex items-center gap-1.5 text-sm">
-              <Package className="w-4 h-4 text-purple-500" />
-              <span className="font-medium">{store.productCount || 0}</span>
-              <span className="text-gray-400">products</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm">
-              <ShoppingCart className="w-4 h-4 text-orange-500" />
-              <span className="font-medium">{store.orderCount || 0}</span>
-              <span className="text-gray-400">orders</span>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-          {getStatusBadge()}
-          
-          {showManageButton ? (
-            <Link
-              href={`/vendor/dashboard?storeId=${store.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-black text-white px-5 py-2 rounded-full text-xs font-medium shadow-sm hover:bg-gray-800 transition active:scale-95 cursor-pointer"
-            >
-              Manage Store
-            </Link>
-          ) : (
-            <span className="text-xs text-gray-400">
-              {store.status === "PENDING_APPROVAL" ? "Under review" : "Active store"}
-            </span>
-          )}
-        </div>
-      </div>
-    </div>
+    </article>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Check, Phone, X } from 'lucide-react';
 import { CountdownRing } from '@/components/ui/CountdownRing';
 import { apiClient } from '@/lib/api/client';
 import { orderRecipient } from '@/lib/orders/recipient';
@@ -30,7 +31,7 @@ export function ApprovalCard({ order }: Props) {
   const method = (order.paymentMethod || '').toUpperCase();
   const isCod = method === 'COD';
   // UPI is paid to the shop only after it approves — never show it as paid here
-  const paymentLabel = isCod ? 'Cash on delivery' : method === 'UPI' ? 'UPI · paid after you approve' : method;
+  const paymentLabel = isCod ? 'Cash on delivery' : method === 'UPI' ? 'UPI · paid after you accept' : method;
   // The name/number typed for this delivery, not the account's
   const { name, phone, address: addr } = orderRecipient(order);
 
@@ -73,114 +74,83 @@ export function ApprovalCard({ order }: Props) {
 
   return (
     <article
-      className={`relative bg-card rounded-3xl overflow-hidden transition-all ${isUrgent ? 'ring-2 ring-bad/40' : ''} ${shake ? 'animate-shake' : ''}`}
+      className={`relative overflow-hidden rounded-3xl bg-card transition-all ${isUrgent ? 'ring-2 ring-bad/50' : ''} ${shake ? 'animate-shake' : ''}`}
       style={{ animation: 'fade-slide-up 240ms ease-out' }}
     >
-      <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6">
-        {/* Countdown */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-2">
-          <CountdownRing
-            startedAt={placedAt}
-            durationMs={TEN_MIN_MS}
-            size={120}
-            strokeWidth={10}
-            showLabel={false}
-          />
-          <div className="text-[11px] uppercase tracking-wider text-ink-3">
-            time left
-          </div>
+      {/* Who + time left */}
+      <div className="flex items-start gap-3 px-4 pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-semibold text-label">{name}</p>
+          {addr && <p className="mt-0.5 line-clamp-2 text-[14px] leading-snug text-label-2">{addr}</p>}
+          <p className="mt-1 truncate text-[13px] text-label-3">
+            {order.vendor.businessName} · #{order.orderNumber}
+          </p>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 min-w-0 space-y-3">
-          <div className="flex items-center gap-2 text-xs text-ink-3">
-            {order.vendor.storeLogo && (
-              <img
-                src={order.vendor.storeLogo}
-                alt=""
-                className="w-5 h-5 rounded object-cover"
-              />
-            )}
-            <span className="font-medium text-ink-2">
-              {order.vendor.businessName}
-            </span>
-            <span>·</span>
-            <span>{order.items.length} item{order.items.length === 1 ? '' : 's'}</span>
-            <span>·</span>
-            <span>#{order.orderNumber}</span>
-          </div>
-
-          <div className="text-sm">
-            <div className="font-semibold text-ink">
-              {name}
-              {phone && (
-                <a
-                  href={`tel:${phone}`}
-                  className="ml-2 font-normal text-accent hover:underline"
-                >
-                  {phone}
-                </a>
-              )}
-            </div>
-            {addr && (
-              <div className="text-ink-2 line-clamp-2 mt-0.5">{addr}</div>
-            )}
-          </div>
-
-          <ul className="text-sm text-ink-2 space-y-0.5">
-            {order.items.map((it, idx) => (
-              <li key={idx}>
-                <span className="font-mono">{it.quantity}×</span> {it.productName}{' '}
-                <span className="text-ink-3">
-                  · ₹{Math.round(Number(it.totalPrice))}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-lg font-bold text-ink">₹{total}</span>
-            <span
-              className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded ${isCod ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}
-            >
-              {paymentLabel}
-            </span>
-          </div>
+        <div className="flex shrink-0 flex-col items-center">
+          <CountdownRing startedAt={placedAt} durationMs={TEN_MIN_MS} size={64} strokeWidth={6} showLabel={false} />
+          <span className={`mt-1 text-[12px] font-medium ${isUrgent ? 'text-bad' : 'text-label-3'}`}>time left</span>
         </div>
       </div>
 
-      {/* Sticky bottom action row */}
-      <div className="grid grid-cols-2 gap-3 border-t border-hairline p-4">
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => handleAction('reject')}
-          aria-label={`Reject order ${order.orderNumber}`}
-          className="h-[52px] rounded-xl bg-bad-soft text-[17px] font-semibold text-bad disabled:opacity-50 transition-colors cursor-pointer"
+      {/* What to pack */}
+      <ul className="mx-4 mt-3 divide-y divide-hairline rounded-2xl bg-fill px-3">
+        {order.items.map((it, idx) => (
+          <li key={idx} className="flex items-baseline gap-3 py-2.5 text-[16px] leading-snug">
+            <span className="shrink-0 font-semibold tabular-nums text-label">{it.quantity} ×</span>
+            <span className="min-w-0 flex-1 text-label">{it.productName}</span>
+            <span className="shrink-0 tabular-nums text-label-2">₹{Math.round(Number(it.totalPrice)).toLocaleString('en-IN')}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Money */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <span className="text-[15px] text-label-2">
+          Total{' '}
+          <span className="text-[20px] font-bold tabular-nums text-label">₹{total.toLocaleString('en-IN')}</span>
+        </span>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[13px] font-semibold ${isCod ? 'bg-warn-soft text-warn' : 'bg-info-soft text-info'}`}
         >
-          {state === 'submitting-reject' ? (
-            <Spinner />
-          ) : (
-            <span>Reject</span>
-          )}
-        </button>
-        <button
-          type="button"
-          disabled={submitting}
-          onClick={() => handleAction('approve')}
-          aria-label={`Accept order ${order.orderNumber}`}
-          className="h-[52px] rounded-xl bg-label text-[17px] font-semibold text-white hover:bg-[#3a3a3c] disabled:opacity-50 transition-colors cursor-pointer"
-        >
-          {state === 'submitting-approve' ? (
-            <Spinner />
-          ) : (
-            <span>Accept order</span>
-          )}
-        </button>
+          {paymentLabel}
+        </span>
+      </div>
+
+      {/* Decide */}
+      <div className="border-t border-hairline p-4">
+        {phone && (
+          <a
+            href={`tel:${phone}`}
+            className="mb-3 flex h-11 items-center justify-center gap-2 rounded-full bg-fill text-[15px] font-semibold text-label active:bg-fill-strong"
+          >
+            <Phone className="h-[18px] w-[18px]" aria-hidden />
+            Call {name.split(' ')[0]} · {phone}
+          </a>
+        )}
+        <div className="grid grid-cols-[1fr_1.6fr] gap-3">
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleAction('reject')}
+            aria-label={`Reject order ${order.orderNumber}`}
+            className="flex h-[52px] items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[17px] font-semibold text-bad transition-colors active:bg-bad-soft disabled:opacity-50 cursor-pointer"
+          >
+            {state === 'submitting-reject' ? <Spinner /> : <><X className="h-5 w-5" aria-hidden />Reject</>}
+          </button>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => handleAction('approve')}
+            aria-label={`Accept order ${order.orderNumber}`}
+            className="flex h-[52px] items-center justify-center gap-1.5 rounded-full bg-ok text-[17px] font-semibold text-white transition-[filter,transform] hover:brightness-110 active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+          >
+            {state === 'submitting-approve' ? <Spinner /> : <><Check className="h-5 w-5" strokeWidth={2.6} aria-hidden />Accept order</>}
+          </button>
+        </div>
       </div>
 
       {toastMsg && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-ink text-white text-xs px-3 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+        <div className="absolute left-1/2 top-3 -translate-x-1/2 whitespace-nowrap rounded-full bg-label px-4 py-2 text-[14px] font-medium text-white shadow-lg">
           {toastMsg}
         </div>
       )}
@@ -191,7 +161,7 @@ export function ApprovalCard({ order }: Props) {
 function Spinner() {
   return (
     <span
-      className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+      className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent"
       aria-hidden
     />
   );

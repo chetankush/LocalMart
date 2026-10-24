@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Volume2, X } from 'lucide-react';
 import { useApprovals } from '../../_approvals/ApprovalsPollerContext';
 
 export function EnableSoundBanner() {
@@ -23,28 +24,32 @@ export function EnableSoundBanner() {
   };
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 text-amber-900">
-      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center gap-3 text-sm">
-        <span>🔔</span>
-        <span className="flex-1">
-          Tap to enable alert sound on this device.
+    <div className="mb-4 rounded-2xl bg-warn-soft p-4">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-warn">
+          <Volume2 className="h-5 w-5" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1 text-[15px] leading-snug">
+          <span className="block font-semibold text-label">Turn on order sound</span>
+          <span className="block text-label-2">So you never miss a new order · आवाज़ चालू करें</span>
         </span>
         <button
           type="button"
-          onClick={handleEnable}
-          className="px-3 py-1 rounded-full bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700"
-        >
-          Enable
-        </button>
-        <button
-          type="button"
           onClick={() => setDismissed(true)}
-          aria-label="Dismiss"
-          className="px-2 text-amber-700 hover:text-amber-900"
+          aria-label="Not now"
+          className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-label-3 hover:text-label cursor-pointer"
         >
-          ×
+          <X className="h-5 w-5" aria-hidden />
         </button>
       </div>
+      <button
+        type="button"
+        onClick={handleEnable}
+        className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-label text-[15px] font-semibold text-white active:scale-[0.98] cursor-pointer"
+      >
+        <Volume2 className="h-[18px] w-[18px]" aria-hidden />
+        Turn on sound
+      </button>
     </div>
   );
 }

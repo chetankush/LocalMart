@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { X, Copy, Check, Share2, QrCode, Download, MessageCircle, Facebook, Twitter } from "lucide-react";
+import { Copy, Check, Share2, QrCode, Download, MessageCircle, Facebook, Printer, Twitter } from "lucide-react";
+import { Sheet } from "@/components/app/Sheet";
+import { Segmented } from "@/components/app/form";
 
 interface ShareStoreModalProps {
   isOpen: boolean;
@@ -9,6 +11,46 @@ interface ShareStoreModalProps {
   storeId: string;
   storeName: string;
   storeDescription?: string | null;
+}
+
+// QR code drawn on a canvas (module level so it isn't re-created on every render)
+function QRCodeCanvas({ value, size = 200 }: { value: string; size?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const generateQR = async () => {
+      if (!canvasRef.current) return;
+      try {
+        // qrcode ships no .d.ts; suppress TS7016 inline
+        // @ts-expect-error - qrcode has no bundled type declarations
+        const QRCode = (await import("qrcode")).default;
+        if (cancelled || !canvasRef.current) return;
+        await QRCode.toCanvas(canvasRef.current, value, {
+          width: size,
+          margin: 2,
+          color: { dark: "#111111", light: "#FFFFFF" },
+        });
+      } catch {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#F3F3F5";
+          ctx.fillRect(0, 0, size, size);
+          ctx.fillStyle = "#4B5058";
+          ctx.font = "12px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("QR unavailable", size / 2, size / 2);
+        }
+      }
+    };
+    generateQR();
+    return () => {
+      cancelled = true;
+    };
+  }, [value, size]);
+
+  return <canvas ref={canvasRef} id="qr-canvas" width={size} height={size} className="mx-auto" />;
 }
 
 export default function ShareStoreModal({
@@ -162,241 +204,135 @@ export default function ShareStoreModal({
     }
   };
 
-  // QR Code generation using canvas
-  const QRCodeCanvas = ({ value, size = 200 }: { value: string; size?: number }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-
-    useEffect(() => {
-      let cancelled = false;
-      const generateQR = async () => {
-        if (!canvasRef.current) return;
-        try {
-          // qrcode ships no .d.ts; suppress TS7016 inline
-          // @ts-expect-error - qrcode has no bundled type declarations
-          const QRCode = (await import("qrcode")).default;
-          if (cancelled || !canvasRef.current) return;
-          await QRCode.toCanvas(canvasRef.current, value, {
-            width: size,
-            margin: 2,
-            color: { dark: "#1C1C2E", light: "#FFFFFF" },
-          });
-        } catch {
-          if (!canvasRef.current) return;
-          const ctx = canvasRef.current.getContext("2d");
-          if (ctx) {
-            ctx.fillStyle = "#F2EDE4";
-            ctx.fillRect(0, 0, size, size);
-            ctx.fillStyle = "#5A5870";
-            ctx.font = "12px sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("QR unavailable", size / 2, size / 2);
-          }
-        }
-      };
-      generateQR();
-      return () => {
-        cancelled = true;
-      };
-    }, [value, size]);
-
-    return (
-      <canvas
-        ref={canvasRef}
-        id="qr-canvas"
-        width={size}
-        height={size}
-        className="mx-auto rounded-lg"
-      />
-    );
-  };
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return (
-    <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-sand">
-          <h2 className="text-xl font-semibold text-ink font-[family-name:var(--font-family-heading)]">Share Your Store</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-cream rounded-full transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5 text-ink-2" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-sand">
-          <button
-            onClick={() => setActiveTab("share")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === "share"
-                ? "text-vendor border-b-2 border-vendor"
-                : "text-ink-2 hover:text-ink"
-            }`}
-          >
-            <Share2 className="w-4 h-4 inline-block mr-2" />
-            Share Links
-          </button>
-          <button
-            onClick={() => setActiveTab("qr")}
-            className={`flex-1 py-3 text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === "qr"
-                ? "text-vendor border-b-2 border-vendor"
-                : "text-ink-2 hover:text-ink"
-            }`}
-          >
-            <QrCode className="w-4 h-4 inline-block mr-2" />
-            QR Code
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6">
-          {activeTab === "share" ? (
-            <div className="space-y-4">
-              {/* Store URL */}
-              <div>
-                <label className="block text-sm font-medium text-ink mb-2">
-                  Your Store Link
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={storeUrl}
-                    className="flex-1 px-3 py-2 bg-ivory border border-sand rounded-lg text-sm text-ink-2"
-                  />
-                  <button
-                    onClick={handleCopyLink}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer ${
-                      copied
-                        ? "bg-tulsi/10 text-tulsi"
-                        : "bg-vendor text-white hover:bg-vendor-dark"
-                    }`}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Copy
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Share Options */}
-              <div>
-                <label className="block text-sm font-medium text-ink mb-3">
-                  Share via
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* WhatsApp */}
-                  <a
-                    href={`https://wa.me/?text=${whatsappText}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors cursor-pointer"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    WhatsApp
-                  </a>
-
-                  {/* Facebook */}
-                  <a
-                    href={facebookUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-                  >
-                    <Facebook className="w-5 h-5" />
-                    Facebook
-                  </a>
-
-                  {/* Twitter */}
-                  <a
-                    href={twitterUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-4 py-3 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-colors cursor-pointer"
-                  >
-                    <Twitter className="w-5 h-5" />
-                    Twitter
-                  </a>
-
-                  {/* Native Share (Mobile) */}
-                  {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
-                    <button
-                      onClick={handleNativeShare}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-ink text-white rounded-lg hover:bg-ink/90 transition-colors cursor-pointer"
-                    >
-                      <Share2 className="w-5 h-5" />
-                      More
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Pre-written message */}
-              <div className="mt-4 p-4 bg-ivory rounded-lg border border-sand">
-                <p className="text-sm text-ink-2 mb-2 font-medium">
-                  Suggested message for your customers:
-                </p>
-                <p className="text-sm text-ink italic">
-                  "{shareText}"
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* QR Code */}
-              <div ref={qrRef} className="text-center">
-                <div className="inline-block p-4 bg-white border-2 border-sand rounded-xl">
-                  <QRCodeCanvas value={storeUrl} size={200} />
-                </div>
-                <p className="mt-3 text-sm text-ink-2">
-                  Scan this QR code to visit <strong className="text-ink">{storeName}</strong>
-                </p>
-              </div>
-
-              {/* QR Actions */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleDownloadQR}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-vendor text-white rounded-lg hover:bg-vendor-dark transition-colors cursor-pointer"
-                >
-                  <Download className="w-5 h-5" />
-                  Download
-                </button>
-                <button
-                  onClick={handlePrintQR}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-ink text-white rounded-lg hover:bg-ink/90 transition-colors cursor-pointer"
-                >
-                  <QrCode className="w-5 h-5" />
-                  Print
-                </button>
-              </div>
-
-              {/* Tips */}
-              <div className="mt-4 p-4 bg-vendor-xlight border border-vendor-light rounded-lg">
-                <p className="text-sm font-medium text-vendor-dark mb-2">
-                  Tips for using QR Code:
-                </p>
-                <ul className="text-sm text-vendor-dark/80 space-y-1">
-                  <li>- Print and display at your store counter</li>
-                  <li>- Add to your visiting cards</li>
-                  <li>- Include in product packaging</li>
-                  <li>- Share on social media stories</li>
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
+    <Sheet
+      open={isOpen}
+      onClose={onClose}
+      title="Share your shop"
+      description="Customers open your link and order from you · दुकान का लिंक भेजें"
+    >
+      <div className="mb-4">
+        <Segmented
+          label="How to share"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "share", label: <><Share2 className="h-4 w-4" aria-hidden /> Link</> },
+            { value: "qr", label: <><QrCode className="h-4 w-4" aria-hidden /> QR code</> },
+          ]}
+        />
       </div>
-    </div>
+
+      {activeTab === "share" ? (
+        <div className="space-y-4">
+          <a
+            href={`https://wa.me/?text=${whatsappText}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-full bg-ok px-6 text-[17px] font-semibold text-white transition-[filter,transform] hover:brightness-110 active:scale-[0.98]"
+          >
+            <MessageCircle className="h-[22px] w-[22px]" aria-hidden />
+            Send on WhatsApp
+          </a>
+
+          <div className="rounded-2xl bg-card p-4">
+            <label htmlFor="share-link" className="mb-1.5 block text-[15px] font-semibold text-label">
+              Your shop link
+            </label>
+            <div className="flex gap-2">
+              <input
+                id="share-link"
+                type="text"
+                value={storeUrl}
+                readOnly
+                onFocus={(e) => e.currentTarget.select()}
+                className="h-12 min-w-0 flex-1 rounded-xl bg-fill px-3 text-[15px] text-label-2 outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className={`flex h-12 shrink-0 items-center gap-1.5 rounded-full px-4 text-[15px] font-semibold transition-colors cursor-pointer ${
+                  copied ? "bg-ok-soft text-ok" : "bg-label text-white"
+                }`}
+              >
+                {copied ? <Check className="h-[18px] w-[18px]" aria-hidden /> : <Copy className="h-[18px] w-[18px]" aria-hidden />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {canNativeShare && (
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="col-span-2 flex h-12 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill cursor-pointer"
+              >
+                <Share2 className="h-[18px] w-[18px]" aria-hidden />
+                More ways to share
+              </button>
+            )}
+            <a
+              href={facebookUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill"
+            >
+              <Facebook className="h-[18px] w-[18px]" aria-hidden />
+              Facebook
+            </a>
+            <a
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill"
+            >
+              <Twitter className="h-[18px] w-[18px]" aria-hidden />
+              X (Twitter)
+            </a>
+          </div>
+
+          <div className="rounded-2xl bg-card p-4">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.05em] text-label-2">Customers will get</p>
+            <p className="mt-2 text-[15px] leading-snug text-label">{shareText}</p>
+            {storeDescription && <p className="mt-1 text-[14px] leading-snug text-label-2">{storeDescription}</p>}
+            <p className="mt-1 truncate text-[15px] text-info">{storeUrl}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div ref={qrRef} className="rounded-3xl bg-card px-4 py-6 text-center">
+            <div className="inline-block rounded-2xl border border-hairline p-3">
+              <QRCodeCanvas value={storeUrl} size={200} />
+            </div>
+            <p className="mt-3 text-[17px] font-semibold text-label">{storeName}</p>
+            <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-label-2">
+              Print it and stick it at your counter. Customers scan it with their phone camera to order.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadQR}
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill cursor-pointer"
+            >
+              <Download className="h-[18px] w-[18px]" aria-hidden />
+              Save photo
+            </button>
+            <button
+              type="button"
+              onClick={handlePrintQR}
+              className="flex h-12 items-center justify-center gap-2 rounded-full bg-cta text-[15px] font-semibold text-white hover:bg-cta-hover cursor-pointer"
+            >
+              <Printer className="h-[18px] w-[18px]" aria-hidden />
+              Print poster
+            </button>
+          </div>
+        </div>
+      )}
+    </Sheet>
   );
 }

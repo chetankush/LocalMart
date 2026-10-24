@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Bell } from 'lucide-react';
 import { useApprovals, type ApprovalOrder } from './ApprovalsPollerContext';
 
 interface VisibleToast {
@@ -114,17 +115,7 @@ export function NewOrderToaster() {
       <div
         aria-live="polite"
         aria-atomic="false"
-        style={{
-          position: 'fixed',
-          bottom: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column-reverse',
-          gap: 8,
-          pointerEvents: 'none',
-        }}
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-[100] flex flex-col-reverse items-center gap-2 px-4 lg:bottom-6"
       >
         {toasts.map((t) => (
           <button
@@ -133,20 +124,20 @@ export function NewOrderToaster() {
               router.push('/vendor/approvals');
               setToasts((prev) => prev.filter((x) => x.id !== t.id));
             }}
-            className="bg-ink text-white rounded-2xl px-4 py-3 shadow-lg flex items-center gap-3 cursor-pointer animate-fade-in"
-            style={{ pointerEvents: 'auto', minWidth: 280, maxWidth: 360 }}
+            className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl bg-label px-4 py-3 text-left text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] animate-in slide-in-from-bottom-4 fade-in duration-300 cursor-pointer"
           >
-            <span className="text-lg">🛒</span>
-            <span className="text-sm text-left">
-              <span className="font-semibold">New order</span>
-              <span className="opacity-80"> · {t.order.vendor.businessName}</span>
-              <span className="opacity-80">
-                {' '}· ₹{Math.round(Number(t.order.totalAmount))}
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tint">
+              <Bell className="h-5 w-5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-semibold leading-tight">
+                New order · ₹{Math.round(Number(t.order.totalAmount)).toLocaleString('en-IN')}
               </span>
-              <span className="opacity-80">
-                {' '}· {t.order.customer.fullName.split(' ')[0]}
+              <span className="block truncate text-[14px] text-white/75">
+                {t.order.customer.fullName.split(' ')[0]} · {t.order.vendor.businessName}
               </span>
             </span>
+            <span className="shrink-0 text-[15px] font-semibold text-white">Open</span>
           </button>
         ))}
       </div>

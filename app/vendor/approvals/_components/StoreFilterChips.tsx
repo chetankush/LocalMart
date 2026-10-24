@@ -17,8 +17,8 @@ export function StoreFilterChips({ selectedStoreId, onSelect }: Props) {
     orders.filter((o) => o.vendor.id === storeId).length;
 
   return (
-    <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
-      <div className="flex items-center gap-2 pb-2">
+    <div className="-mx-4 mb-4 overflow-x-auto px-4 scrollbar-hide">
+      <div className="flex items-center gap-2">
         <Chip
           active={selectedStoreId === null}
           onClick={() => onSelect(null)}
@@ -54,17 +54,16 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`flex-shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
-        active
-          ? 'bg-accent text-white border-accent'
-          : 'bg-white text-ink-2 border-sand hover:border-ink-3'
+      aria-pressed={active}
+      className={`inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[15px] transition-colors cursor-pointer ${
+        active ? 'bg-label font-semibold text-white' : 'bg-card font-medium text-label-2 hover:text-label'
       }`}
     >
       <span>{label}</span>
       {count > 0 && (
         <span
-          className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold ${
-            active ? 'bg-white/25 text-white' : 'bg-laal/10 text-laal'
+          className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[12px] font-bold ${
+            active ? 'bg-white/20 text-white' : 'bg-tint text-white'
           }`}
         >
           {count}

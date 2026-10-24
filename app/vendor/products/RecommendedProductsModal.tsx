@@ -3,6 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { toast } from "sonner";
+import { Camera, Check, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react";
+import { Sheet } from "@/components/app/Sheet";
+import { Button, Pill, Thumb, rupees } from "@/components/app/ui";
+import { Field, FormCard, RupeeInput, Toggle, inputClass, selectClass, textareaClass } from "@/components/app/form";
 
 interface Category {
   id: string;
@@ -46,6 +51,10 @@ export default function RecommendedProductsModal({
   const [showEditForm, setShowEditForm] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  // Name of the product just added — shows the "add another?" step
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  // Anything added this time → reload the product list when the sheet closes
+  const [addedAny, setAddedAny] = useState(false);
 
   // Form state for editing the selected template before adding
   const [formData, setFormData] = useState({
@@ -136,7 +145,7 @@ export default function RecommendedProductsModal({
     if (!files || files.length === 0) return;
 
     if (images.length + files.length > 5) {
-      alert("Maximum 5 images allowed");
+      toast.error("You can add up to 5 photos");
       return;
     }
 
@@ -145,11 +154,11 @@ export default function RecommendedProductsModal({
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
         if (!file.type.startsWith("image/")) {
-          throw new Error("Please select image files only");
+          throw new Error("Please pick photos only");
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          throw new Error("Each image must be less than 5MB");
+          throw new Error("Each photo must be under 5 MB");
         }
 
         const formDataUpload = new FormData();
@@ -164,7 +173,7 @@ export default function RecommendedProductsModal({
         const data = await res.json();
 
         if (!data.success) {
-          throw new Error(data.error || "Failed to upload image");
+          throw new Error(data.error || "Couldn't upload the photo");
         }
 
         return data.url;
@@ -174,7 +183,7 @@ export default function RecommendedProductsModal({
       setImages((prev) => [...prev, ...uploadedUrls]);
     } catch (error: unknown) {
       console.error("Image upload error:", error);
-      alert(error instanceof Error ? error.message : "Failed to upload images");
+      toast.error(error instanceof Error ? error.message : "Couldn't upload the photos. Please try again.");
     }
 
     setUploadingImages(false);
@@ -186,12 +195,12 @@ export default function RecommendedProductsModal({
 
   const handleAddProduct = async () => {
     if (images.length === 0) {
-      alert("Please add at least one product image");
+      toast.error("Add at least one photo — customers want to see what they buy");
       return;
     }
 
     if (!formData.name || !formData.description || !formData.categoryId || !formData.price) {
-      alert("Please fill in all required fields");
+      toast.error("Add a name, a few words about it, a category and a price");
       return;
     }
 
@@ -213,23 +222,18 @@ export default function RecommendedProductsModal({
       });
 
       if (data.success) {
-        alert("Product added successfully!");
-        // Reset and go back to template selection
+        // Reset and ask whether to add another (in the sheet, not a browser popup)
         setShowEditForm(false);
         setSelectedTemplate(null);
         setImages([]);
-        // Optionally close modal or let user add more
-        const addMore = confirm("Product added! Do you want to add another recommended product?");
-        if (!addMore) {
-          onClose();
-          router.refresh();
-        }
+        setJustAdded(formData.name);
+        setAddedAny(true);
       } else {
-        alert(data.error || "Failed to add product");
+        toast.error((data as { error?: string }).error || "Couldn't add the product. Please try again.");
       }
     } catch (error) {
       console.error("Product creation error:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Check your internet and try again.");
     }
 
     setProcessing(false);
@@ -241,355 +245,332 @@ export default function RecommendedProductsModal({
     setImages([]);
   };
 
+  // "Done" after adding: close and reload the list so the new product shows
+  const handleDone = () => {
+    setJustAdded(null);
+    setAddedAny(false);
+    onClose();
+    router.refresh();
+  };
+
+  const handleClose = () => {
+    if (addedAny) {
+      handleDone();
+      return;
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
+  const title = justAdded ? "Product added" : showEditForm ? "Check and add" : "Ready-made products";
+  const description = justAdded
+    ? undefined
+    : showEditForm
+      ? "Change anything you like, then add it to your shop."
+      : "Pick a product. Its photo, name and details are filled in for you.";
+
   return (
-    <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-amber-50">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {showEditForm ? "Edit & Add Product" : "📦 Recommended Products"}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {showEditForm
-                  ? "Customize the product details before adding to your store"
-                  : "Select a product template to quickly add to your store"}
+    <Sheet
+      open={isOpen}
+      onClose={handleClose}
+      wide
+      title={title}
+      description={description}
+      footer={
+        showEditForm && !justAdded ? (
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={handleBackToTemplates}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleAddProduct}
+              loading={processing}
+              disabled={processing || uploadingImages}
+            >
+              {processing ? "Adding…" : "Add to my shop"}
+            </Button>
+          </div>
+        ) : undefined
+      }
+    >
+      {justAdded ? (
+        /* Added — another one, or done? */
+        <div className="rounded-2xl bg-card px-6 py-8 text-center">
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-ok-soft text-ok">
+            <Check className="h-8 w-8" strokeWidth={2.6} aria-hidden />
+          </span>
+          <p className="text-[20px] font-semibold leading-tight text-label">{justAdded} is in your shop</p>
+          <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">
+            Do you want to add another ready-made product?
+          </p>
+          <div className="mx-auto mt-6 flex max-w-xs flex-col gap-3">
+            <Button full onClick={handleDone}>
+              Done
+            </Button>
+            <Button variant="secondary" full onClick={() => setJustAdded(null)}>
+              Add another
+            </Button>
+          </div>
+        </div>
+      ) : !showEditForm ? (
+        <>
+          {/* Category & search */}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className={`${selectClass} sm:w-56 sm:shrink-0`}
+              aria-label="Category"
+            >
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3"
+                aria-hidden
+              />
+              <input
+                type="search"
+                placeholder="Search, e.g. rice or soap"
+                aria-label="Search products"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`${inputClass} pl-11`}
+              />
+            </div>
+          </div>
+
+          {/* Templates */}
+          {loading ? (
+            <div className="grid gap-3 sm:grid-cols-2" aria-busy="true" aria-label="Loading products">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex gap-3 rounded-2xl bg-card p-3">
+                  <div className="h-[60px] w-[60px] animate-pulse rounded-xl bg-fill" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-4 w-3/4 animate-pulse rounded-full bg-fill" />
+                    <div className="h-4 w-1/2 animate-pulse rounded-full bg-fill" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="rounded-2xl bg-card px-6 py-10 text-center">
+              <p className="text-[17px] font-semibold text-label">No ready-made products here</p>
+              <p className="mx-auto mt-1 max-w-xs text-[15px] leading-snug text-label-2">
+                Try another category, or add your product yourself.
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {!showEditForm ? (
-            <>
-              {/* Category & Search Filters */}
-              <div className="flex flex-wrap gap-4 mb-6">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-
-              {/* Templates Grid */}
-              {loading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-4">Loading products...</p>
-                </div>
-              ) : filteredTemplates.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-600">
-                    No recommended products found for this category.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Try selecting a different category or add products manually.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTemplates.map((template) => (
-                    <div
-                      key={template.id}
-                      className="bg-white border border-gray-200 rounded-lg p-4 hover:border-orange-400 hover:shadow-md transition-all cursor-pointer group"
-                      onClick={() => handleSelectTemplate(template)}
-                    >
-                      <div className="flex items-start gap-3">
-                        {template.suggestedImage ? (
-                          <Image
-                            src={template.suggestedImage}
-                            alt={template.name}
-                            width={60}
-                            height={60}
-                            className="w-15 h-15 rounded object-cover"
-                          />
-                        ) : (
-                          <div className="w-15 h-15 bg-gray-100 rounded flex items-center justify-center text-2xl">
-                            📦
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between">
-                            <h3 className="font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">
-                              {template.name}
-                            </h3>
-                            {template.isPopular && (
-                              <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
-                                Popular
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                            {template.description}
-                          </p>
-                          {template.suggestedPrice && (
-                            <p className="text-sm font-medium text-green-600 mt-2">
-                              ₹{template.suggestedPrice}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between">
-                        {template.tags && template.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {template.tags.slice(0, 3).map((tag, idx) => (
-                              <span
-                                key={idx}
-                                className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <button className="text-xs bg-[#FF9933] text-white px-3 py-1.5 rounded-lg hover:bg-[#e8872b] transition-colors font-medium opacity-0 group-hover:opacity-100">
-                          Select & Edit →
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
           ) : (
-            /* Edit Form */
-            <div className="space-y-6">
-              {/* Back Button */}
-              <button
-                onClick={handleBackToTemplates}
-                className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
-              >
-                ← Back to Templates
-              </button>
-
-              {/* Product Images */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Product Images *</h3>
-                <div className="grid grid-cols-5 gap-3">
-                  {images.map((url, index) => (
-                    <div
-                      key={index}
-                      className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200"
-                    >
-                      <Image
-                        src={url}
-                        alt={`Product ${index + 1}`}
-                        fill
-                        className="object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
-                  {images.length < 5 && (
-                    <label className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 hover:bg-orange-50 transition-colors">
-                      {uploadingImages ? (
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-600" />
-                      ) : (
-                        <>
-                          <svg className="w-6 h-6 text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                          </svg>
-                          <span className="text-xs text-gray-500">Add</span>
-                        </>
-                      )}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        disabled={uploadingImages}
-                      />
-                    </label>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Upload your own images or keep the suggested one. Max 5 images.
-                </p>
-              </div>
-
-              {/* Form Fields */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Product Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description *
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {filteredTemplates.map((template) => (
+                <li key={template.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTemplate(template)}
+                    className="flex w-full items-start gap-3 rounded-2xl bg-card p-3 text-left transition-colors active:bg-fill hover:bg-white/70 cursor-pointer"
                   >
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    SKU (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.sku}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    placeholder="e.g., SALT-001"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Selling Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Compare Price (₹)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.compareAtPrice}
-                    onChange={(e) => setFormData({ ...formData, compareAtPrice: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    step="0.01"
-                    min="0"
-                    placeholder="Original price"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Quantity *
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.stockQuantity}
-                    onChange={(e) => setFormData({ ...formData, stockQuantity: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    min="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Weight (kg)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.weight}
-                    onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                      className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Active (Product will be visible to customers)
+                    <Thumb src={template.suggestedImage} alt={template.name} size={60} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="line-clamp-2 text-[16px] font-semibold leading-snug text-label">
+                          {template.name}
+                        </span>
+                        {template.isPopular && <Pill tone="brand">Popular</Pill>}
+                      </span>
+                      <span className="mt-0.5 line-clamp-2 block text-[14px] leading-snug text-label-2">
+                        {template.description}
+                      </span>
+                      {template.suggestedPrice ? (
+                        <span className="mt-1 block text-[15px] font-semibold tabular-nums text-label">
+                          {rupees(template.suggestedPrice)}
+                        </span>
+                      ) : null}
+                      {template.tags && template.tags.length > 0 && (
+                        <span className="mt-2 flex flex-wrap gap-1">
+                          {template.tags.slice(0, 3).map((tag, idx) => (
+                            <span key={idx} className="rounded-full bg-fill px-2 py-0.5 text-[13px] text-label-2">
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </span>
-                  </label>
-                </div>
-              </div>
-            </div>
+                    <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-label-3" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
+        </>
+      ) : (
+        /* Edit form */
+        <>
+          <button
+            type="button"
+            onClick={handleBackToTemplates}
+            className="-ml-1 mb-2 inline-flex min-h-[44px] items-center gap-0.5 rounded-lg px-1 text-[16px] text-tint cursor-pointer"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+            Back to the list
+          </button>
 
-        {/* Footer */}
-        {showEditForm && (
-          <div className="p-6 border-t bg-gray-50">
-            <div className="flex gap-3">
-              <button
-                onClick={handleAddProduct}
-                disabled={processing || uploadingImages}
-                className="flex-1 bg-[#e8872b] text-white py-3 rounded-lg font-semibold hover:bg-orange-700 disabled:opacity-50 transition-colors"
-              >
-                {processing ? "Adding Product..." : "Add Product to My Store"}
-              </button>
-              <button
-                onClick={handleBackToTemplates}
-                className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-              >
-                Cancel
-              </button>
+          {/* Photos */}
+          <FormCard title="Photos" description="Keep the suggested photo or add your own. Up to 5.">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+              {images.map((url, index) => (
+                <div key={index} className="relative aspect-square">
+                  <div className="relative h-full w-full overflow-hidden rounded-xl bg-fill">
+                    <Image src={url} alt={`Photo ${index + 1}`} fill className="object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(index)}
+                    aria-label={`Remove photo ${index + 1}`}
+                    className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-label text-white ring-2 ring-card">
+                      <X className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+                    </span>
+                  </button>
+                </div>
+              ))}
+              {images.length < 5 && (
+                <label
+                  className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-dashed border-hairline bg-fill p-1 text-center transition-colors hover:border-label/25 ${
+                    uploadingImages ? "cursor-wait" : "cursor-pointer"
+                  }`}
+                >
+                  {uploadingImages ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-tint" aria-hidden />
+                  ) : (
+                    <>
+                      <Camera className="h-6 w-6 text-tint" aria-hidden />
+                      <span className="text-[14px] font-semibold leading-tight text-label">Add photo</span>
+                      <span className="text-[13px] leading-tight text-label-2">फ़ोटो जोड़ें</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImages}
+                  />
+                </label>
+              )}
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+          </FormCard>
+
+          {/* Details */}
+          <FormCard title="Details">
+            <Field label="Name" htmlFor="rec-name">
+              <input
+                id="rec-name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="About this product" htmlFor="rec-description">
+              <textarea
+                id="rec-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className={textareaClass}
+              />
+            </Field>
+
+            <Field label="Category" htmlFor="rec-category">
+              <select
+                id="rec-category"
+                value={formData.categoryId}
+                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                className={selectClass}
+              >
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Price" htmlFor="rec-price">
+                <RupeeInput
+                  id="rec-price"
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  step="0.01"
+                  min="0"
+                />
+              </Field>
+              <Field label="MRP" htmlFor="rec-mrp" optional hint="Shown crossed out">
+                <RupeeInput
+                  id="rec-mrp"
+                  type="number"
+                  value={formData.compareAtPrice}
+                  onChange={(e) => setFormData({ ...formData, compareAtPrice: e.target.value })}
+                  step="0.01"
+                  min="0"
+                />
+              </Field>
+              <Field label="In stock" htmlFor="rec-stock">
+                <input
+                  id="rec-stock"
+                  type="number"
+                  inputMode="numeric"
+                  value={formData.stockQuantity}
+                  onChange={(e) => setFormData({ ...formData, stockQuantity: e.target.value })}
+                  className={`${inputClass} tabular-nums`}
+                  min="0"
+                />
+              </Field>
+              <Field label="Weight (kg)" htmlFor="rec-weight" optional>
+                <input
+                  id="rec-weight"
+                  type="number"
+                  inputMode="decimal"
+                  value={formData.weight}
+                  onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
+                  className={`${inputClass} tabular-nums`}
+                  step="0.01"
+                  min="0"
+                />
+              </Field>
+            </div>
+
+            <Field label="Your item code" htmlFor="rec-code" optional hint="Only if you use codes in your shop">
+              <input
+                id="rec-code"
+                type="text"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                className={inputClass}
+                placeholder="e.g. SALT-001"
+              />
+            </Field>
+
+            <Toggle
+              checked={formData.isActive}
+              onChange={(next) => setFormData({ ...formData, isActive: next })}
+              label="Show in shop"
+              description="Customers can see and order it"
+            />
+          </FormCard>
+        </>
+      )}
+    </Sheet>
   );
 }

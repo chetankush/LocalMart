@@ -2,22 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { toast } from "sonner";
+import { ChevronRight, FolderTree, RefreshCw, Store } from "lucide-react";
+import { Button, Pill, Row } from "@/components/app/ui";
+import { Segmented } from "@/components/app/form";
+import { IconBox, List, StatGrid, StatTile } from "@/components/app/seller";
+import { Sheet } from "@/components/app/Sheet";
 import {
-  BarChart3,
-  ArrowLeft,
-  RefreshCw,
-  Loader2,
-  FolderTree,
-  Store,
-  Package,
-  TrendingUp,
-  Users,
-  ChevronDown,
-  CheckCircle,
-  XCircle,
-  Clock,
-} from "lucide-react";
+  AdminGate,
+  AdminPage,
+  Avatar,
+  Chips,
+  EmptyBlock,
+  LoadingBlock,
+  StatusPill,
+  TableCard,
+  Toolbar,
+  tdClass,
+  thClass,
+  trClass,
+} from "@/components/app/admin";
 
 type VendorInCategory = {
   id: string;
@@ -56,12 +60,42 @@ type Summary = {
   totalActiveVendors: number;
 };
 
+type CategoryFilter = "all" | "used" | "unused";
+
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
+
+const TYPE_LABEL: Record<string, string> = {
+  GROCERY: "Grocery",
+  RESTAURANT: "Food",
+  PHARMACY: "Medical",
+  ELECTRONICS: "Electronics",
+  FASHION: "Fashion",
+  HOME_SERVICES: "Services",
+  OTHER: "Other",
+};
+const typeLabel = (t: string) =>
+  t ? TYPE_LABEL[t] ?? t.charAt(0) + t.slice(1).replace(/_/g, " ").toLowerCase() : "";
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** Thin horizontal bar: crimson fill on a grey track */
+function Bar({ value, max, className }: { value: number; max: number; className?: string }) {
+  const pct = max > 0 ? Math.max(value > 0 ? 4 : 0, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className={cx("h-2 overflow-hidden rounded-full bg-fill", className)} aria-hidden>
+      <div className="h-full rounded-full bg-tint transition-[width] duration-300" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [activeTab, setActiveTab] = useState<"categories" | "vendors">("categories");
+  // The category whose shops are open in the sheet
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [categoryAnalytics, setCategoryAnalytics] = useState<CategoryAnalytics[]>([]);
@@ -115,9 +149,12 @@ export default function AnalyticsPage() {
         setSummary(response.data.summary);
         setCategoryAnalytics(response.data.categoryAnalytics);
         setVendorAnalytics(response.data.vendorAnalytics);
+      } else {
+        toast.error("Couldn't load the numbers. Try again.");
       }
     } catch (error) {
       console.error("Error fetching analytics:", error);
+      toast.error("Couldn't load the numbers. Try again.");
     } finally {
       setLoading(false);
     }
@@ -127,371 +164,290 @@ export default function AnalyticsPage() {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
   };
 
-  const getStatusStyles = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return "bg-green-100 text-green-700 border-green-200";
-      case "SUSPENDED":
-        return "bg-red-100 text-red-700 border-red-200";
-      default:
-        return "bg-amber-100 text-amber-700 border-amber-200";
-    }
-  };
+  if (!authChecked) return <AdminGate />;
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return <CheckCircle className="w-3.5 h-3.5" />;
-      case "SUSPENDED":
-        return <XCircle className="w-3.5 h-3.5" />;
-      default:
-        return <Clock className="w-3.5 h-3.5" />;
-    }
-  };
-
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-          </div>
-          <p className="text-gray-600 font-medium">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
+  const usedCount = categoryAnalytics.filter((c) => c.totalVendors > 0).length;
+  const unusedCount = categoryAnalytics.length - usedCount;
+  const categories = categoryAnalytics.filter((c) =>
+    categoryFilter === "used" ? c.totalVendors > 0 : categoryFilter === "unused" ? c.totalVendors === 0 : true,
+  );
+  const maxCategoryProducts = Math.max(0, ...categoryAnalytics.map((c) => c.totalProducts));
+  const maxVendorCategories = Math.max(0, ...vendorAnalytics.map((v) => v.categoriesUsed));
+  const openCategory = categoryAnalytics.find((c) => c.id === expandedCategory) ?? null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Vendor-Category Analytics</h1>
-                <p className="text-xs text-gray-500">See which categories are used by which vendors</p>
-              </div>
-            </div>
-            <div className="flex gap-3 items-center">
-              <button
-                onClick={fetchAnalytics}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </button>
-              <Link
-                href="/admin"
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200 transition-all cursor-pointer"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Admin
-              </Link>
-            </div>
-          </div>
+    <AdminPage
+      title="Analytics"
+      subtitle="Which product categories shops use, and how many products are in each."
+      actions={
+        <Button variant="secondary" size="md" onClick={fetchAnalytics} disabled={loading}>
+          <RefreshCw className={cx("h-[18px] w-[18px]", loading && "animate-spin")} aria-hidden />
+          Refresh
+        </Button>
+      }
+    >
+      {summary ? (
+        <div className="mb-6">
+          <StatGrid>
+            <StatTile
+              label="Categories in use"
+              value={summary.categoriesInUse}
+              hint={`of ${plural(summary.totalCategories, "category", "categories")}`}
+            />
+            <StatTile
+              label="Not used yet"
+              value={summary.unusedCategories}
+              hint="No shop sells here"
+              tone={summary.unusedCategories > 0 ? "warn" : undefined}
+            />
+            <StatTile label="Products" value={summary.totalProducts.toLocaleString("en-IN")} hint="Across all categories" />
+            <StatTile label="Live shops" value={summary.totalActiveVendors} hint="Open and selling" />
+          </StatGrid>
         </div>
+      ) : (
+        loading && <div className="mb-6 h-[196px] animate-pulse rounded-2xl bg-fill md:h-[98px]" aria-hidden />
+      )}
+
+      <div className="mb-4 max-w-sm">
+        <Segmented
+          label="Show"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "categories", label: "By category" },
+            { value: "vendors", label: "By shop" },
+          ]}
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Stats */}
-        {summary && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <FolderTree className="w-5 h-5 text-gray-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 font-medium">Total Categories</p>
-              <p className="text-3xl font-bold text-gray-900">{summary.totalCategories}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 font-medium">Categories In Use</p>
-              <p className="text-3xl font-bold text-green-600">{summary.categoriesInUse}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-orange-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 font-medium">Unused Categories</p>
-              <p className="text-3xl font-bold text-orange-600">{summary.unusedCategories}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Package className="w-5 h-5 text-blue-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 font-medium">Total Products</p>
-              <p className="text-3xl font-bold text-blue-600">{summary.totalProducts}</p>
-            </div>
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-purple-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 font-medium">Active Vendors</p>
-              <p className="text-3xl font-bold text-purple-600">{summary.totalActiveVendors}</p>
-            </div>
-          </div>
-        )}
+      {activeTab === "categories" && categoryAnalytics.length > 0 && (
+        <Toolbar>
+          <Chips
+            label="Filter categories"
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+            options={[
+              { value: "all", label: "All", count: categoryAnalytics.length },
+              { value: "used", label: "In use", count: usedCount },
+              { value: "unused", label: "Not used yet", count: unusedCount },
+            ]}
+          />
+        </Toolbar>
+      )}
 
-        {/* Tabs */}
-        <div className="mb-6 flex gap-2">
-          <button
-            onClick={() => setActiveTab("categories")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
-              activeTab === "categories"
-                ? "bg-gray-900 text-white shadow-lg"
-                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-            }`}
-          >
-            <FolderTree className="w-4 h-4" />
-            By Category ({categoryAnalytics.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("vendors")}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all cursor-pointer ${
-              activeTab === "vendors"
-                ? "bg-gray-900 text-white shadow-lg"
-                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            By Vendor ({vendorAnalytics.length})
-          </button>
-        </div>
-
-        {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-              </div>
-              <p className="text-gray-500 font-medium">Loading analytics...</p>
-            </div>
-          </div>
-        ) : activeTab === "categories" ? (
-          /* Categories View */
-          <div className="space-y-4">
-            {categoryAnalytics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-200">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <FolderTree className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No category data found</h3>
-                <p className="text-gray-500">Categories will appear here once created</p>
-              </div>
-            ) : (
-              categoryAnalytics.map((category) => (
-                <div key={category.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  {/* Category Header */}
-                  <div
-                    className="px-6 py-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+      {loading ? (
+        <LoadingBlock label="Loading the numbers…" />
+      ) : activeTab === "categories" ? (
+        categories.length === 0 ? (
+          <EmptyBlock
+            icon={<FolderTree className="h-7 w-7" aria-hidden />}
+            title={categoryAnalytics.length === 0 ? "No categories yet" : "Nothing here"}
+            body={
+              categoryAnalytics.length === 0
+                ? "Product categories show up here once they are created."
+                : categoryFilter === "unused"
+                  ? "Every category has at least one shop selling in it."
+                  : "No shop sells in any category yet."
+            }
+          />
+        ) : (
+          <>
+            {/* Desktop */}
+            <TableCard>
+              <thead>
+                <tr>
+                  <th className={thClass}>Category</th>
+                  <th className={cx(thClass, "w-[38%]")}>Products</th>
+                  <th className={thClass}>Shops</th>
+                  <th className={thClass}>
+                    <span className="sr-only">Open</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((category) => (
+                  <tr
+                    key={category.id}
+                    className={`${trClass} cursor-pointer`}
                     onClick={() => toggleCategory(category.id)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-500/20">
-                        {category.icon || category.name[0]}
+                    <td className={tdClass}>
+                      <div className="flex items-center gap-3">
+                        <IconBox size={40}>
+                          <span className="text-[16px] font-semibold">{category.name.charAt(0).toUpperCase()}</span>
+                        </IconBox>
+                        <p className="font-semibold text-label">{category.name}</p>
                       </div>
-                      <div>
-                        <h3 className="font-bold text-gray-900 text-lg">{category.name}</h3>
-                        <p className="text-sm text-gray-500">/{category.slug}</p>
+                    </td>
+                    <td className={tdClass}>
+                      <div className="flex items-center gap-3">
+                        <Bar value={category.totalProducts} max={maxCategoryProducts} className="flex-1" />
+                        <span className="w-12 text-right tabular-nums text-label">
+                          {category.totalProducts.toLocaleString("en-IN")}
+                        </span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-8">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-blue-600">{category.totalProducts}</p>
-                        <p className="text-xs text-gray-500 font-medium">Products</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-purple-600">{category.totalVendors}</p>
-                        <p className="text-xs text-gray-500 font-medium">Vendors</p>
-                      </div>
-                      <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center transition-transform ${expandedCategory === category.id ? "rotate-180" : ""}`}>
-                        <ChevronDown className="w-5 h-5 text-gray-500" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Vendors List (Expanded) */}
-                  {expandedCategory === category.id && (
-                    <div className="border-t border-gray-100">
-                      {category.vendors.length === 0 ? (
-                        <div className="px-6 py-8 text-center">
-                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <Store className="w-6 h-6 text-gray-400" />
-                          </div>
-                          <p className="text-gray-500 font-medium">No vendors are using this category yet</p>
-                        </div>
+                    </td>
+                    <td className={tdClass}>
+                      {category.totalVendors > 0 ? (
+                        <span className="tabular-nums">{plural(category.totalVendors, "shop", "shops")}</span>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  Vendor
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  Business Type
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  City
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  Status
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  Products
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {category.vendors.map((vendor) => (
-                                <tr key={vendor.id} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-                                        {vendor.businessName.charAt(0)}
-                                      </div>
-                                      <span className="font-medium text-gray-900">{vendor.businessName}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4 text-sm text-gray-600">
-                                    {vendor.businessType}
-                                  </td>
-                                  <td className="px-6 py-4 text-sm text-gray-600">
-                                    {vendor.city}
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full border ${getStatusStyles(vendor.status)}`}>
-                                      {getStatusIcon(vendor.status)}
-                                      {vendor.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className="text-lg font-bold text-blue-600">
-                                      {vendor.productCount}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <Pill tone="warn">Not used yet</Pill>
                       )}
+                    </td>
+                    <td className={`${tdClass} text-right`}>
+                      <span className="inline-flex items-center gap-0.5 whitespace-nowrap text-[15px] font-medium text-tint">
+                        See shops <ChevronRight className="h-4 w-4" aria-hidden />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </TableCard>
+
+            {/* Phone */}
+            <List className="md:hidden">
+              {categories.map((category) => (
+                <Row
+                  key={category.id}
+                  onClick={() => toggleCategory(category.id)}
+                  chevron
+                  leading={
+                    <IconBox size={40}>
+                      <span className="text-[16px] font-semibold">{category.name.charAt(0).toUpperCase()}</span>
+                    </IconBox>
+                  }
+                  title={<span className="font-semibold">{category.name}</span>}
+                  subtitle={
+                    <>
+                      <span className="tabular-nums">
+                        {plural(category.totalProducts, "product", "products")} ·{" "}
+                        {category.totalVendors > 0 ? plural(category.totalVendors, "shop", "shops") : "not used yet"}
+                      </span>
+                      <Bar value={category.totalProducts} max={maxCategoryProducts} className="mt-2" />
+                    </>
+                  }
+                />
+              ))}
+            </List>
+          </>
+        )
+      ) : vendorAnalytics.length === 0 ? (
+        <EmptyBlock
+          icon={<Store className="h-7 w-7" aria-hidden />}
+          title="No live shops yet"
+          body="Shops show up here once they are approved and live."
+        />
+      ) : (
+        <>
+          {/* Desktop */}
+          <TableCard>
+            <thead>
+              <tr>
+                <th className={thClass}>Shop</th>
+                <th className={thClass}>City</th>
+                <th className={`${thClass} text-right`}>Products</th>
+                <th className={cx(thClass, "w-[32%]")}>Categories used</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendorAnalytics.map((vendor) => (
+                <tr key={vendor.id} className={trClass}>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={vendor.businessName} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-label">{vendor.businessName}</p>
+                        <p className="text-[13px] text-label-2">{typeLabel(vendor.businessType)}</p>
+                      </div>
                     </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        ) : (
-          /* Vendors View */
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-            {vendorAnalytics.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                  <Store className="w-10 h-10 text-gray-400" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">No vendor data found</h3>
-                <p className="text-gray-500">Vendors will appear here once registered</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Vendor
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Business Type
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        City
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Products
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Categories
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Diversity
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {vendorAnalytics.map((vendor) => (
-                      <tr key={vendor.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl flex items-center justify-center text-white font-bold">
-                              {vendor.businessName.charAt(0)}
-                            </div>
-                            <span className="font-semibold text-gray-900">{vendor.businessName}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {vendor.businessType}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {vendor.city}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xl font-bold text-blue-600">
-                            {vendor.totalProducts}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xl font-bold text-purple-600">
-                            {vendor.categoriesUsed}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {vendor.totalProducts > 0 ? (
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 h-2.5 bg-gray-100 rounded-full max-w-[120px] overflow-hidden">
-                                <div
-                                  className="h-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
-                                  style={{
-                                    width: `${Math.min(100, (vendor.categoriesUsed / Math.max(1, vendor.totalProducts)) * 100 * 5)}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-sm text-gray-500 font-medium">
-                                {((vendor.categoriesUsed / Math.max(1, vendor.totalProducts)) * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+                  </td>
+                  <td className={`${tdClass} text-label-2`}>{vendor.city}</td>
+                  <td className={`${tdClass} text-right tabular-nums`}>{vendor.totalProducts.toLocaleString("en-IN")}</td>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-3">
+                      <Bar value={vendor.categoriesUsed} max={maxVendorCategories} className="flex-1" />
+                      <span className="w-8 text-right tabular-nums text-label">{vendor.categoriesUsed}</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </TableCard>
+
+          {/* Phone */}
+          <List className="md:hidden">
+            {vendorAnalytics.map((vendor) => (
+              <Row
+                key={vendor.id}
+                leading={<Avatar name={vendor.businessName} />}
+                title={<span className="font-semibold">{vendor.businessName}</span>}
+                subtitle={
+                  <>
+                    <span className="tabular-nums">
+                      {vendor.city} · {plural(vendor.categoriesUsed, "category", "categories")}
+                    </span>
+                    <Bar value={vendor.categoriesUsed} max={maxVendorCategories} className="mt-2" />
+                  </>
+                }
+                trailing={
+                  <span className="block text-right">
+                    <span className="block text-[17px] font-semibold tabular-nums text-label">
+                      {vendor.totalProducts.toLocaleString("en-IN")}
+                    </span>
+                    <span className="block text-[13px] text-label-2">products</span>
+                  </span>
+                }
+              />
+            ))}
+          </List>
+        </>
+      )}
+
+      {/* ── Shops in one category ── */}
+      <Sheet
+        open={!!openCategory}
+        onClose={() => setExpandedCategory(null)}
+        wide
+        title={openCategory?.name}
+        description={
+          openCategory
+            ? `${plural(openCategory.totalProducts, "product", "products")} from ${plural(openCategory.totalVendors, "shop", "shops")}`
+            : undefined
+        }
+      >
+        {openCategory &&
+          (openCategory.vendors.length === 0 ? (
+            <EmptyBlock
+              icon={<Store className="h-7 w-7" aria-hidden />}
+              title="No shop sells here yet"
+              body="Shops that add products in this category show up here."
+            />
+          ) : (
+            <List>
+              {openCategory.vendors.map((vendor) => (
+                <Row
+                  key={vendor.id}
+                  leading={<Avatar name={vendor.businessName} />}
+                  title={<span className="font-semibold">{vendor.businessName}</span>}
+                  subtitle={
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>{[typeLabel(vendor.businessType), vendor.city].filter(Boolean).join(" · ")}</span>
+                      <StatusPill status={vendor.status} />
+                    </span>
+                  }
+                  trailing={
+                    <span className="block text-right">
+                      <span className="block text-[17px] font-semibold tabular-nums text-label">{vendor.productCount}</span>
+                      <span className="block text-[13px] text-label-2">
+                        {vendor.productCount === 1 ? "product" : "products"}
+                      </span>
+                    </span>
+                  }
+                />
+              ))}
+            </List>
+          ))}
+      </Sheet>
+    </AdminPage>
   );
 }

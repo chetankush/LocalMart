@@ -202,7 +202,13 @@ export default function OrderCard({ order }: OrderCardProps) {
       {(next || canConfirmPayment || recipient.phone) && (
         <div className="space-y-3 border-t border-hairline p-4">
           {next && (
-            <Button full onClick={() => updateStatus(next.to, "next")} loading={busy === "next"}>
+            <Button
+              full
+              onClick={() => updateStatus(next.to, "next")}
+              loading={busy === "next"}
+              // Accepting is a yes/no decision — green, like the New orders inbox
+              className={next.to === "ACCEPTED" ? "bg-ok! hover:brightness-110" : undefined}
+            >
               {next.label}
             </Button>
           )}
@@ -210,14 +216,14 @@ export default function OrderCard({ order }: OrderCardProps) {
             {recipient.phone && (
               <Button href={`tel:${recipient.phone}`} variant="secondary" size="md" className="flex-1">
                 <Phone className="h-[18px] w-[18px]" aria-hidden />
-                Call customer
+                <span className="whitespace-nowrap">Call</span>
               </Button>
             )}
             {canConfirmPayment && (
               <Button
                 variant="secondary"
                 size="md"
-                className="flex-1 bg-ok-soft text-ok hover:bg-ok-soft"
+                className="flex-1 border-transparent! bg-ok-soft! text-ok!"
                 onClick={handlePaymentReceived}
                 loading={busy === "payment"}
               >

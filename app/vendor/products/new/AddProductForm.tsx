@@ -1,9 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { LayoutGrid, List, ChevronDown, ChevronUp, X, Shirt, Tag } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  LayoutGrid,
+  Lightbulb,
+  List as ListIcon,
+  Loader2,
+  Minus,
+  Package,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { Button, EmptyState, Notice, Pill, Row, StickyBar, StickyBarSpacer, Thumb, rupees } from "@/components/app/ui";
+import { Field, FormCard, RupeeInput, Segmented, Toggle, inputClass, selectClass, textareaClass } from "@/components/app/form";
+import { IconBox, List } from "@/components/app/seller";
+import { Sheet } from "@/components/app/Sheet";
+import { useConfirm } from "@/hooks/useConfirm";
+
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
 interface Category {
   id: string;
@@ -31,70 +55,70 @@ interface AddProductFormProps {
   businessType?: string;
 }
 
-// Fashion-specific options
+// Fashion-specific options (used to narrow the ready list and saved with the product)
 const GENDER_OPTIONS = [
-  { value: "men", label: "Men", icon: "👔" },
-  { value: "women", label: "Women", icon: "👗" },
-  { value: "boys", label: "Boys", icon: "👦" },
-  { value: "girls", label: "Girls", icon: "👧" },
-  { value: "unisex", label: "Unisex", icon: "👕" },
+  { value: "men", label: "Men" },
+  { value: "women", label: "Women" },
+  { value: "boys", label: "Boys" },
+  { value: "girls", label: "Girls" },
+  { value: "unisex", label: "Unisex" },
 ];
 
 const AGE_GROUP_OPTIONS = [
-  { value: "kids", label: "Kids (0-12)", icon: "🧒" },
-  { value: "teens", label: "Teens (13-19)", icon: "🧑" },
-  { value: "adults", label: "Adults (20-50)", icon: "👨" },
-  { value: "seniors", label: "Seniors (50+)", icon: "👴" },
-  { value: "all-ages", label: "All Ages", icon: "👨‍👩‍👧‍👦" },
+  { value: "kids", label: "Kids (0-12)" },
+  { value: "teens", label: "Teens (13-19)" },
+  { value: "adults", label: "Adults (20-50)" },
+  { value: "seniors", label: "Seniors (50+)" },
+  { value: "all-ages", label: "All ages" },
 ];
 
 const FASHION_STYLE_OPTIONS = [
-  { value: "traditional", label: "Traditional Indian", icon: "🪔" },
-  { value: "ethnic", label: "Ethnic Wear", icon: "🎨" },
-  { value: "western", label: "Western", icon: "👖" },
-  { value: "indo-western", label: "Indo-Western", icon: "✨" },
-  { value: "casual", label: "Casual Wear", icon: "👕" },
-  { value: "formal", label: "Formal Wear", icon: "👔" },
-  { value: "sportswear", label: "Sportswear", icon: "🏃" },
+  { value: "traditional", label: "Traditional" },
+  { value: "ethnic", label: "Ethnic" },
+  { value: "western", label: "Western" },
+  { value: "indo-western", label: "Indo-western" },
+  { value: "casual", label: "Casual" },
+  { value: "formal", label: "Formal" },
+  { value: "sportswear", label: "Sportswear" },
 ];
 
 const OCCASION_OPTIONS = [
-  { value: "daily", label: "Daily Wear", icon: "☀️" },
-  { value: "office", label: "Office/Work", icon: "💼" },
-  { value: "party", label: "Party Wear", icon: "🎉" },
-  { value: "wedding", label: "Wedding/Shaadi", icon: "💒" },
-  { value: "festive", label: "Festive/Pooja", icon: "🪔" },
-  { value: "casual-outing", label: "Casual Outing", icon: "🚶" },
-  { value: "special", label: "Special Occasion", icon: "⭐" },
+  { value: "daily", label: "Daily wear" },
+  { value: "office", label: "Office" },
+  { value: "party", label: "Party" },
+  { value: "wedding", label: "Wedding" },
+  { value: "festive", label: "Festival / pooja" },
+  { value: "casual-outing", label: "Outing" },
+  { value: "special", label: "Special occasion" },
 ];
 
 const GARMENT_TYPE_OPTIONS = [
   { value: "saree", label: "Saree" },
   { value: "lehenga", label: "Lehenga" },
-  { value: "salwar-kameez", label: "Salwar Kameez" },
-  { value: "kurti", label: "Kurti/Kurta" },
+  { value: "salwar-kameez", label: "Salwar kameez" },
+  { value: "kurti", label: "Kurti / kurta" },
   { value: "shirt", label: "Shirt" },
-  { value: "t-shirt", label: "T-Shirt" },
-  { value: "pants", label: "Pants/Trousers" },
+  { value: "t-shirt", label: "T-shirt" },
+  { value: "pants", label: "Pants / trousers" },
   { value: "jeans", label: "Jeans" },
   { value: "dress", label: "Dress" },
-  { value: "suit", label: "Suit/Blazer" },
+  { value: "suit", label: "Suit / blazer" },
   { value: "sherwani", label: "Sherwani" },
-  { value: "dupatta", label: "Dupatta/Stole" },
+  { value: "dupatta", label: "Dupatta / stole" },
   { value: "accessories", label: "Accessories" },
   { value: "footwear", label: "Footwear" },
   { value: "other", label: "Other" },
 ];
 
-// Business type display names
-const BUSINESS_TYPE_LABELS: { [key: string]: { label: string; icon: string; color: string } } = {
-  FASHION: { label: "Fashion & Clothing", icon: "👗", color: "bg-pink-100 text-pink-800 border-pink-300" },
-  GROCERY: { label: "Grocery & Daily Needs", icon: "🛒", color: "bg-green-100 text-green-800 border-green-300" },
-  ELECTRONICS: { label: "Electronics", icon: "📱", color: "bg-blue-100 text-blue-800 border-blue-300" },
-  RESTAURANT: { label: "Restaurant & Food", icon: "🍽️", color: "bg-orange-100 text-orange-800 border-orange-300" },
-  PHARMACY: { label: "Pharmacy & Medical", icon: "💊", color: "bg-red-100 text-red-800 border-red-300" },
-  HOME_SERVICES: { label: "Home & Kitchen", icon: "🏠", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
-  OTHER: { label: "Other", icon: "📦", color: "bg-gray-100 text-gray-800 border-gray-300" },
+// Shop type names in plain words
+const BUSINESS_TYPE_LABELS: { [key: string]: { label: string } } = {
+  FASHION: { label: "Fashion & clothing" },
+  GROCERY: { label: "Grocery & daily needs" },
+  ELECTRONICS: { label: "Electronics" },
+  RESTAURANT: { label: "Restaurant & food" },
+  PHARMACY: { label: "Pharmacy & medical" },
+  HOME_SERVICES: { label: "Home & kitchen" },
+  OTHER: { label: "Other" },
 };
 
 export default function AddProductForm({
@@ -103,12 +127,12 @@ export default function AddProductForm({
   businessType,
 }: AddProductFormProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
-
-  // Debug: Log the received businessType
-  console.log("AddProductForm - vendorId:", vendorId);
-  console.log("AddProductForm - businessType:", businessType);
+  // Inline messages under fields, keyed by field name ("" = no error)
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showMore, setShowMore] = useState(false);
 
   // Local categories list that can be extended with new categories
   const [localCategories, setLocalCategories] = useState<Category[]>(initialCategories);
@@ -123,6 +147,7 @@ export default function AddProductForm({
   // Normalize business type to uppercase
   const normalizedBusinessType = businessType?.toUpperCase() || "";
   const isFashionStore = normalizedBusinessType === "FASHION";
+  const businessLabel = BUSINESS_TYPE_LABELS[normalizedBusinessType]?.label || "";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -139,23 +164,21 @@ export default function AddProductForm({
 
   const [images, setImages] = useState<string[]>([]);
 
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [showAddCategory, setShowAddCategory] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
 
-  // Category search/combobox state
+  // Category picker state. categorySearchQuery holds the chosen/typed category
+  // name — it is the fallback new-category name on save.
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [templateCategoryName, setTemplateCategoryName] = useState(""); // Store template's category name if not in list
 
-  // Template selection state
-  const [showTemplates, setShowTemplates] = useState(true);
+  // Ready-list (template) picker — opens as a sheet
+  const [showTemplates, setShowTemplates] = useState(false);
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ProductTemplate | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   // Build search terms based on business type and fashion filters
   const buildSearchTerms = (): string => {
@@ -191,7 +214,7 @@ export default function AddProductForm({
         });
 
         if (data.success && data.data.length > 0) {
-          setTemplates(data.data);
+          setTemplates(data.data as unknown as ProductTemplate[]);
         }
       } catch (error) {
         console.error("Error fetching templates:", error);
@@ -642,6 +665,9 @@ export default function AddProductForm({
     return matchesSearch && matchesGender && matchesAgeGroup && matchesStyle && matchesOccasion && matchesGarmentType;
   });
 
+  const clearError = (key: string) =>
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -654,15 +680,19 @@ export default function AddProductForm({
       [name]:
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
+    clearError(name);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    const input = e.target;
+    const files = input.files;
     if (!files || files.length === 0) return;
 
     // Validate max 5 images
     if (images.length + files.length > 5) {
-      alert("Maximum 5 images allowed");
+      const left = 5 - images.length;
+      toast.error(left > 0 ? `You can add ${left} more photo${left === 1 ? "" : "s"} (5 in total)` : "You can add up to 5 photos");
+      input.value = "";
       return;
     }
 
@@ -674,17 +704,17 @@ export default function AddProductForm({
       const uploadPromises = Array.from(files).map(async (file) => {
         // Validate file
         if (!file.type.startsWith("image/")) {
-          throw new Error("Please select image files only");
+          throw new Error("Please pick a photo (JPG or PNG)");
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          throw new Error("Each image must be less than 5MB");
+          throw new Error("Each photo must be smaller than 5 MB");
         }
 
         const response = await apiClient.vendorUpload(file, "products");
 
         if (!response.success) {
-          throw new Error("Failed to upload image");
+          throw new Error("Couldn't upload the photo. Please try again.");
         }
 
         return response.url;
@@ -692,11 +722,14 @@ export default function AddProductForm({
 
       const uploadedUrls = await Promise.all(uploadPromises);
       setImages((prev) => [...prev, ...uploadedUrls]);
+      clearError("images");
     } catch (error: any) {
       console.error("Image upload error:", error);
-      alert(error.message || "Failed to upload images");
+      toast.error(error.message || "Couldn't upload the photo. Please try again.");
     }
 
+    // Let the same photo be picked again later
+    input.value = "";
     setUploadingImages(false);
   };
 
@@ -713,14 +746,14 @@ export default function AddProductForm({
     if (existingCategory) {
       return existingCategory.id;
     }
-    
+
     // Create a temporary ID for the new category
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newCategory: Category = {
       id: tempId,
       name: categoryName,
     };
-    
+
     setLocalCategories(prev => [...prev, newCategory]);
     console.log("Added new category to local list:", newCategory);
     return tempId;
@@ -731,14 +764,14 @@ export default function AddProductForm({
 
     // Find matching category by ID or Name
     let targetCategoryId = ""; // Start empty to ensure we find a match
-    
+
     console.log("=== TEMPLATE CATEGORY MATCHING ===");
     console.log("Template category:", template.category);
     console.log("Available categories:", localCategories.map(c => ({ id: c.id, name: c.name })));
-    
+
     const templateCatName = template.category?.name?.toLowerCase() || "";
     let matchedCategoryName = "";
-    
+
     // 1. First try exact ID match
     const exactIdMatch = localCategories.find(c => c.id === template.category?.id);
     if (exactIdMatch) {
@@ -746,10 +779,10 @@ export default function AddProductForm({
       matchedCategoryName = exactIdMatch.name;
       console.log("Found exact ID match:", exactIdMatch.name);
     }
-    
+
     // 2. Try exact name match (case-insensitive)
     if (!targetCategoryId) {
-      const exactNameMatch = localCategories.find(c => 
+      const exactNameMatch = localCategories.find(c =>
         c.name.toLowerCase() === templateCatName
       );
       if (exactNameMatch) {
@@ -758,10 +791,10 @@ export default function AddProductForm({
         console.log("Found exact name match:", exactNameMatch.name);
       }
     }
-    
+
     // 3. Try partial name match - category name contains template category name
     if (!targetCategoryId && templateCatName) {
-      const partialMatch = localCategories.find(c => 
+      const partialMatch = localCategories.find(c =>
         c.name.toLowerCase().includes(templateCatName) ||
         templateCatName.includes(c.name.toLowerCase())
       );
@@ -771,7 +804,7 @@ export default function AddProductForm({
         console.log("Found partial match:", partialMatch.name);
       }
     }
-    
+
     // 4. Try matching by keywords in category name
     if (!targetCategoryId && templateCatName) {
       const templateWords = templateCatName.split(/[\s,&]+/).filter(w => w.length > 2);
@@ -785,7 +818,7 @@ export default function AddProductForm({
         console.log("Found keyword match:", keywordMatch.name);
       }
     }
-    
+
     // 5. If no match found, ADD the template's category to the local list
     if (!targetCategoryId && template.category?.name) {
       console.log("No match found, adding template category to list:", template.category.name);
@@ -798,7 +831,7 @@ export default function AddProductForm({
       setTemplateCategoryName("");
       setCategorySearchQuery(matchedCategoryName);
     }
-    
+
     console.log("Final selected categoryId:", targetCategoryId);
 
     // Auto-fill form with template data
@@ -810,13 +843,14 @@ export default function AddProductForm({
       price: template.suggestedPrice?.toString() || "",
       weight: template.suggestedWeight?.toString() || "",
     }));
+    setErrors({});
 
     // Set template image if available
     if (template.suggestedImage) {
       setImages([template.suggestedImage]);
     }
 
-    // Hide templates section after selection
+    // Close the ready list after selection
     setShowTemplates(false);
 
     // Record template usage (skip for default/fallback templates)
@@ -829,8 +863,8 @@ export default function AddProductForm({
       }
     }
 
-    // Scroll to form
-    window.scrollTo({ top: 300, behavior: "smooth" });
+    // Back to the top so the filled-in photo and name are in view
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSkipTemplates = () => {
@@ -838,9 +872,51 @@ export default function AddProductForm({
     setSelectedTemplate(null);
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) {
-      alert("Please enter a category name");
+  // Start over from the ready list (clears what the last pick filled in)
+  const handleChooseAnotherTemplate = () => {
+    setShowTemplates(true);
+    setSelectedTemplate(null);
+    setFormData((prev) => ({
+      ...prev,
+      name: "",
+      description: "",
+      price: "",
+      weight: "",
+    }));
+  };
+
+  const clearFashionFilters = () => {
+    setSelectedGender("");
+    setSelectedAgeGroup("");
+    setSelectedStyle("");
+    setSelectedOccasion("");
+    setSelectedGarmentType("");
+  };
+
+  const selectCategory = (category: Category) => {
+    setFormData((prev) => ({ ...prev, categoryId: category.id }));
+    setCategorySearchQuery(category.name);
+    setTemplateCategoryName("");
+    setShowCategoryDropdown(false);
+    clearError("category");
+  };
+
+  // New categories are created on the server when the product is saved
+  const addNewCategory = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const newId = addCategoryToLocalList(trimmed);
+    setFormData((prev) => ({ ...prev, categoryId: newId }));
+    setCategorySearchQuery(trimmed);
+    setTemplateCategoryName("");
+    setShowCategoryDropdown(false);
+    clearError("category");
+  };
+
+  // Creates the category on the server straight away (not used by this screen's picker)
+  const handleAddCategory = async (name: string) => {
+    if (!name.trim()) {
+      toast.error("Type a category name first");
       return;
     }
 
@@ -848,26 +924,42 @@ export default function AddProductForm({
 
     try {
       const { apiClient } = await import("@/lib/api/client");
-      const data = await apiClient.createCategory({ name: newCategoryName.trim() });
+      const data = await apiClient.createCategory({ name: name.trim() });
 
       if (data.success) {
         // Add the new category to the list and select it
         const newCategory = { id: data.data.id, name: data.data.name };
+        setLocalCategories((prev) => (prev.some((c) => c.id === newCategory.id) ? prev : [...prev, newCategory]));
         setFormData((prev) => ({ ...prev, categoryId: newCategory.id }));
-        setNewCategoryName("");
-        setShowAddCategory(false);
-        alert("Category added successfully!");
-        // Refresh the page to get updated categories
-        window.location.reload();
+        setCategorySearchQuery(newCategory.name);
+        setShowCategoryDropdown(false);
+        toast.success(`Category “${newCategory.name}” added`);
       } else {
-        alert(data.message || "Failed to add category");
+        toast.error(data.message || "Couldn't add the category");
       }
     } catch (error) {
       console.error("Add category error:", error);
-      alert("Failed to add category");
+      toast.error("Couldn't add the category. Please try again.");
     }
 
     setAddingCategory(false);
+  };
+
+  const handleCancel = async () => {
+    const dirty = images.length > 0 || formData.name.trim() || formData.price || formData.description.trim();
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Leave without saving?",
+        description: "The photos and details you added here will be lost.",
+        confirmLabel: "Leave",
+        cancelLabel: "Keep editing",
+        destructive: true,
+      }))
+    )
+      return;
+    if (window.history.length > 1) router.back();
+    else router.push("/vendor/products");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -877,18 +969,10 @@ export default function AddProductForm({
     console.log("Step 1a: vendorId prop received:", vendorId);
     console.log("Step 1b: vendorId type:", typeof vendorId);
 
-    // Validate images
-    if (images.length === 0) {
-      console.log("Step 2: FAILED - No images");
-      alert("Please add at least one product image");
-      return;
-    }
-    console.log("Step 2: Images validated", { imageCount: images.length });
-
     // Check if we have a valid category (either existing ID or new category name)
     const isTempCategory = formData.categoryId && formData.categoryId.startsWith("temp-");
     const hasExistingCategory = formData.categoryId && !isTempCategory && localCategories.some(c => c.id === formData.categoryId);
-    
+
     // Get the category name for new categories
     let categoryNameToCreate = "";
     if (isTempCategory) {
@@ -898,42 +982,44 @@ export default function AddProductForm({
     } else if (!hasExistingCategory) {
       categoryNameToCreate = categorySearchQuery || templateCategoryName;
     }
-    
+
     const hasNewCategoryName = isTempCategory || (!hasExistingCategory && categoryNameToCreate);
 
-    // Validate required fields
-    if (
-      !formData.name ||
-      !formData.description ||
-      (!hasExistingCategory && !hasNewCategoryName) ||
-      !formData.price
-    ) {
-      console.log("Step 3: FAILED - Missing required fields", {
-        name: !!formData.name,
-        description: !!formData.description,
-        hasExistingCategory,
-        hasNewCategoryName,
-        isTempCategory,
-        categoryNameToCreate,
-        price: !!formData.price,
-      });
-      alert("Please fill in all required fields including a category");
+    // Validate — one plain message under each field that needs fixing
+    const next: Record<string, string> = {};
+    if (images.length === 0) next.images = "Add at least one photo — customers want to see what they are buying";
+    if (!formData.name.trim()) next.name = "Add a name — customers search by it";
+    const priceNum = parseFloat(formData.price);
+    if (!formData.price) next.price = "Add a price — customers need it to order";
+    else if (isNaN(priceNum) || priceNum < 0) next.price = "Type the price in rupees, like 120 or 99.50";
+    if (formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
+    else if (parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
+    if (!hasExistingCategory && !hasNewCategoryName) next.category = "Choose a category so customers can find it";
+    if (!formData.description.trim()) next.description = "Add a short description — size, colour or brand";
+
+    const firstKey = FIELD_ORDER.find((k) => next[k]);
+    if (firstKey) {
+      console.log("Step 2/3: FAILED - Missing required fields", next);
+      setErrors(next);
+      toast.error(next[firstKey]);
+      focusField(FIELD_IDS[firstKey]);
       return;
     }
+    console.log("Step 2: Images validated", { imageCount: images.length });
     console.log("Step 3: Required fields validated");
-    console.log("Step 4: Category info", { 
-      hasExistingCategory, 
+    console.log("Step 4: Category info", {
+      hasExistingCategory,
       hasNewCategoryName,
       isTempCategory,
       categoryId: formData.categoryId,
-      categoryNameToCreate 
+      categoryNameToCreate
     });
 
     setLoading(true);
 
     try {
       console.log("Step 5: Preparing API request");
-      
+
       // Build fashion tags from selected filters
       const fashionTags: string[] = [];
       if (isFashionStore) {
@@ -989,18 +1075,20 @@ export default function AddProductForm({
 
       const { apiClient } = await import("@/lib/api/client");
       console.log("Step 8: API client imported, calling createVendorProduct...");
-      
+
       const data = await apiClient.createVendorProduct(productData);
       console.log("Step 9: API response received", JSON.stringify(data, null, 2));
 
       if (data.success) {
         console.log("Step 10: SUCCESS - Product created!");
-        alert("Product added successfully!");
+        toast.success("Product added to your shop");
         router.push("/vendor/products");
         router.refresh();
+        // Keep the button busy while we leave the page (no double save)
+        return;
       } else {
         console.log("Step 10: FAILED - API returned error", { message: data.message });
-        alert(data.message || "Failed to add product");
+        toast.error(data.message || "Couldn't add the product. Please try again.");
       }
     } catch (error: any) {
       console.error("Step 10: EXCEPTION - Product creation error:", error);
@@ -1008,870 +1096,882 @@ export default function AddProductForm({
       console.error("Error status:", error?.status);
       console.error("Error response:", error?.response);
       console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
-      alert(error?.message || "Something went wrong. Please try again.");
+      toast.error(error?.message || "Something went wrong. Please try again.");
     }
 
     setLoading(false);
     console.log("=== PRODUCT CREATION END ===");
   };
 
+  const selectedCategoryName =
+    localCategories.find((c) => c.id === formData.categoryId)?.name || categorySearchQuery || templateCategoryName;
+  const isNewCategory = formData.categoryId?.startsWith("temp-");
+  const usingSamplePhoto = !!selectedTemplate?.suggestedImage && images.includes(selectedTemplate.suggestedImage);
+
+  const fashionGroups = [
+    { label: "Who is it for?", options: GENDER_OPTIONS, value: selectedGender, onChange: setSelectedGender },
+    { label: "Type of clothing", options: GARMENT_TYPE_OPTIONS, value: selectedGarmentType, onChange: setSelectedGarmentType },
+    { label: "Age group", options: AGE_GROUP_OPTIONS, value: selectedAgeGroup, onChange: setSelectedAgeGroup },
+    { label: "Style", options: FASHION_STYLE_OPTIONS, value: selectedStyle, onChange: setSelectedStyle },
+    { label: "Occasion", options: OCCASION_OPTIONS, value: selectedOccasion, onChange: setSelectedOccasion },
+  ];
+
   return (
-    <div className="space-y-8">
-      {/* Business Type Badge */}
-      {normalizedBusinessType && (
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 font-semibold ${
-          BUSINESS_TYPE_LABELS[normalizedBusinessType]?.color || "bg-gray-100 text-gray-800 border-gray-300"
-        }`}>
-          <span className="text-xl">{BUSINESS_TYPE_LABELS[normalizedBusinessType]?.icon || "📦"}</span>
-          <span>Your Store Category: {BUSINESS_TYPE_LABELS[normalizedBusinessType]?.label || businessType}</span>
+    <>
+      {/* ── Quick start: pick from the ready list ── */}
+      {selectedTemplate ? (
+        <div className="mb-4">
+          <Notice
+            tone="ok"
+            icon={<Check className="h-5 w-5 text-ok" strokeWidth={2.5} aria-hidden />}
+            action={
+              <Button variant="secondary" size="md" onClick={handleChooseAnotherTemplate}>
+                Change
+              </Button>
+            }
+          >
+            <p className="font-semibold">Filled in from “{selectedTemplate.name}”</p>
+            <p className="mt-0.5 text-label-2">Check the price and stock, then save.</p>
+          </Notice>
         </div>
-      )}
-
-      {/* Fashion-Specific Filters */}
-      {isFashionStore && (
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl shadow-lg p-6 border-2 border-pink-200">
-          <div className="flex items-center gap-2 mb-4">
-            <Shirt className="w-6 h-6 text-pink-600" />
-            <h2 className="text-xl font-bold text-gray-900">Product Filters for Fashion</h2>
-          </div>
-          <p className="text-gray-600 text-sm mb-6">
-            Select the filters to find relevant product templates for your fashion store
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Gender Selector */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                👤 Gender / Target Audience
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {GENDER_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedGender(selectedGender === option.value ? "" : option.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      selectedGender === option.value
-                        ? "bg-pink-500 text-white shadow-md"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-pink-300 hover:bg-pink-50"
-                    }`}
-                  >
-                    {option.icon} {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Age Group Selector */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                📅 Age Group
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {AGE_GROUP_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedAgeGroup(selectedAgeGroup === option.value ? "" : option.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      selectedAgeGroup === option.value
-                        ? "bg-purple-500 text-white shadow-md"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50"
-                    }`}
-                  >
-                    {option.icon} {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Fashion Style Selector */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                👗 Fashion Style
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {FASHION_STYLE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedStyle(selectedStyle === option.value ? "" : option.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      selectedStyle === option.value
-                        ? "bg-indigo-500 text-white shadow-md"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50"
-                    }`}
-                  >
-                    {option.icon} {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Occasion Selector */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                🎉 Occasion
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {OCCASION_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedOccasion(selectedOccasion === option.value ? "" : option.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      selectedOccasion === option.value
-                        ? "bg-[#FF9933] text-white shadow-md"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50"
-                    }`}
-                  >
-                    {option.icon} {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Garment Type Selector */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                <Tag className="w-4 h-4 inline mr-1" /> Garment Type
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {GARMENT_TYPE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setSelectedGarmentType(selectedGarmentType === option.value ? "" : option.value)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                      selectedGarmentType === option.value
-                        ? "bg-teal-500 text-white shadow-md"
-                        : "bg-white border border-gray-200 text-gray-700 hover:border-teal-300 hover:bg-teal-50"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Selected Filters Summary */}
-          {(selectedGender || selectedAgeGroup || selectedStyle || selectedOccasion || selectedGarmentType) && (
-            <div className="mt-4 p-3 bg-white rounded-lg border border-pink-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-600">Active Filters:</span>
-                  {selectedGender && (
-                    <span className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full">{GENDER_OPTIONS.find(o => o.value === selectedGender)?.label}</span>
-                  )}
-                  {selectedAgeGroup && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">{AGE_GROUP_OPTIONS.find(o => o.value === selectedAgeGroup)?.label}</span>
-                  )}
-                  {selectedStyle && (
-                    <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">{FASHION_STYLE_OPTIONS.find(o => o.value === selectedStyle)?.label}</span>
-                  )}
-                  {selectedOccasion && (
-                    <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">{OCCASION_OPTIONS.find(o => o.value === selectedOccasion)?.label}</span>
-                  )}
-                  {selectedGarmentType && (
-                    <span className="px-2 py-1 bg-teal-100 text-teal-700 text-xs rounded-full">{GARMENT_TYPE_OPTIONS.find(o => o.value === selectedGarmentType)?.label}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedGender("");
-                    setSelectedAgeGroup("");
-                    setSelectedStyle("");
-                    setSelectedOccasion("");
-                    setSelectedGarmentType("");
-                  }}
-                  className="text-sm text-gray-500 hover:text-gray-700 underline cursor-pointer"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Product Template Selection */}
-      {showTemplates && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg p-6 border-2 border-blue-200">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <span>⚡ Select from Popular Products</span>
-              </h2>
-              <p className="text-gray-600 text-sm">
-                {isFashionStore
-                  ? "Choose a fashion template based on your filters above, or search for specific items"
-                  : "Save time! Select a popular product template and customize it with your details"
-                }
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex bg-white rounded-lg border border-gray-200 p-1">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-md transition-colors cursor-pointer ${
-                    viewMode === 'grid'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                  title="Grid View"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-md transition-colors cursor-pointer ${
-                    viewMode === 'list'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                  title="List View"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowTemplates(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                title="Hide Templates"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder={isFashionStore
-                ? "Search fashion items... (e.g., saree, kurti, shirt)"
-                : "Search products... (e.g., oil, soap, rice)"
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Template Grid */}
-          {loadingTemplates ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          ) : filteredTemplates.length > 0 ? (
-            <>
-              <div className={`grid gap-4 ${
-                viewMode === 'grid' 
-                  ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' 
-                  : 'grid-cols-1'
-              }`}>
-                {filteredTemplates
-                  .slice(0, showAllTemplates ? undefined : 3)
-                  .map((template) => (
-                  <div
-                    key={template.id}
-                    className={`bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group ${
-                      viewMode === 'list' ? 'p-4 flex gap-4 items-center' : 'p-4'
-                    }`}
-                    onClick={() => handleUseTemplate(template)}
-                  >
-                    {/* Image for both Grid and List views */}
-                    {template.suggestedImage && (
-                      <div className={`relative flex-shrink-0 rounded-md overflow-hidden bg-gray-100 ${
-                        viewMode === 'list' ? 'w-24 h-24' : 'w-full aspect-square mb-3'
-                      }`}>
-                        <Image 
-                          src={template.suggestedImage} 
-                          alt={template.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-1">
-                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate pr-2">
-                          {template.name}
-                        </h3>
-                        {template.isPopular && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium flex-shrink-0">
-                            Popular
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">
-                        {template.description}
-                      </p>
-                      
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-3">
-                          {template.suggestedPrice && (
-                            <span className="text-sm font-medium text-green-600">
-                              ₹{template.suggestedPrice}
-                            </span>
-                          )}
-                          {template.tags && template.tags.length > 0 && (
-                            <div className="flex gap-1">
-                              {template.tags.slice(0, 2).map((tag: string, index: number) => (
-                                <span
-                                  key={index}
-                                  className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <button
-                          type="button"
-                          className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors font-medium whitespace-nowrap ml-2 cursor-pointer"
-                        >
-                          Use Template
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {filteredTemplates.length > 3 && (
-                <div className="mt-6 text-center border-t border-gray-200 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllTemplates(!showAllTemplates)}
-                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors px-4 py-2 rounded-lg hover:bg-blue-50 cursor-pointer"
-                  >
-                    {showAllTemplates ? (
-                      <>
-                        Show Less <ChevronUp className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        See All {filteredTemplates.length} Templates <ChevronDown className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              No templates found. Try a different search or{" "}
-              <button
-                type="button"
-                onClick={handleSkipTemplates}
-                className="text-blue-600 hover:underline font-medium cursor-pointer"
-              >
-                add manually
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Show Templates Button */}
-      {!showTemplates && !selectedTemplate && (
+      ) : (
         <button
           type="button"
           onClick={() => setShowTemplates(true)}
-          className="w-full py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg font-bold shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5 cursor-pointer"
+          className="mb-4 flex min-h-[72px] w-full items-center gap-3 rounded-2xl bg-card p-4 text-left transition-colors active:bg-fill cursor-pointer"
         >
-          <span className="text-2xl">⚡</span> 
-          <span className="text-lg">Add Kirana Products from List</span>
+          <IconBox tone="brand">
+            <Sparkles className="h-[22px] w-[22px]" />
+          </IconBox>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-semibold leading-snug text-label">Pick from popular products</span>
+            <span className="mt-0.5 block text-[14px] leading-snug text-label-2">
+              We fill in the name, price and photo · तैयार लिस्ट से चुनें
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
         </button>
       )}
 
-      {/* Show selected template info */}
-      {selectedTemplate && !showTemplates && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <svg
-              className="w-6 h-6 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div>
-              <p className="font-semibold text-gray-900">
-                Using template: {selectedTemplate.name}
-              </p>
-              <p className="text-sm text-gray-600">
-                Update the details below to match your product
-              </p>
-            </div>
+      <form onSubmit={handleSubmit} noValidate>
+        {/* ── Photos ── */}
+        <FormCard title="Photos" description="Clear photos sell faster. Add up to 5 — the first one is the main photo.">
+          <div id="field-images">
+            <PhotoPicker
+              images={images}
+              uploading={uploadingImages}
+              onPick={handleImageUpload}
+              onRemove={handleRemoveImage}
+              error={errors.images}
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setShowTemplates(true);
-              setSelectedTemplate(null);
-              setFormData((prev) => ({
-                ...prev,
-                name: "",
-                description: "",
-                price: "",
-                weight: "",
-              }));
-            }}
-            className="text-sm text-gray-600 hover:text-gray-900 font-medium cursor-pointer"
-          >
-            Choose Different Template
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Product Images */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Product Images *</h2>
-
-        <div className="grid grid-cols-5 gap-4 mb-4">
-          {images.map((url, index) => (
-            <div
-              key={index}
-              className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200"
-            >
-              <Image
-                src={url}
-                alt={`Product ${index + 1}`}
-                fill
-                className="object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveImage(index)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 cursor-pointer"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          ))}
-
-          {images.length < 5 && (
-            <label className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-              {uploadingImages ? (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              ) : (
-                <>
-                  <svg
-                    className="w-8 h-8 text-gray-400 mb-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span className="text-xs text-gray-500">Add Image</span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={uploadingImages}
-              />
-            </label>
+          {usingSamplePhoto && (
+            <Notice tone="info" icon={<Lightbulb className="h-5 w-5 text-info" aria-hidden />}>
+              This is a sample photo. Your own photo builds more trust with customers — tap <b>Add photo</b>.
+            </Notice>
           )}
-        </div>
+        </FormCard>
 
-        <p className="text-xs text-gray-500">
-          Upload up to 5 images. First image will be the main product image.
-        </p>
-        <div className="mt-2 p-3 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100 flex gap-2 items-start">
-          <span className="text-lg">💡</span>
-          <p>
-            <strong>Tip:</strong> While template images are helpful, we highly recommend uploading your own 
-            <strong> official product images</strong> to build trust with customers.
-          </p>
-        </div>
-      </div>
-
-      {/* Basic Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product Name *
-            </label>
+        {/* ── The basics: name, price, stock, category ── */}
+        <FormCard>
+          <Field label="Product name" htmlFor="p-name" hint="Customers search by this name" error={errors.name}>
             <input
+              id="p-name"
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Organic Bananas"
+              autoComplete="off"
+              aria-invalid={!!errors.name || undefined}
+              className={inputClass}
+              placeholder={isFashionStore ? "e.g. Red cotton saree" : "e.g. Tata Salt 1 kg"}
             />
+          </Field>
+
+          <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+            <Field label="Price" htmlFor="p-price" hint="What customers pay" error={errors.price}>
+              <RupeeInput
+                id="p-price"
+                type="number"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                step="0.01"
+                min="0"
+                aria-invalid={!!errors.price || undefined}
+                placeholder="0"
+              />
+            </Field>
+            <Field label="Price before discount" optional htmlFor="p-mrp" hint="The MRP — shown crossed out">
+              <RupeeInput
+                id="p-mrp"
+                type="number"
+                name="compareAtPrice"
+                value={formData.compareAtPrice}
+                onChange={handleChange}
+                step="0.01"
+                min="0"
+                placeholder="0"
+              />
+            </Field>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description *
-            </label>
+          <Field
+            label="How many do you have?"
+            htmlFor="p-stock"
+            hint="Pieces or packets in your shop right now"
+            error={errors.stockQuantity}
+          >
+            <StockStepper
+              id="p-stock"
+              value={formData.stockQuantity}
+              invalid={!!errors.stockQuantity}
+              onChange={(v) => {
+                setFormData((prev) => ({ ...prev, stockQuantity: v }));
+                clearError("stockQuantity");
+              }}
+            />
+          </Field>
+
+          <Field
+            label="Category"
+            htmlFor="p-category"
+            hint={
+              isNewCategory
+                ? `New category “${selectedCategoryName}” will be made when you save`
+                : "Helps customers find it in your shop"
+            }
+            error={errors.category}
+          >
+            <CategoryButton
+              id="p-category"
+              label={selectedCategoryName}
+              invalid={!!errors.category}
+              onClick={() => setShowCategoryDropdown(true)}
+            />
+          </Field>
+        </FormCard>
+
+        {/* ── Description ── */}
+        <FormCard>
+          <Field
+            label="Description"
+            htmlFor="p-desc"
+            hint="A line or two — size, colour, brand or how to use it"
+            error={errors.description}
+          >
             <textarea
+              id="p-desc"
               name="description"
               value={formData.description}
               onChange={handleChange}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Describe your product..."
+              rows={3}
+              aria-invalid={!!errors.description || undefined}
+              className={textareaClass}
+              placeholder={isFashionStore ? "e.g. Soft cotton, 5.5 m with blouse piece" : "e.g. Iodised salt, 1 kg packet"}
             />
-          </div>
+          </Field>
+        </FormCard>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category *
-            </label>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={categorySearchQuery || (formData.categoryId ? localCategories.find(c => c.id === formData.categoryId)?.name : "") || templateCategoryName}
-                  onChange={(e) => {
-                    setCategorySearchQuery(e.target.value);
-                    setShowCategoryDropdown(true);
-                    setTemplateCategoryName("");
-                  }}
-                  onFocus={() => setShowCategoryDropdown(true)}
-                  onBlur={() => {
-                    // Delay hiding to allow click on dropdown items
-                    setTimeout(() => setShowCategoryDropdown(false), 200);
-                  }}
-                  onKeyDown={(e) => {
-                    // Allow adding category by pressing Enter when no match found
-                    if (e.key === "Enter" && categorySearchQuery) {
-                      e.preventDefault();
-                      const matchingCategory = localCategories.find(
-                        c => c.name.toLowerCase() === categorySearchQuery.toLowerCase()
-                      );
-                      if (matchingCategory) {
-                        setFormData(prev => ({ ...prev, categoryId: matchingCategory.id }));
-                        setCategorySearchQuery(matchingCategory.name);
-                      } else {
-                        // Add new category
-                        const newId = addCategoryToLocalList(categorySearchQuery);
-                        setFormData(prev => ({ ...prev, categoryId: newId }));
-                      }
-                      setShowCategoryDropdown(false);
-                    }
-                  }}
-                  placeholder="Type to search or add a new category..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        {/* ── Show in shop ── */}
+        <FormCard>
+          <Toggle
+            checked={formData.isActive}
+            onChange={(v) => setFormData((prev) => ({ ...prev, isActive: v }))}
+            label="Show in my shop"
+            description={formData.isActive ? "Customers can see and order it" : "Hidden — customers can't see it yet"}
+          />
+        </FormCard>
+
+        {/* ── Rarely used fields ── */}
+        <MoreDetails
+          open={showMore}
+          onToggle={() => setShowMore((v) => !v)}
+          summary={moreSummary(formData)}
+        >
+          <MoreDetailsFields formData={formData} onChange={handleChange} />
+        </MoreDetails>
+
+        <StickyBarSpacer />
+        <StickyBar aboveTabBar>
+          <Button variant="secondary" onClick={handleCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1" loading={loading} disabled={loading || uploadingImages}>
+            {loading ? "Saving…" : uploadingImages ? "Uploading photo…" : "Save product"}
+          </Button>
+        </StickyBar>
+      </form>
+
+      {/* ── Ready list (templates) ── */}
+      <Sheet
+        open={showTemplates}
+        onClose={() => setShowTemplates(false)}
+        title="Popular products"
+        description="Tap one and we fill in the form for you. You can change anything after."
+        wide
+      >
+        <div className="sticky top-0 z-10 -mx-4 space-y-3 bg-canvas px-4 pb-3">
+          <SearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={isFashionStore ? "Search — saree, kurti, shirt…" : "Search — oil, soap, rice…"}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="min-w-0 truncate text-[14px] text-label-2">
+              {loadingTemplates
+                ? "Loading…"
+                : `${filteredTemplates.length} product${filteredTemplates.length === 1 ? "" : "s"}`}
+              {businessLabel && ` · ${businessLabel}`}
+            </p>
+            <div className="w-[108px] shrink-0">
+              <Segmented
+                label="View"
+                value={viewMode}
+                onChange={setViewMode}
+                options={[
+                  {
+                    value: "grid",
+                    label: (
+                      <>
+                        <LayoutGrid className="h-[18px] w-[18px]" aria-hidden />
+                        <span className="sr-only">Photos</span>
+                      </>
+                    ),
+                  },
+                  {
+                    value: "list",
+                    label: (
+                      <>
+                        <ListIcon className="h-[18px] w-[18px]" aria-hidden />
+                        <span className="sr-only">List</span>
+                      </>
+                    ),
+                  },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
+        {isFashionStore && <FashionFilters groups={fashionGroups} onClear={clearFashionFilters} />}
+
+        {loadingTemplates ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Loading">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-fill-strong" />
+            ))}
+          </div>
+        ) : filteredTemplates.length > 0 ? (
+          viewMode === "grid" ? (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {filteredTemplates.map((template) => (
+                <li key={template.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleUseTemplate(template)}
+                    className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-card text-left transition-transform active:scale-[0.98] cursor-pointer"
+                  >
+                    <span className="relative flex aspect-square w-full items-center justify-center bg-fill">
+                      {template.suggestedImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={template.suggestedImage}
+                          alt={template.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Package className="h-10 w-10 text-label-3" aria-hidden />
+                      )}
+                      {template.isPopular && (
+                        <span className="absolute left-2 top-2">
+                          <Pill>Popular</Pill>
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex flex-1 flex-col p-3">
+                      <span className="line-clamp-2 text-[15px] font-semibold leading-snug text-label">
+                        {template.name}
+                      </span>
+                      {template.suggestedPrice ? (
+                        <span className="mt-1 text-[15px] tabular-nums text-label-2">
+                          {rupees(template.suggestedPrice)}
+                        </span>
+                      ) : null}
+                      <span className="mt-auto pt-2 text-[15px] font-semibold text-tint">Use this</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <List>
+              {filteredTemplates.map((template) => (
+                <Row
+                  key={template.id}
+                  onClick={() => handleUseTemplate(template)}
+                  leading={<Thumb src={template.suggestedImage} alt={template.name} size={64} />}
+                  title={
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-semibold">{template.name}</span>
+                      {template.isPopular && <Pill>Popular</Pill>}
+                    </span>
+                  }
+                  subtitle={
+                    <>
+                      <span className="line-clamp-2">{template.description}</span>
+                      <span className="mt-1 block tabular-nums">
+                        {template.suggestedPrice ? (
+                          <span className="font-semibold text-label">{rupees(template.suggestedPrice)}</span>
+                        ) : null}
+                        {template.tags && template.tags.length > 0 && (
+                          <span className="text-label-3">
+                            {template.suggestedPrice ? " · " : ""}
+                            {template.tags.slice(0, 2).join(", ")}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  }
+                  trailing={<span className="text-[15px] font-semibold text-tint">Use</span>}
                 />
-                {/* Dropdown arrow */}
-                <button
-                  type="button"
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                >
-                  <ChevronDown className={`w-5 h-5 transition-transform ${showCategoryDropdown ? "rotate-180" : ""}`} />
-                </button>
-                
-                {/* Dropdown list */}
-                {showCategoryDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                    {/* Option to add new category if search query doesn't match exactly */}
-                    {categorySearchQuery && !localCategories.some(c => c.name.toLowerCase() === categorySearchQuery.toLowerCase()) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newId = addCategoryToLocalList(categorySearchQuery);
-                          setFormData(prev => ({ ...prev, categoryId: newId }));
-                          setShowCategoryDropdown(false);
-                        }}
-                        className="w-full px-4 py-2 text-left bg-green-50 hover:bg-green-100 text-green-700 font-medium border-b border-green-200 flex items-center gap-2 cursor-pointer"
-                      >
-                        <span className="text-lg">+</span> Add &quot;{categorySearchQuery}&quot; as new category
-                      </button>
-                    )}
-                    
-                    {localCategories
-                      .filter(c => 
-                        !categorySearchQuery || 
-                        c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
-                      )
-                      .map((category) => (
-                        <button
-                          key={category.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, categoryId: category.id }));
-                            setCategorySearchQuery(category.name);
-                            setTemplateCategoryName("");
-                            setShowCategoryDropdown(false);
-                          }}
-                          className={`w-full px-4 py-2 text-left hover:bg-blue-50 transition-colors flex items-center justify-between cursor-pointer ${
-                            formData.categoryId === category.id ? "bg-blue-100 text-blue-700 font-medium" : "text-gray-700"
-                          }`}
-                        >
-                          <span>{category.name}</span>
-                          {category.id.startsWith("temp-") && (
-                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">New</span>
-                          )}
-                        </button>
-                      ))}
-                    {localCategories.filter(c => 
-                      !categorySearchQuery || 
-                      c.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
-                    ).length === 0 && !categorySearchQuery && (
-                      <div className="px-4 py-3 text-gray-500 text-sm">
-                        No categories available. Type to add a new one.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              ))}
+            </List>
+          )
+        ) : (
+          <EmptyState
+            icon={<Search className="h-7 w-7" aria-hidden />}
+            title="Nothing found"
+            body="Try another word, or add your product yourself."
+            action={
+              <Button full onClick={handleSkipTemplates}>
+                Add it myself
+              </Button>
+            }
+          />
+        )}
+      </Sheet>
+
+      {/* ── Category picker ── */}
+      <CategoryPicker
+        open={showCategoryDropdown}
+        onClose={() => setShowCategoryDropdown(false)}
+        categories={localCategories}
+        selectedId={formData.categoryId}
+        onSelect={selectCategory}
+        onAddNew={addNewCategory}
+        adding={addingCategory}
+        isNew={(c) => c.id.startsWith("temp-")}
+      />
+    </>
+  );
+}
+
+/* ─── Validation helpers ────────────────────────────────────────── */
+
+// Top-to-bottom order of the fields, so we jump to the first problem
+const FIELD_ORDER = ["images", "name", "price", "stockQuantity", "category", "description"] as const;
+const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
+  images: "field-images",
+  name: "p-name",
+  price: "p-price",
+  stockQuantity: "p-stock",
+  category: "p-category",
+  description: "p-desc",
+};
+
+/** Scroll a field into the middle of the screen and put the cursor in it */
+export function focusField(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLButtonElement)
+    el.focus({ preventScroll: true });
+}
+
+/* ─── Pieces shared with the edit screen ────────────────────────── */
+
+type MoreFields = { weight: string; lowStockThreshold: string; sku: string };
+
+/** One-line summary of what's inside "More details" */
+export function moreSummary({ weight, lowStockThreshold, sku }: MoreFields) {
+  const parts = [
+    weight ? `${weight} kg` : "Weight",
+    lowStockThreshold ? `Low-stock alert at ${lowStockThreshold}` : "Low-stock alert",
+    sku ? `Code ${sku}` : "Item code",
+  ];
+  return parts.join(" · ");
+}
+
+/** Weight, low-stock alert and item code — rarely changed, so tucked away */
+export function MoreDetailsFields({
+  formData,
+  onChange,
+}: {
+  formData: MoreFields;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <FormCard>
+      <Field label="Weight" optional htmlFor="p-weight" hint="In kg — e.g. 0.5 for 500 g. Helps with delivery.">
+        <div className="relative">
+          <input
+            id="p-weight"
+            type="number"
+            inputMode="decimal"
+            name="weight"
+            value={formData.weight}
+            onChange={onChange}
+            step="0.01"
+            min="0"
+            className={cx(inputClass, "pr-12 tabular-nums")}
+            placeholder="0.00"
+          />
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">kg</span>
+        </div>
+      </Field>
+      <Field label="Low-stock alert" optional htmlFor="p-low" hint="We'll warn you when stock drops below this number">
+        <input
+          id="p-low"
+          type="number"
+          inputMode="numeric"
+          name="lowStockThreshold"
+          value={formData.lowStockThreshold}
+          onChange={onChange}
+          min="0"
+          className={cx(inputClass, "tabular-nums")}
+          placeholder="10"
+        />
+      </Field>
+      <Field label="Item code" optional htmlFor="p-sku" hint="Only if you use your own codes or barcodes">
+        <input
+          id="p-sku"
+          type="text"
+          name="sku"
+          value={formData.sku}
+          onChange={onChange}
+          autoComplete="off"
+          className={inputClass}
+        />
+      </Field>
+    </FormCard>
+  );
+}
+
+/** Tap-to-open block for optional fields, so the first screen stays short */
+export function MoreDetails({
+  open,
+  onToggle,
+  summary,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  summary: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mb-4">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left transition-colors active:bg-fill cursor-pointer"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-semibold leading-snug text-label">
+            More details <span className="font-normal text-label-3">· optional</span>
+          </span>
+          <span className="mt-0.5 block truncate text-[14px] leading-snug text-label-2">{summary}</span>
+        </span>
+        <ChevronDown
+          className={cx("h-5 w-5 shrink-0 text-label-3 transition-transform duration-200", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </section>
+  );
+}
+
+/** Big dashed camera tile, then thumbnails with a small round remove button */
+export function PhotoPicker({
+  images,
+  uploading,
+  onPick,
+  onRemove,
+  error,
+  max = 5,
+}: {
+  images: string[];
+  uploading: boolean;
+  onPick: (e: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: (index: number) => void;
+  error?: string;
+  max?: number;
+}) {
+  // accept="image/*" lets phones offer the camera as well as the gallery
+  const fileInput = (
+    <input
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={onPick}
+      disabled={uploading}
+      className="sr-only"
+      aria-label="Add photo"
+    />
+  );
+
+  return (
+    <div>
+      {images.length === 0 ? (
+        <label
+          className={cx(
+            "flex h-48 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-fill px-4 text-center transition-colors",
+            "active:bg-fill-strong focus-within:border-tint",
+            error ? "border-bad" : "border-hairline",
+            uploading && "cursor-wait",
+          )}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-8 w-8 animate-spin text-label-2" aria-hidden />
+              <span className="mt-3 text-[16px] font-semibold text-label">Uploading photo…</span>
+            </>
+          ) : (
+            <>
+              <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-card text-tint">
+                <Camera className="h-7 w-7" aria-hidden />
+              </span>
+              <span className="text-[17px] font-semibold leading-snug text-label">Add photo</span>
+              <span className="text-[15px] leading-snug text-label-2">फ़ोटो जोड़ें</span>
+            </>
+          )}
+          {fileInput}
+        </label>
+      ) : (
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {images.map((url, index) => (
+            <li key={`${url}-${index}`} className="relative aspect-square overflow-hidden rounded-xl bg-fill">
+              <Image
+                src={url}
+                alt={`Photo ${index + 1}`}
+                fill
+                sizes="(min-width: 640px) 120px, 30vw"
+                className="object-cover"
+              />
+              {index === 0 && (
+                <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[12px] font-semibold text-white">
+                  Main
+                </span>
+              )}
               <button
                 type="button"
-                onClick={() => setShowAddCategory(!showAddCategory)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium whitespace-nowrap cursor-pointer"
+                onClick={() => onRemove(index)}
+                aria-label={`Remove photo ${index + 1}`}
+                className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center cursor-pointer"
               >
-                + Add New
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+                  <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                </span>
               </button>
-            </div>
-            
-            {/* Info about new categories */}
-            {formData.categoryId && formData.categoryId.startsWith("temp-") && (
-              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center gap-2">
-                <span>ℹ️</span>
-                <span>New category &quot;{localCategories.find(c => c.id === formData.categoryId)?.name}&quot; will be created when you save the product.</span>
-              </div>
-            )}
+            </li>
+          ))}
+          {images.length < max && (
+            <li>
+              <label
+                className={cx(
+                  "flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-hairline bg-fill text-center transition-colors",
+                  "active:bg-fill-strong focus-within:border-tint",
+                  uploading && "cursor-wait",
+                )}
+              >
+                {uploading ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-label-2" aria-label="Uploading" />
+                ) : (
+                  <>
+                    <Camera className="h-6 w-6 text-label-2" aria-hidden />
+                    <span className="text-[13px] font-medium leading-tight text-label-2">Add photo</span>
+                  </>
+                )}
+                {fileInput}
+              </label>
+            </li>
+          )}
+        </ul>
+      )}
+      {error && <p className="mt-1.5 text-[14px] leading-snug text-bad">{error}</p>}
+    </div>
+  );
+}
 
-            {showAddCategory && (
-              <div className="mt-3 p-4 bg-gray-50 rounded-lg border">
-                <p className="text-sm text-gray-600 mb-2">Add a new category manually:</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (newCategoryName.trim()) {
-                          const newId = addCategoryToLocalList(newCategoryName.trim());
-                          setFormData(prev => ({ ...prev, categoryId: newId }));
-                          setCategorySearchQuery(newCategoryName.trim());
-                          setNewCategoryName("");
-                          setShowAddCategory(false);
-                        }
-                      }
-                    }}
-                    placeholder="Enter new category name"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newCategoryName.trim()) {
-                        const newId = addCategoryToLocalList(newCategoryName.trim());
-                        setFormData(prev => ({ ...prev, categoryId: newId }));
-                        setCategorySearchQuery(newCategoryName.trim());
-                        setNewCategoryName("");
-                        setShowAddCategory(false);
-                      }
-                    }}
-                    disabled={!newCategoryName.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium cursor-pointer"
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddCategory(false);
-                      setNewCategoryName("");
-                    }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+/** Number box with big − / + buttons for one-thumb stock counting */
+export function StockStepper({
+  id,
+  value,
+  onChange,
+  invalid,
+}: {
+  id: string;
+  value: string;
+  onChange: (next: string) => void;
+  invalid?: boolean;
+}) {
+  const n = parseInt(value) || 0;
+  const btn =
+    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-fill text-label transition-colors active:bg-fill-strong disabled:opacity-40 cursor-pointer";
+  return (
+    <div className="flex max-w-xs items-center gap-3">
+      <button type="button" className={btn} onClick={() => onChange(String(Math.max(0, n - 1)))} disabled={n <= 0} aria-label="One less">
+        <Minus className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+      </button>
+      <input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={0}
+        step={1}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        aria-invalid={invalid || undefined}
+        className={cx(inputClass, "min-w-0 flex-1 text-center text-[18px] font-semibold tabular-nums")}
+      />
+      <button type="button" className={btn} onClick={() => onChange(String(n + 1))} aria-label="One more">
+        <Plus className="h-5 w-5" strokeWidth={2.5} aria-hidden />
+      </button>
+    </div>
+  );
+}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Weight (kg)
-            </label>
-            <input
-              type="number"
-              name="weight"
-              value={formData.weight}
-              onChange={handleChange}
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-            />
-          </div>
-        </div>
+/** Looks like a select; opens the category sheet */
+export function CategoryButton({
+  id,
+  label,
+  invalid,
+  onClick,
+}: {
+  id: string;
+  label?: string;
+  invalid?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      id={id}
+      type="button"
+      onClick={onClick}
+      aria-haspopup="dialog"
+      className={cx(selectClass, "truncate text-left", !label && "text-label-3", invalid && "border-bad!")}
+    >
+      {label || "Choose a category"}
+    </button>
+  );
+}
+
+/** Search box with a magnifier, used inside sheets */
+export function SearchField({
+  value,
+  onChange,
+  placeholder,
+  onEnter,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  onEnter?: () => void;
+}) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3" aria-hidden />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onEnter?.();
+          }
+        }}
+        enterKeyHint="search"
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className={cx(inputClass, "pl-11")}
+      />
+    </div>
+  );
+}
+
+/** Sheet to pick a category, or type a new one */
+export function CategoryPicker({
+  open,
+  onClose,
+  categories,
+  selectedId,
+  onSelect,
+  onAddNew,
+  adding,
+  isNew,
+}: {
+  open: boolean;
+  onClose: () => void;
+  categories: Category[];
+  selectedId: string;
+  onSelect: (category: Category) => void;
+  onAddNew: (name: string) => void;
+  adding?: boolean;
+  isNew?: (category: Category) => boolean;
+}) {
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    if (open) setQuery("");
+  }, [open]);
+
+  const q = query.trim();
+  const lower = q.toLowerCase();
+  const exact = categories.find((c) => c.name.toLowerCase() === lower);
+  const shown = categories.filter((c) => !q || c.name.toLowerCase().includes(lower));
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Choose a category"
+      description="Can't find yours? Type its name to add it."
+      wide
+    >
+      <div className="sticky top-0 z-10 -mx-4 bg-canvas px-4 pb-3">
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder="Search or type a new category"
+          onEnter={() => {
+            if (exact) onSelect(exact);
+            else if (q) onAddNew(q);
+          }}
+        />
       </div>
 
-      {/* Pricing */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Pricing</h2>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Selling Price (₹) *
-            </label>
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              required
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Compare at Price (₹)
-            </label>
-            <input
-              type="number"
-              name="compareAtPrice"
-              value={formData.compareAtPrice}
-              onChange={handleChange}
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Original price before discount
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Inventory */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Inventory</h2>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stock Quantity *
-            </label>
-            <input
-              type="number"
-              name="stockQuantity"
-              value={formData.stockQuantity}
-              onChange={handleChange}
-              required
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Low Stock Alert Threshold
-            </label>
-            <input
-              type="number"
-              name="lowStockThreshold"
-              value={formData.lowStockThreshold}
-              onChange={handleChange}
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="10"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              You'll be notified when stock falls below this number
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Status</h2>
-
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            name="isActive"
-            checked={formData.isActive}
-            onChange={handleChange}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <span className="ml-2 text-sm text-gray-700">
-            Active (Product will be visible to customers)
-          </span>
-        </label>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading || uploadingImages}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-        >
-          {loading ? "Adding Product..." : "Add Product"}
-        </button>
+      {q && !exact && (
         <button
           type="button"
-          onClick={() => router.back()}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+          onClick={() => onAddNew(q)}
+          disabled={adding}
+          className="mb-3 flex min-h-[56px] w-full items-center gap-3 rounded-2xl bg-card px-4 py-3 text-left transition-colors active:bg-fill disabled:opacity-50 cursor-pointer"
         >
-          Cancel
+          <IconBox tone="brand" size={36}>
+            {adding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" strokeWidth={2.5} />}
+          </IconBox>
+          <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
+            Add <span className="font-semibold">“{q}”</span> as a new category
+          </span>
         </button>
-      </div>
-    </form>
+      )}
+
+      {shown.length > 0 ? (
+        <List>
+          {shown.map((category) => {
+            const on = category.id === selectedId;
+            return (
+              <Row
+                key={category.id}
+                onClick={() => onSelect(category)}
+                title={<span className={on ? "font-semibold" : undefined}>{category.name}</span>}
+                trailing={
+                  <span className="flex items-center gap-2">
+                    {isNew?.(category) && <Pill tone="info">New</Pill>}
+                    {on && <Check className="h-5 w-5 text-tint" strokeWidth={2.5} aria-label="Chosen" />}
+                  </span>
+                }
+              />
+            );
+          })}
+        </List>
+      ) : (
+        !q && (
+          <p className="px-1 py-6 text-center text-[15px] text-label-2">
+            No categories yet. Type a name above to add one.
+          </p>
+        )
+      )}
+    </Sheet>
+  );
+}
+
+/* ─── Fashion filters for the ready list ────────────────────────── */
+
+type ChipOption = { value: string; label: string };
+
+function FashionFilters({
+  groups,
+  onClear,
+}: {
+  groups: { label: string; options: ChipOption[]; value: string; onChange: (v: string) => void }[];
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = groups
+    .map((g) => g.options.find((o) => o.value === g.value)?.label)
+    .filter((l): l is string => Boolean(l));
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-2xl bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex min-h-[56px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-fill cursor-pointer"
+      >
+        <SlidersHorizontal className="h-5 w-5 shrink-0 text-label-2" aria-hidden />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[16px] font-semibold leading-snug text-label">
+            Filter{active.length > 0 && ` · ${active.length}`}
+          </span>
+          <span className="mt-0.5 block truncate text-[14px] leading-snug text-label-2">
+            {active.length > 0 ? active.join(" · ") : "Who it's for, type, style, occasion"}
+          </span>
+        </span>
+        <ChevronDown
+          className={cx("h-5 w-5 shrink-0 text-label-3 transition-transform duration-200", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+      {open && (
+        <div className="space-y-5 border-t border-hairline px-4 py-4">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <p className="mb-2 text-[15px] font-semibold text-label">{g.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {g.options.map((o) => {
+                  const on = g.value === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => g.onChange(on ? "" : o.value)}
+                      className={cx(
+                        "min-h-[44px] rounded-full px-4 text-[15px] font-medium transition-colors cursor-pointer",
+                        on ? "bg-tint-soft text-tint ring-1 ring-inset ring-tint" : "bg-fill text-label active:bg-fill-strong",
+                      )}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {active.length > 0 && (
+            <Button variant="secondary" size="md" onClick={onClear}>
+              Clear all
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

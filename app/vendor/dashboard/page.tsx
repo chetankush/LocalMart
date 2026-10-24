@@ -1,7 +1,8 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { Store } from "lucide-react";
+import { LogIn, ShieldAlert, Store } from "lucide-react";
+import { Button } from "@/components/app/ui";
+import { MessageCard } from "@/components/app/seller";
 import DashboardClient from "./DashboardClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -32,114 +33,77 @@ async function getDashboardData(authToken: string) {
 export default async function VendorDashboardPage() {
   const user = await getCurrentUser();
 
-  // Not logged in
   if (!user) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl border border-sand shadow-sm p-8 max-w-md w-full text-center">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">SESSION · LOCKED</div>
-          <h1 className="text-xl font-semibold text-ink mb-2 font-[family-name:var(--font-family-heading)]">
-            Access Denied
-          </h1>
-          <p className="text-ink-2 text-sm mb-6">
-            Sorry, you need to be logged in to access the vendor dashboard.
-          </p>
-          <Link
-            href="/sign-in"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-full font-medium hover:bg-accent-dark transition-colors cursor-pointer"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <MessageCard
+        icon={<LogIn className="h-8 w-8" aria-hidden />}
+        title="Sign in to see your shop"
+        body="Use the same phone number or email you used to open your shop."
+      >
+        <Button href="/sign-in" full>
+          Sign in
+        </Button>
+      </MessageCard>
     );
   }
 
-  // Not a vendor
   if (user.role !== "VENDOR") {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl border border-sand shadow-sm p-8 max-w-md w-full text-center">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">ROLE · RESTRICTED</div>
-          <h1 className="text-xl font-semibold text-ink mb-2 font-[family-name:var(--font-family-heading)]">
-            Access Denied
-          </h1>
-          <p className="text-ink-2 text-sm mb-6">
-            Sorry, you are not allowed to access this page. This area is only
-            for approved vendors.
-          </p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-full font-medium hover:bg-accent-dark transition-colors cursor-pointer"
-          >
-            Go to Home
-          </Link>
-        </div>
-      </div>
+      <MessageCard
+        icon={<ShieldAlert className="h-8 w-8" aria-hidden />}
+        title="This page is for shop owners"
+        body="Want to sell on LocalMart? Open your shop in a few minutes."
+      >
+        <Button href="/become-vendor" full>
+          Open my shop
+        </Button>
+        <Button href="/" variant="secondary" full>
+          Go to home
+        </Button>
+      </MessageCard>
     );
   }
 
-  // Get auth token for API call
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl border border-sand shadow-sm p-8 max-w-md w-full text-center">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-3 mb-3">SESSION · EXPIRED</div>
-          <h1 className="text-xl font-semibold text-ink mb-2 font-[family-name:var(--font-family-heading)]">
-            Session Expired
-          </h1>
-          <p className="text-ink-2 text-sm mb-6">
-            Please sign in again to continue.
-          </p>
-          <Link
-            href="/sign-in"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-full font-medium hover:bg-accent-dark transition-colors cursor-pointer"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <MessageCard
+        icon={<LogIn className="h-8 w-8" aria-hidden />}
+        title="Please sign in again"
+        body="You were signed out to keep your shop safe."
+      >
+        <Button href="/sign-in" full>
+          Sign in
+        </Button>
+      </MessageCard>
     );
   }
 
-  // Get dashboard data from API
   const dashboardData = await getDashboardData(session.access_token);
 
-  // No vendor profile
   if (!dashboardData || !dashboardData.hasStores) {
     return (
-      <div className="min-h-screen bg-ivory flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl border border-sand shadow-sm p-8 max-w-md w-full text-center">
-          <div className="mb-4">
-            <div className="w-14 h-14 bg-accent-light rounded-2xl flex items-center justify-center mx-auto">
-              <Store className="w-7 h-7 text-accent-dark" />
-            </div>
-          </div>
-          <h1 className="text-xl font-semibold text-ink mb-2 font-[family-name:var(--font-family-heading)]">
-            No Vendor Profile Found
-          </h1>
-          <p className="text-ink-2 text-sm mb-6">
-            You don&apos;t have a vendor profile yet. Please complete the onboarding
-            process.
-          </p>
-          <Link
-            href="/vendor/onboarding"
-            className="inline-block px-6 py-3 bg-accent text-white rounded-full font-medium hover:bg-accent-dark transition-colors cursor-pointer"
-          >
-            Start Onboarding
-          </Link>
-        </div>
-      </div>
+      <MessageCard
+        icon={<Store className="h-8 w-8" aria-hidden />}
+        title="Let’s set up your shop"
+        body="Add your shop name and address. It takes about 2 minutes."
+      >
+        <Button href="/vendor/onboarding" full>
+          Set up my shop
+        </Button>
+      </MessageCard>
     );
   }
+
+  const firstName = (user.fullName as string | undefined)?.trim().split(" ")[0];
 
   return (
     <DashboardClient
       stores={dashboardData.stores}
       initialStoreData={dashboardData.activeStore}
+      firstName={firstName}
     />
   );
 }

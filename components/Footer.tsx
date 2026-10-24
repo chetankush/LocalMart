@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/supabase/auth-provider";
 
 // Focused task screens don't need a footer
-const NO_FOOTER = ["/checkout", "/orders/waiting", "/cart", "/my-orders"];
+// Seller and admin screens are app-like: no shopper footer there
+const NO_FOOTER = ["/checkout", "/orders/waiting", "/cart", "/my-orders", "/vendor", "/admin"];
 
 const Footer = () => {
   const { user } = useAuth();

@@ -2,7 +2,35 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { CircleAlert, CircleCheck, Heart, Megaphone, Send } from "lucide-react";
+import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer } from "@/components/app/ui";
+import { Field, FormCard, inputClass, textareaClass } from "@/components/app/form";
+import { IconBox, SectionHeader } from "@/components/app/seller";
 
+const TITLE_MAX = 100;
+const MESSAGE_MAX = 500;
+
+// Server errors → plain words that say what to do next
+function friendlyError(msg?: string) {
+  if (!msg) return "Couldn't send the offer. Please try again.";
+  if (/no subscribers/i.test(msg))
+    return "No customers have added your shop to their Favourite shops yet. Share your shop link first, then send offers.";
+  return msg;
+}
+
+function Counter({ n, max }: { n: number; max: number }) {
+  return (
+    <span className={`shrink-0 tabular-nums ${n >= max * 0.9 ? "text-warn" : "text-label-3"}`}>
+      {n}/{max}
+    </span>
+  );
+}
+
+/**
+ * "Send an offer": a short headline + message that goes as a notification to
+ * every customer who saved this shop. Live preview shows how it will look.
+ */
 export default function BroadcastPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -13,29 +41,33 @@ export default function BroadcastPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [shopName, setShopName] = useState<string | null>(null);
 
   // Check if user is authenticated vendor on mount
   useEffect(() => {
     const checkAuth = async () => {
-      console.log("[BroadcastPage] Checking authentication...");
       try {
         const { apiClient } = await import("@/lib/api/client");
         const result = await apiClient.checkVendor();
-        console.log("[BroadcastPage] Auth check result:", result);
-        
+
         if (!result.data?.hasVendor) {
-          console.log("[BroadcastPage] User is not a vendor, redirecting...");
           router.push("/become-vendor");
           return;
         }
-        
+
+        // Shop name for the preview (read from the URL here, so the page needs no Suspense boundary)
+        const storeId = new URLSearchParams(window.location.search).get("storeId");
+        const stores = result.data.stores ?? [];
+        const shop = stores.find((s) => s.id === storeId) ?? stores[0];
+        setShopName(shop?.businessName ?? null);
+
         setIsLoading(false);
       } catch (err: any) {
         console.error("[BroadcastPage] Auth check error:", err);
         router.push("/sign-in");
       }
     };
-    
+
     checkAuth();
   }, [router]);
 
@@ -44,35 +76,34 @@ export default function BroadcastPage() {
     setError(null);
     setSuccess(null);
 
-    console.log("[BroadcastPage] Form submitted with data:", formData);
-
-    // Validation
     if (!formData.title.trim()) {
-      setError("Title is required");
+      setError("Add a headline, e.g. “Diwali sale: 20% off on all sarees”.");
       return;
     }
 
     if (!formData.message.trim()) {
-      setError("Message is required");
+      setError("Write a short message: what is the offer and till when?");
       return;
     }
 
-    if (formData.message.length > 500) {
-      setError("Message must be 500 characters or less");
+    if (formData.message.length > MESSAGE_MAX) {
+      setError(`Message is too long. Keep it under ${MESSAGE_MAX} letters.`);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      console.log("[BroadcastPage] Sending broadcast...");
-      // Call NestJS backend API via apiClient
       const { apiClient } = await import("@/lib/api/client");
       const data = await apiClient.sendBroadcast(formData);
-      console.log("[BroadcastPage] Broadcast response:", data);
 
       if (data.success) {
-        setSuccess(data.message);
+        const count = Number(data.data?.count);
+        const sentText = Number.isFinite(count)
+          ? `Offer sent to ${count} customer${count === 1 ? "" : "s"}.`
+          : data.message;
+        setSuccess(sentText);
+        toast.success(sentText);
         setFormData({ title: "", message: "" });
 
         // Redirect after 2 seconds
@@ -80,11 +111,11 @@ export default function BroadcastPage() {
           router.push("/vendor/dashboard");
         }, 2000);
       } else {
-        setError(data.error || data.message || "Failed to send broadcast");
+        setError(friendlyError((data as any).error || data.message));
       }
     } catch (err: any) {
       console.error("[BroadcastPage] Broadcast error:", err);
-      setError(err.message || "Failed to send broadcast");
+      setError(friendlyError(err?.message));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,222 +123,133 @@ export default function BroadcastPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <Page>
+        <div className="mb-3 h-6 w-20 rounded-full bg-fill-strong animate-pulse" />
+        <div className="mb-6 h-9 w-52 rounded-xl bg-fill-strong animate-pulse" />
+        <div className="space-y-4 rounded-2xl bg-card p-4 sm:p-5" aria-busy="true" aria-label="Loading">
+          <div className="h-5 w-32 rounded-full bg-fill animate-pulse" />
+          <div className="h-12 rounded-xl bg-fill animate-pulse" />
+          <div className="h-28 rounded-xl bg-fill animate-pulse" />
         </div>
-      </div>
+      </Page>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4 cursor-pointer"
-          >
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Broadcast Message
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Send a notification to all your store subscribers
-          </p>
-        </div>
+  const { title, message } = formData;
 
-        {/* Info Card */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-blue-400"
-                fill="currentColor"
-                viewBox="0 0 20 20"
+  return (
+    <Page>
+      <LargeTitle
+        title="Send an offer"
+        subtitle="Tell your customers about a sale or new stock · ग्राहकों को ऑफ़र भेजें"
+        back={{ href: "/vendor/dashboard", label: "Home" }}
+      />
+
+      <div className="mb-4">
+        <Notice tone="info" icon={<Heart className="h-5 w-5 text-info" aria-hidden />}>
+          Goes to every customer who added your shop to their <b>Favourite shops</b>. They see it in their
+          notifications.
+        </Notice>
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate>
+        <FormCard title="Your offer">
+          <Field
+            label="Headline"
+            htmlFor="title"
+            hint={
+              <span className="flex justify-between gap-3">
+                <span>Short and clear, like a shop board</span>
+                <Counter n={title.length} max={TITLE_MAX} />
+              </span>
+            }
+          >
+            <input
+              type="text"
+              id="title"
+              value={title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="e.g. Diwali sale: 20% off"
+              maxLength={TITLE_MAX}
+              className={inputClass}
+              disabled={isSubmitting}
+            />
+          </Field>
+
+          <Field
+            label="Message"
+            htmlFor="message"
+            hint={
+              <span className="flex justify-between gap-3">
+                <span>What is the offer, and till when?</span>
+                <Counter n={message.length} max={MESSAGE_MAX} />
+              </span>
+            }
+          >
+            <textarea
+              id="message"
+              value={message}
+              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              placeholder="e.g. All silk sarees 20% off till Sunday. Come to the shop or order on LocalMart."
+              rows={5}
+              maxLength={MESSAGE_MAX}
+              className={textareaClass}
+              disabled={isSubmitting}
+            />
+          </Field>
+
+          {error && (
+            <Notice tone="bad" icon={<CircleAlert className="h-5 w-5 text-bad" aria-hidden />}>
+              <span role="alert">{error}</span>
+            </Notice>
+          )}
+
+          {success && (
+            <Notice tone="ok" icon={<CircleCheck className="h-5 w-5 text-ok" aria-hidden />}>
+              <span role="status">{success} Taking you home…</span>
+            </Notice>
+          )}
+        </FormCard>
+
+        {/* ── Live preview ── */}
+        <section className="mb-6">
+          <SectionHeader title="How customers will see it" />
+          <div className="flex items-start gap-3 rounded-2xl bg-card p-4">
+            <IconBox tone="solid" size={40}>
+              <Megaphone className="h-5 w-5" />
+            </IconBox>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="truncate text-[14px] font-medium text-label-2">{shopName ?? "Your shop"}</p>
+                <span className="shrink-0 text-[13px] text-label-3">now</span>
+              </div>
+              <p
+                className={`mt-0.5 break-words text-[16px] font-semibold leading-snug ${
+                  title.trim() ? "text-label" : "text-label-3"
+                }`}
               >
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                About Broadcast Messages
-              </h3>
-              <p className="mt-1 text-sm text-blue-700">
-                This will send a notification to all users who have favorited your store.
-                Use this feature to announce special offers, new arrivals, or important updates.
+                {title.trim() || "Your headline"}
+              </p>
+              <p
+                className={`mt-0.5 whitespace-pre-line break-words text-[15px] leading-snug ${
+                  message.trim() ? "text-label-2" : "text-label-3"
+                }`}
+              >
+                {message.trim() || "Your message shows here."}
               </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Form */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title */}
-            <div>
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Title
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                placeholder="e.g., Special Weekend Offer!"
-                maxLength={100}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isSubmitting}
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                {formData.title.length}/100 characters
-              </p>
-            </div>
+        <StickyBar aboveTabBar>
+          <Button type="submit" full loading={isSubmitting} disabled={isSubmitting || Boolean(success)}>
+            {!isSubmitting && <Send className="h-5 w-5" aria-hidden />}
+            {isSubmitting ? "Sending…" : "Send offer"}
+          </Button>
+        </StickyBar>
+      </form>
 
-            {/* Message */}
-            <div>
-              <label
-                htmlFor="message"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Message
-              </label>
-              <textarea
-                id="message"
-                value={formData.message}
-                onChange={(e) =>
-                  setFormData({ ...formData, message: e.target.value })
-                }
-                placeholder="Write your message here..."
-                rows={6}
-                maxLength={500}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                disabled={isSubmitting}
-              />
-              <p className="mt-1 text-sm text-gray-500">
-                {formData.message.length}/500 characters
-              </p>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-800">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Success Message */}
-            {success && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-green-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-green-800">{success}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-blue-400 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center justify-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Sending...
-                  </span>
-                ) : (
-                  "Send Broadcast"
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      <StickyBarSpacer />
+    </Page>
   );
 }

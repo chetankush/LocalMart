@@ -1,6 +1,7 @@
 import { requireRole } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { LargeTitle, Page } from "@/components/app/ui";
 import EditProductForm from "./EditProductForm";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -80,18 +81,13 @@ export default async function EditProductPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
-          <p className="text-sm text-gray-600">Update product information</p>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <EditProductForm product={product} categories={categories} />
-      </div>
-    </div>
+    <Page>
+      <LargeTitle
+        title="Edit product"
+        subtitle={product.name}
+        back={{ href: "/vendor/products", label: "Products" }}
+      />
+      <EditProductForm product={product} categories={categories} />
+    </Page>
   );
 }

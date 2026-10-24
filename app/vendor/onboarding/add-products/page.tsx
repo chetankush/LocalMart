@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/src/shared/utils/auth';
 import { createClient } from '@/lib/supabase/server';
+import { Page } from '@/components/app/ui';
 import ProductOnboardingClient from './ProductOnboardingClient';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -73,15 +74,13 @@ export default async function AddProductsOnboardingPage() {
   const categories = await getCategories();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-8">
-        <ProductOnboardingClient
-          vendorId={vendor.id}
-          businessType={vendor.businessType}
-          categories={categories}
-          hasExistingProducts={productCount > 0}
-        />
-      </div>
-    </div>
+    <Page>
+      <ProductOnboardingClient
+        vendorId={vendor.id}
+        businessType={vendor.businessType}
+        categories={categories}
+        hasExistingProducts={productCount > 0}
+      />
+    </Page>
   );
 }

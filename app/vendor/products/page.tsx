@@ -1,10 +1,10 @@
 import { requireRole } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Image from "next/image";
-import ProductActions from "@/app/vendor/products/ProductActions";
-import ProductsPageClient from "@/app/vendor/products/ProductsPageClient";
+import { RefreshCw } from "lucide-react";
+import ProductsPageClient, { ProductList, type ProductListItem } from "@/app/vendor/products/ProductsPageClient";
 import EmptyProductsState from "@/app/vendor/products/EmptyProductsState";
+import { EmptyState, LargeTitle } from "@/components/app/ui";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -55,6 +55,12 @@ async function getVendorInfo(authToken: string) {
   }
 }
 
+const firstImage = (images: unknown): string | null =>
+  Array.isArray(images) && typeof images[0] === "string" && images[0] ? images[0] : null;
+
+// Wide list layout: phone first, two columns of cards on big screens
+const WRAP = "mx-auto w-full max-w-2xl px-4 pt-3 pb-8 sm:pt-6 lg:max-w-5xl lg:px-8";
+
 export default async function VendorProductsPage() {
   const user = await requireRole(["VENDOR"]);
 
@@ -77,166 +83,50 @@ export default async function VendorProductsPage() {
   const products = productsResult.products;
   const vendorId = vendorInfo.id;
 
+  // A failed load must not look like "you have no products"
+  if (productsResult.error) {
+    return (
+      <div className={WRAP}>
+        <LargeTitle title="Products" />
+        <EmptyState
+          icon={<RefreshCw className="h-8 w-8" aria-hidden />}
+          title="Couldn't load your products"
+          body="Check your internet and refresh the page."
+        />
+      </div>
+    );
+  }
+
+  // Only what the list needs, as plain numbers (prices arrive as strings)
+  const items: ProductListItem[] = products.map((p: any) => ({
+    id: String(p.id),
+    name: String(p.name ?? ""),
+    image: firstImage(p.images),
+    price: Number(p.price) || 0,
+    compareAtPrice: p.compareAtPrice != null && p.compareAtPrice !== "" ? Number(p.compareAtPrice) : null,
+    stock: Number(p.stockQuantity ?? 0) || 0,
+    lowStockAt: Number(p.lowStockThreshold) || 10,
+    isActive: Boolean(p.isActive),
+  }));
+
+  const outOfStock = items.filter((p) => p.stock <= 0).length;
+  const subtitle =
+    items.length === 0
+      ? "No products yet"
+      : `${items.length} product${items.length === 1 ? "" : "s"}${outOfStock > 0 ? ` · ${outOfStock} out of stock` : ""}`;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Products</h1>
-              <p className="text-sm text-gray-600">
-                Manage your product inventory
-              </p>
-            </div>
-            <ProductsPageClient vendorId={vendorId} />
-          </div>
-        </div>
-      </div>
+    <div className={WRAP}>
+      <LargeTitle title="Products" subtitle={subtitle} />
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Total Products</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {products.length}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Active</div>
-            <div className="text-2xl font-bold text-green-600">
-              {products.filter((p: any) => p.isActive).length}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Low Stock</div>
-            <div className="text-2xl font-bold text-yellow-600">
-              {
-                products.filter(
-                  (p: any) => p.stockQuantity <= (p.lowStockThreshold || 10)
-                ).length
-              }
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-sm text-gray-600">Out of Stock</div>
-            <div className="text-2xl font-bold text-red-600">
-              {products.filter((p: any) => p.stockQuantity === 0).length}
-            </div>
-          </div>
-        </div>
-
-        {/* Products List */}
-        {products.length === 0 ? (
-          <EmptyProductsState vendorId={vendorId} />
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product: any) => {
-                    const images = Array.isArray(product.images)
-                      ? product.images
-                      : [];
-                    const firstImage = images[0] || "/placeholder-product.png";
-
-                    return (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-12 w-12 flex-shrink-0 relative rounded-md overflow-hidden">
-                              <Image
-                                src={firstImage as string}
-                                alt={product.name}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {product.name}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {product.category?.name || "Uncategorized"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">
-                            ₹{Number(product.price).toFixed(2)}
-                          </div>
-                          {product.compareAtPrice && (
-                            <div className="text-xs text-gray-500 line-through">
-                              ₹{Number(product.compareAtPrice).toFixed(2)}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div
-                            className={`text-sm font-medium ${
-                              product.stockQuantity === 0
-                                ? "text-red-600"
-                                : product.stockQuantity <=
-                                  (product.lowStockThreshold || 10)
-                                ? "text-yellow-600"
-                                : "text-green-600"
-                            }`}
-                          >
-                            {product.stockQuantity} units
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              product.isActive
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {product.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <ProductActions
-                            productId={product.id}
-                            isActive={product.isActive}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
+      {items.length === 0 ? (
+        <EmptyProductsState vendorId={vendorId} />
+      ) : (
+        <>
+          <ProductsPageClient vendorId={vendorId} />
+          <ProductList products={items} />
+        </>
+      )}
     </div>
   );
 }

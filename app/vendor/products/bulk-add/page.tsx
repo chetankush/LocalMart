@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
 import BulkAddProductsClient from "./BulkAddProductsClient";
-import { Loader2 } from "lucide-react";
+import { LargeTitle } from "@/components/app/ui";
 
 interface Category {
   id: string;
@@ -93,10 +93,24 @@ export default function BulkAddProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading product templates...</p>
+      <div className="mx-auto w-full max-w-2xl px-4 pt-3 pb-8 sm:pt-6 lg:max-w-5xl lg:px-8" aria-busy="true">
+        <LargeTitle
+          title="Add many at once"
+          back={{ href: "/vendor/products", label: "Products" }}
+          subtitle="Loading products…"
+        />
+        <div className="mb-4 h-12 animate-pulse rounded-xl bg-card" aria-hidden />
+        <div className="grid gap-3 lg:grid-cols-2" aria-hidden>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+              <div className="h-7 w-7 animate-pulse rounded-lg bg-fill" />
+              <div className="h-14 w-14 animate-pulse rounded-xl bg-fill" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 animate-pulse rounded-full bg-fill" />
+                <div className="h-4 w-1/3 animate-pulse rounded-full bg-fill" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

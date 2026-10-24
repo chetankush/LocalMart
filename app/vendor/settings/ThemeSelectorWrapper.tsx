@@ -22,14 +22,14 @@ export default function ThemeSelectorWrapper({
       const data = await apiClient.updateVendorTheme({ storeTheme: theme }, storeId);
 
       if (data.success) {
-        toast.success("स्टोर थीम सफलतापूर्वक अपडेट हो गया / Store theme updated successfully!");
+        toast.success("Shop look changed · दुकान का रूप बदल गया");
         router.refresh();
       } else {
-        toast.error(data.error || "Failed to update theme");
+        toast.error((data as any).error || "Couldn't change the look. Please try again.");
       }
     } catch (error) {
       console.error("Theme update error:", error);
-      toast.error("Failed to update theme");
+      toast.error("Couldn't change the look. Please try again.");
     }
   };
 

@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Button, Notice, Pill, Row, Thumb, type Tone } from "@/components/app/ui";
+import { List, SectionHeader } from "@/components/app/seller";
+import { AdminPage } from "@/components/app/admin";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // Expanded categories based on the old landing page categories
 const EXPANDED_CATEGORIES = [
@@ -179,8 +183,18 @@ const EXPANDED_CATEGORIES = [
   },
 ];
 
+type ItemStatus = "adding" | "added" | "skipped" | "failed";
+
+const ITEM_PILL: Record<ItemStatus, { label: string; tone: Tone }> = {
+  adding: { label: "Adding…", tone: "info" },
+  added: { label: "Added", tone: "ok" },
+  skipped: { label: "Already there", tone: "neutral" },
+  failed: { label: "Failed", tone: "bad" },
+};
+
 export default function SeedExpandedCategoriesPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [results, setResults] = useState<{ created: string[]; skipped: string[]; errors: string[] }>({
     created: [],
@@ -188,21 +202,29 @@ export default function SeedExpandedCategoriesPage() {
     errors: [],
   });
   const [progress, setProgress] = useState(0);
+  // Per-row result, keyed by category code, so each row shows how it went
+  const [itemStatus, setItemStatus] = useState<Record<string, ItemStatus>>({});
 
   const handleSeed = async () => {
-    if (!confirm("This will add all expanded categories. Existing categories with same value will be skipped. Continue?")) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Add ${EXPANDED_CATEGORIES.length} starter categories?`,
+      description: "Categories you already have (same code) are skipped, so nothing is added twice.",
+      confirmLabel: "Add categories",
+    });
+    if (!ok) return;
 
     setStatus("loading");
     setProgress(0);
+    setItemStatus({});
     const created: string[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
+    const mark = (value: string, s: ItemStatus) => setItemStatus((prev) => ({ ...prev, [value]: s }));
 
     for (let i = 0; i < EXPANDED_CATEGORIES.length; i++) {
       const category = EXPANDED_CATEGORIES[i];
       setProgress(Math.round(((i + 1) / EXPANDED_CATEGORIES.length) * 100));
+      mark(category.value, "adding");
 
       try {
         const { apiClient } = await import("@/lib/api/client");
@@ -219,15 +241,19 @@ export default function SeedExpandedCategoriesPage() {
 
         if (response.success) {
           created.push(category.name);
+          mark(category.value, "added");
         } else {
           // Likely already exists
           skipped.push(category.name);
+          mark(category.value, "skipped");
         }
       } catch (error: any) {
         if (error.message?.includes("already exists") || error.message?.includes("duplicate")) {
           skipped.push(category.name);
+          mark(category.value, "skipped");
         } else {
           errors.push(`${category.name}: ${error.message}`);
+          mark(category.value, "failed");
         }
       }
 
@@ -239,125 +265,120 @@ export default function SeedExpandedCategoriesPage() {
     setStatus(errors.length > 0 ? "error" : "success");
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Seed Expanded Categories</h1>
-              <p className="text-gray-600 mt-1">
-                Add all {EXPANDED_CATEGORIES.length} categories with images and icons
-              </p>
-            </div>
-            <Link
-              href="/admin/business-categories"
-              className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-            >
-              ← Back to Categories
-            </Link>
-          </div>
+  const reset = () => {
+    setStatus("idle");
+    setResults({ created: [], skipped: [], errors: [] });
+    setItemStatus({});
+  };
 
-          {/* Preview of categories */}
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Categories to be added:</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-64 overflow-y-auto p-2 bg-gray-50 rounded-lg">
-              {EXPANDED_CATEGORIES.map((cat) => (
-                <div
-                  key={cat.value}
-                  className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200"
-                >
-                  <span className="text-xl">{cat.icon}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{cat.name}</p>
-                    <p className="text-xs text-gray-500">{cat.value}</p>
+  const done = status === "success" || status === "error";
+
+  return (
+    <AdminPage
+      title="Add starter categories"
+      subtitle={`${EXPANDED_CATEGORIES.length} common kinds of shop, each with a photo and icon, added in one go.`}
+      back={{ href: "/admin/business-categories", label: "Shop categories" }}
+    >
+      <div className="max-w-3xl">
+        {/* Action / progress / result */}
+        <section className="mb-6 rounded-2xl bg-card p-4 sm:p-5" aria-live="polite">
+          {status === "idle" && (
+            <>
+              <p className="text-[15px] leading-snug text-label-2">
+                Each one is added as shown to sellers. Categories you already have (same code) are skipped, so it’s
+                safe to run this again. You can edit or hide any of them afterwards.
+              </p>
+              <Button className="mt-4 w-full sm:w-auto" onClick={handleSeed}>
+                Add {EXPANDED_CATEGORIES.length} categories
+              </Button>
+            </>
+          )}
+
+          {status === "loading" && (
+            <div>
+              <div className="flex items-center justify-between text-[15px]">
+                <span className="text-label-2">Adding categories…</span>
+                <span className="font-semibold tabular-nums text-label">{progress}%</span>
+              </div>
+              <div
+                className="mt-3 h-2 w-full overflow-hidden rounded-full bg-fill"
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Adding categories"
+              >
+                <div className="h-full rounded-full bg-tint transition-[width] duration-300" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="mt-3 text-[14px] text-label-2">Keep this page open until it finishes.</p>
+            </div>
+          )}
+
+          {done && (
+            <div>
+              <div className="flex items-start gap-3">
+                {status === "success" ? (
+                  <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-ok" aria-hidden />
+                ) : (
+                  <AlertCircle className="mt-0.5 h-6 w-6 shrink-0 text-bad" aria-hidden />
+                )}
+                <div className="min-w-0">
+                  <h2 className="text-[17px] font-semibold leading-snug text-label">
+                    {status === "success" ? "All done" : "Done, but some didn't go through"}
+                  </h2>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Pill tone="ok">{results.created.length} added</Pill>
+                    <Pill tone="neutral">{results.skipped.length} already there</Pill>
+                    {results.errors.length > 0 && <Pill tone="bad">{results.errors.length} failed</Pill>}
                   </div>
                 </div>
-              ))}
+              </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <Button className="sm:flex-none" onClick={() => router.push("/admin/business-categories")}>
+                  See shop categories
+                </Button>
+                <Button variant="secondary" className="sm:flex-none" onClick={reset}>
+                  Start again
+                </Button>
+              </div>
             </div>
+          )}
+        </section>
+
+        {results.errors.length > 0 && (
+          <div className="mb-6">
+            <Notice tone="bad" icon={<AlertCircle className="h-5 w-5 text-bad" aria-hidden />}>
+              <p className="font-semibold">These couldn’t be added</p>
+              <ul className="mt-1 space-y-0.5 text-label-2">
+                {results.errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-label-2">Check your internet and press “Start again” — the rest will be skipped.</p>
+            </Notice>
           </div>
+        )}
 
-          {/* Action button */}
-          {status === "idle" && (
-            <button
-              onClick={handleSeed}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
-            >
-              Seed All Categories
-            </button>
-          )}
-
-          {/* Progress */}
-          {status === "loading" && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Adding categories...</span>
-                <span className="font-medium">{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Results */}
-          {(status === "success" || status === "error") && (
-            <div className="space-y-4">
-              {results.created.length > 0 && (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h3 className="font-semibold text-green-800 mb-2">
-                    ✓ Created ({results.created.length})
-                  </h3>
-                  <p className="text-sm text-green-700">{results.created.join(", ")}</p>
-                </div>
-              )}
-
-              {results.skipped.length > 0 && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <h3 className="font-semibold text-yellow-800 mb-2">
-                    ⏭ Skipped - Already Exist ({results.skipped.length})
-                  </h3>
-                  <p className="text-sm text-yellow-700">{results.skipped.join(", ")}</p>
-                </div>
-              )}
-
-              {results.errors.length > 0 && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <h3 className="font-semibold text-red-800 mb-2">
-                    ✕ Errors ({results.errors.length})
-                  </h3>
-                  <ul className="text-sm text-red-700 list-disc list-inside">
-                    {results.errors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => router.push("/admin/business-categories")}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
-                >
-                  View All Categories
-                </button>
-                <button
-                  onClick={() => {
-                    setStatus("idle");
-                    setResults({ created: [], skipped: [], errors: [] });
-                  }}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors cursor-pointer"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <SectionHeader title={`What will be added (${EXPANDED_CATEGORIES.length})`} />
+        <List>
+          {EXPANDED_CATEGORIES.map((cat) => {
+            const s = itemStatus[cat.value];
+            return (
+              <Row
+                key={cat.value}
+                leading={<Thumb src={cat.imageUrl} alt="" size={44} />}
+                title={<span className="font-semibold">{cat.name}</span>}
+                subtitle={
+                  <>
+                    {cat.description} · <span className="font-mono text-[13px]">{cat.value}</span>
+                  </>
+                }
+                trailing={s ? <Pill tone={ITEM_PILL[s].tone}>{ITEM_PILL[s].label}</Pill> : undefined}
+              />
+            );
+          })}
+        </List>
       </div>
-    </div>
+    </AdminPage>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Upload, X, Loader2, Link as LinkIcon } from "lucide-react";
+import { AlertCircle, Camera, X, Loader2, Link as LinkIcon } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { Button } from "@/components/app/ui";
+import { inputClass } from "@/components/app/form";
 
 interface ImageUploaderProps {
   value: string;
@@ -15,6 +17,11 @@ interface ImageUploaderProps {
   allowUrlInput?: boolean;
 }
 
+/**
+ * One photo: a big dashed "Add photo" tile (opens camera or gallery on
+ * phones), the chosen photo as a rounded thumbnail with a round remove
+ * button, and an optional "paste a link" fallback.
+ */
 export default function ImageUploader({
   value,
   onChange,
@@ -41,13 +48,13 @@ export default function ImageUploader({
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      setError("Only JPEG, PNG, WebP, and GIF images are allowed");
+      setError("This photo type can't be used. Please pick a JPG, PNG or WebP photo.");
       return;
     }
 
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      setError("Image must be less than 5MB");
+      setError("This photo is too big. Please pick one under 5 MB.");
       return;
     }
 
@@ -57,24 +64,26 @@ export default function ImageUploader({
     try {
       let response: { success: boolean; url: string; path?: string };
 
-      // Use vendor upload for product/store types, admin upload for others
-      if (uploadType === "product" || uploadType === "store" || uploadType === "products" || uploadType === "stores") {
+      // Use vendor upload for product/store types, admin upload for others.
+      // (Compared as a string: older callers may pass the plural names.)
+      const type = uploadType as string;
+      if (type === "product" || type === "store" || type === "products" || type === "stores") {
         // Map to backend expected types (with 's')
-        const backendType = uploadType === "product" ? "products" : uploadType === "store" ? "stores" : uploadType as "products" | "stores";
+        const backendType = type === "product" ? "products" : type === "store" ? "stores" : (type as "products" | "stores");
         response = await apiClient.vendorUpload(file, backendType);
       } else {
-        response = await apiClient.adminUpload(file, uploadType);
+        response = await apiClient.adminUpload(file, uploadType as "categories" | "banners" | "misc");
       }
 
       if (response.success && response.url) {
         onChange(response.url);
         setShowUrlInput(false);
       } else {
-        setError("Failed to upload image");
+        setError("Couldn't upload the photo. Please try again.");
       }
     } catch (err: any) {
       console.error("Upload error:", err);
-      setError(err.message || "Failed to upload image. Please try again.");
+      setError(err.message || "Couldn't upload the photo. Check your internet and try again.");
     } finally {
       setUploading(false);
     }
@@ -104,6 +113,8 @@ export default function ImageUploader({
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
+    // Let the same photo be picked again after removing it
+    e.target.value = "";
   }, [handleFile]);
 
   const handleUrlSubmit = useCallback(() => {
@@ -116,7 +127,7 @@ export default function ImageUploader({
         setUrlInputValue("");
         setError(null);
       } catch {
-        setError("Please enter a valid URL");
+        setError("That link doesn't look right. It should start with https://");
       }
     }
   }, [urlInputValue, onChange]);
@@ -127,123 +138,126 @@ export default function ImageUploader({
   }, [onChange]);
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      {/* Preview and Upload Area */}
-      <div className="flex items-start gap-4">
-        {/* Image Preview */}
+    <div className={`space-y-3 ${className}`}>
+      <div className="flex items-stretch gap-3">
+        {/* Chosen photo */}
         {value && (
-          <div className={`relative ${sizeClasses[previewSize]} rounded-lg overflow-hidden border-2 border-gray-200 flex-shrink-0`}>
-            <Image
-              src={value}
-              alt="Preview"
-              fill
-              className="object-cover"
-              onError={() => setError("Failed to load image")}
-            />
+          <div className={`relative ${sizeClasses[previewSize]} shrink-0`}>
+            <div className="relative h-full w-full overflow-hidden rounded-xl bg-fill">
+              <Image
+                src={value}
+                alt="Chosen photo"
+                fill
+                className="object-cover"
+                onError={() => setError("This photo couldn't be shown. Try another one.")}
+              />
+            </div>
             <button
               type="button"
               onClick={handleRemove}
-              className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+              aria-label="Remove photo"
+              className="absolute -right-2 -top-2 flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-label text-white ring-2 ring-card">
+                <X className="h-4 w-4" strokeWidth={2.6} aria-hidden />
+              </span>
             </button>
           </div>
         )}
 
-        {/* Upload Area */}
-        <div className="flex-1">
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`relative border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer ${
-              dragActive
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300 hover:border-gray-400 bg-gray-50"
-            } ${uploading ? "pointer-events-none opacity-60" : ""}`}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-              onChange={handleFileInput}
-              className="hidden"
-            />
-
-            {uploading ? (
-              <div className="flex flex-col items-center gap-2 py-2">
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                <span className="text-sm text-gray-600">Uploading...</span>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-2">
-                <Upload className="w-8 h-8 text-gray-400" />
-                <div className="text-sm">
-                  <span className="text-blue-600 font-medium">Click to upload</span>
-                  <span className="text-gray-500"> or drag and drop</span>
-                </div>
-                <p className="text-xs text-gray-400">PNG, JPG, WebP, GIF up to 5MB</p>
-              </div>
-            )}
-          </div>
-
-          {/* URL Input Toggle */}
-          {allowUrlInput && (
-            <div className="mt-2">
-              {showUrlInput ? (
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={urlInputValue}
-                    onChange={(e) => setUrlInputValue(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleUrlSubmit();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleUrlSubmit}
-                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUrlInput(false);
-                      setUrlInputValue("");
-                    }}
-                    className="px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowUrlInput(true)}
-                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  <LinkIcon className="w-4 h-4" />
-                  Or paste image URL
-                </button>
-              )}
-            </div>
+        {/* Big tap area — camera or gallery on phones */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          disabled={uploading}
+          title={placeholder}
+          className={`flex min-h-[128px] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed px-4 py-4 text-center transition-colors cursor-pointer disabled:cursor-wait ${
+            dragActive ? "border-tint bg-tint-soft" : "border-hairline bg-fill hover:border-label/25"
+          }`}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="h-8 w-8 animate-spin text-tint" aria-hidden />
+              <span className="mt-1 text-[15px] font-medium text-label-2">Uploading photo…</span>
+            </>
+          ) : (
+            <>
+              <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-card text-tint">
+                <Camera className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="text-[16px] font-semibold leading-tight text-label">
+                {value ? "Change photo" : "Add photo"}
+              </span>
+              <span className="text-[14px] leading-tight text-label-2">{value ? "फ़ोटो बदलें" : "फ़ोटो जोड़ें"}</span>
+              <span className="mt-1 text-[13px] text-label-3">JPG, PNG or WebP · up to 5 MB</span>
+            </>
           )}
-        </div>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileInput}
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden
+        />
       </div>
 
-      {/* Error Message */}
+      {/* Paste a link instead */}
+      {allowUrlInput && (
+        <div>
+          {showUrlInput ? (
+            <div className="flex flex-wrap gap-2 sm:flex-nowrap">
+              <input
+                type="url"
+                inputMode="url"
+                value={urlInputValue}
+                onChange={(e) => setUrlInputValue(e.target.value)}
+                placeholder="https://…/photo.jpg"
+                aria-label="Photo link"
+                className={`${inputClass} min-w-0 flex-1 basis-full sm:basis-auto`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleUrlSubmit();
+                  }
+                }}
+              />
+              <Button className="flex-1 sm:flex-none" onClick={handleUrlSubmit}>
+                Use link
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1 sm:flex-none"
+                onClick={() => {
+                  setShowUrlInput(false);
+                  setUrlInputValue("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowUrlInput(true)}
+              className="-ml-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-1 text-[15px] font-medium text-label-2 hover:text-label cursor-pointer"
+            >
+              <LinkIcon className="h-4 w-4" aria-hidden />
+              Or paste a photo link
+            </button>
+          )}
+        </div>
+      )}
+
       {error && (
-        <p className="text-sm text-red-600 flex items-center gap-1">
-          <X className="w-4 h-4" />
+        <p className="flex items-start gap-1.5 text-[14px] leading-snug text-bad" role="alert">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           {error}
         </p>
       )}

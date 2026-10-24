@@ -63,20 +63,21 @@ export function ConfirmDialog({
         if (!o && !busy) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-md bg-white">
-        <DialogHeader>
-          <DialogTitle className="text-ink">{title}</DialogTitle>
+      <DialogContent className="gap-0 rounded-3xl border-0 bg-card p-5 sm:max-w-sm [&>button:last-child]:hidden">
+        <DialogHeader className="text-left">
+          <DialogTitle className="text-[19px] font-bold leading-snug text-label">{title}</DialogTitle>
           {description && (
-            <DialogDescription className="text-ink-2">{description}</DialogDescription>
+            <DialogDescription className="text-[15px] leading-snug text-label-2">{description}</DialogDescription>
           )}
         </DialogHeader>
 
-        <DialogFooter className="mt-2">
+        <DialogFooter className="mt-5 flex-col-reverse gap-2 sm:flex-row sm:justify-stretch [&>*]:flex-1">
           <Button
             variant="secondary"
             onClick={onCancel}
             disabled={busy}
             type="button"
+            fullWidth
           >
             {cancelLabel}
           </Button>
@@ -86,6 +87,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             loading={busy}
             type="button"
+            fullWidth
           >
             {confirmLabel}
           </Button>

@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import Link from "next/link";
-import { Check, Package, ArrowLeft, Loader2, Search, Filter, X, Edit2 } from "lucide-react";
+import { toast } from "sonner";
+import { Check, Layers, Package, Pencil, Search } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import ImageUploader from "@/components/ImageUploader";
+import { Button, LargeTitle, Pill, StickyBar, StickyBarSpacer, Thumb, rupees } from "@/components/app/ui";
+import { Field, RupeeInput, inputClass, textareaClass } from "@/components/app/form";
+import { Sheet } from "@/components/app/Sheet";
+
+const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
 interface Category {
   id: string;
@@ -43,6 +47,39 @@ interface SelectedProduct extends ProductTemplate {
   customWeight?: number;
 }
 
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cx(
+        "inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[15px] cursor-pointer",
+        active ? "bg-label font-semibold text-white" : "bg-card font-medium text-label-2 hover:text-label",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Message({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
+  return (
+    <div className="rounded-3xl bg-card px-6 py-10 text-center">
+      <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-fill text-label-2">
+        <Package className="h-8 w-8" aria-hidden />
+      </span>
+      <p className="text-[20px] font-semibold leading-tight text-label">{title}</p>
+      {body && <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">{body}</p>}
+      {action && <div className="mx-auto mt-6 w-full max-w-xs">{action}</div>}
+    </div>
+  );
+}
+
+/**
+ * Pick many ready-made products in one go. Phone first: tick a row, set your
+ * price and stock right there, then one button at the bottom adds them all.
+ */
 export default function BulkAddProductsClient({
   vendorId,
   categories,
@@ -57,6 +94,8 @@ export default function BulkAddProductsClient({
   const [loading, setLoading] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
+  // Turned on after a failed "Add" so rows without a price are marked
+  const [showPriceErrors, setShowPriceErrors] = useState(false);
 
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -192,7 +231,19 @@ export default function BulkAddProductsClient({
 
   const handleBulkAdd = async () => {
     if (selectedProducts.size === 0) {
-      alert("Please select at least one product to add");
+      toast.error("Tick at least one product to add");
+      return;
+    }
+
+    // A ₹0 product can't be ordered — ask for the price before sending anything
+    const noPrice = Array.from(selectedProducts.values()).filter((p) => !(p.price > 0));
+    if (noPrice.length > 0) {
+      setShowPriceErrors(true);
+      toast.error(
+        noPrice.length === 1
+          ? `Add a price for ${noPrice[0].customName || noPrice[0].name} — customers need it to order`
+          : `Add a price for ${noPrice.length} products — customers need it to order`,
+      );
       return;
     }
 
@@ -238,391 +289,293 @@ export default function BulkAddProductsClient({
     setLoading(false);
 
     if (successCount > 0) {
-      alert(`Successfully added ${successCount} products!${failCount > 0 ? ` (${failCount} failed)` : ""}`);
+      toast.success(`Added ${successCount} product${successCount === 1 ? "" : "s"} to your shop`, {
+        description: failCount > 0 ? `${failCount} couldn't be added — please try those again.` : undefined,
+      });
       router.push("/vendor/products");
     } else {
-      alert("Failed to add products. Please try again.");
+      toast.error("Couldn't add the products. Check your internet and try again.");
     }
   };
 
+  const count = selectedProducts.size;
+  const allShownSelected = count === filteredTemplates.length && filteredTemplates.length > 0;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/vendor/products"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Bulk Add Products</h1>
-                <p className="text-sm text-gray-600">
-                  Select multiple products to add to your store at once
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Selected</p>
-                <p className="text-2xl font-bold text-blue-600">{selectedProducts.size}</p>
-              </div>
-              <button
-                onClick={handleBulkAdd}
-                disabled={loading || selectedProducts.size === 0}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Adding {addedCount}/{selectedProducts.size}...
-                  </>
-                ) : (
-                  <>
-                    <Package className="w-5 h-5" />
-                    Add {selectedProducts.size} Products
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="mx-auto w-full max-w-2xl px-4 pt-3 pb-8 sm:pt-6 lg:max-w-5xl lg:px-8">
+      <LargeTitle
+        title="Add many at once"
+        back={{ href: "/vendor/products", label: "Products" }}
+        subtitle={
+          <>
+            Tick the products you sell, set your price, and add them all together.
+            <span className="mt-0.5 block text-[15px]">एक साथ कई सामान जोड़ें</span>
+          </>
+        }
+      />
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search
+          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3"
+          aria-hidden
+        />
+        <input
+          type="search"
+          placeholder="Search, e.g. rice or soap"
+          aria-label="Search products"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={cx(inputClass, "pl-11")}
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
-            {/* Search */}
-            <div className="flex-1 min-w-[200px] relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Category Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={selectedCategory}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Select All */}
-            <button
-              onClick={handleSelectAll}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium cursor-pointer"
-            >
-              {selectedProducts.size === filteredTemplates.length && filteredTemplates.length > 0
-                ? "Deselect All"
-                : "Select All"}
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg p-4 shadow">
-            <p className="text-sm text-gray-600">Total Templates</p>
-            <p className="text-2xl font-bold text-gray-900">{allTemplatesCount}</p>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow">
-            <p className="text-sm text-gray-600">Showing</p>
-            <p className="text-2xl font-bold text-gray-900">{filteredTemplates.length}</p>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow">
-            <p className="text-sm text-gray-600">Selected</p>
-            <p className="text-2xl font-bold text-blue-600">{selectedProducts.size}</p>
-          </div>
-          <div className="bg-white rounded-lg p-4 shadow">
-            <p className="text-sm text-gray-600">Categories</p>
-            <p className="text-2xl font-bold text-gray-900">{Object.keys(groupedTemplates).length}</p>
-          </div>
-        </div>
-
-        {/* Products by Category */}
-        {Object.keys(groupedTemplates).length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            {allTemplatesCount === 0 ? (
-              <>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">No product templates available</h3>
-                <p className="text-gray-500 mb-4">
-                  Product templates need to be seeded by an admin first.
-                </p>
-                <p className="text-sm text-gray-400">
-                  Ask your admin to seed templates via: <code className="bg-gray-100 px-2 py-1 rounded">POST /api/admin/product-templates/seed?theme=kirana</code>
-                </p>
-              </>
-            ) : searchQuery ? (
-              <>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">No templates match your search</h3>
-                <p className="text-gray-500">Try a different search term or clear the search</p>
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
-                >
-                  Clear Search
-                </button>
-              </>
-            ) : (
-              <>
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">No templates for this category</h3>
-                <p className="text-gray-500 mb-4">
-                  There are {allTemplatesCount} templates available in other categories.
-                </p>
-                <button
-                  onClick={() => onCategoryChange("all")}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
-                >
-                  Show All Templates
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          Object.entries(groupedTemplates).map(([categoryName, categoryTemplates]) => {
-            const allSelected = categoryTemplates.every((t) => selectedProducts.has(t.id));
-            const someSelected = categoryTemplates.some((t) => selectedProducts.has(t.id));
-
-            return (
-              <div key={categoryName} className="bg-white rounded-lg shadow mb-6 overflow-hidden">
-                {/* Category Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleSelectCategory(categoryName)}
-                      className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                        allSelected
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : someSelected
-                          ? "bg-blue-100 border-blue-400"
-                          : "border-gray-300 hover:border-blue-400"
-                      }`}
-                    >
-                      {allSelected && <Check className="w-4 h-4" />}
-                      {someSelected && !allSelected && <div className="w-2 h-2 bg-blue-600 rounded-sm" />}
-                    </button>
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">{categoryName}</h2>
-                      <p className="text-sm text-gray-600">
-                        {categoryTemplates.length} products
-                        {someSelected && (
-                          <span className="ml-2 text-blue-600">
-                            ({categoryTemplates.filter((t) => selectedProducts.has(t.id)).length} selected)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleSelectCategory(categoryName)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
-                  >
-                    {allSelected ? "Deselect All" : "Select All"}
-                  </button>
-                </div>
-
-                {/* Products Grid */}
-                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {categoryTemplates.map((template) => {
-                    const isSelected = selectedProducts.has(template.id);
-                    const selectedProduct = selectedProducts.get(template.id);
-
-                    return (
-                      <div
-                        key={template.id}
-                        className={`relative rounded-lg border-2 transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-blue-500 bg-blue-50 shadow-md"
-                            : "border-gray-200 hover:border-blue-300 hover:shadow"
-                        }`}
-                        onClick={() => handleToggleProduct(template)}
-                      >
-                        {/* Selection Checkbox */}
-                        <div
-                          className={`absolute top-3 right-3 w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 ${
-                            isSelected
-                              ? "bg-blue-600 border-blue-600 text-white"
-                              : "bg-white border-gray-300"
-                          }`}
-                        >
-                          {isSelected && <Check className="w-4 h-4" />}
-                        </div>
-
-                        {/* Popular Badge */}
-                        {template.isPopular && (
-                          <div className="absolute top-3 left-3 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full z-10">
-                            Popular
-                          </div>
-                        )}
-
-                        {/* Image */}
-                        <div className="relative aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
-                          {template.suggestedImage ? (
-                            <Image
-                              src={template.suggestedImage}
-                              alt={template.name}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-12 h-12 text-gray-300" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="p-3">
-                          <h3 className="font-medium text-gray-900 truncate">
-                            {selectedProduct?.customName || template.name}
-                          </h3>
-                          <p className="text-xs text-gray-500 line-clamp-2 mt-1 h-8">
-                            {selectedProduct?.customDescription || template.description}
-                          </p>
-
-                          {/* Price & Stock (editable when selected) */}
-                          {isSelected && selectedProduct ? (
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="text-xs text-gray-600">Price (₹)</label>
-                                  <input
-                                    type="number"
-                                    value={selectedProduct.price}
-                                    onChange={(e) =>
-                                      handleUpdateProduct(template.id, "price", parseFloat(e.target.value) || 0)
-                                    }
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                    min="0"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-gray-600">Stock</label>
-                                  <input
-                                    type="number"
-                                    value={selectedProduct.stockQuantity}
-                                    onChange={(e) =>
-                                      handleUpdateProduct(template.id, "stockQuantity", parseInt(e.target.value) || 0)
-                                    }
-                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-                                    min="0"
-                                  />
-                                </div>
-                              </div>
-                              {/* Edit Button */}
-                              <button
-                                onClick={() => openEditModal(selectedProduct)}
-                                className="mt-2 w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors cursor-pointer"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                                Edit Details
-                              </button>
-                              {/* Show if customized */}
-                              {(selectedProduct.customName || selectedProduct.customDescription || selectedProduct.customImage) && (
-                                <p className="mt-1 text-xs text-green-600 text-center">Customized</p>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="mt-3 flex items-center justify-between">
-                              <span className="text-sm font-semibold text-green-600">
-                                {template.suggestedPrice ? `₹${template.suggestedPrice}` : "Set price"}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {template.suggestedWeight ? `${template.suggestedWeight}kg` : ""}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Floating Action Bar */}
-      {selectedProducts.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-20">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-lg font-semibold">
-                {selectedProducts.size} product{selectedProducts.size !== 1 ? "s" : ""} selected
-              </span>
-              <button
-                onClick={() => setSelectedProducts(new Map())}
-                className="text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
-              >
-                Clear selection
-              </button>
-            </div>
-            <button
-              onClick={handleBulkAdd}
-              disabled={loading}
-              className="px-8 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Adding Products...
-                </>
-              ) : (
-                <>
-                  <Check className="w-5 h-5" />
-                  Add {selectedProducts.size} Products to Store
-                </>
-              )}
-            </button>
-          </div>
+      {/* Category chips */}
+      {categories.length > 0 && (
+        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 scrollbar-hide" role="group" aria-label="Category">
+          <Chip active={selectedCategory === "all"} onClick={() => onCategoryChange("all")}>
+            All
+          </Chip>
+          {categories.map((cat) => (
+            <Chip key={cat.id} active={selectedCategory === cat.id} onClick={() => onCategoryChange(cat.id)}>
+              {cat.name}
+            </Chip>
+          ))}
         </div>
       )}
 
-      {/* Edit Product Modal */}
-      {editModalOpen && editingProduct && (
-        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Edit Product</h2>
-                <p className="text-sm text-gray-500 mt-1">Customize this product before adding to your store</p>
-              </div>
-              <button
-                onClick={closeEditModal}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+      {/* Count + select all */}
+      {filteredTemplates.length > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-3 px-1">
+          <p className="text-[15px] text-label-2 tabular-nums">
+            {filteredTemplates.length} product{filteredTemplates.length === 1 ? "" : "s"}
+            {count > 0 && <span className="font-medium text-label"> · {count} ticked</span>}
+          </p>
+          <button
+            type="button"
+            onClick={handleSelectAll}
+            className="-my-2 flex min-h-[44px] items-center text-[15px] font-medium text-tint cursor-pointer"
+          >
+            {allShownSelected ? "Untick all" : "Tick all"}
+          </button>
+        </div>
+      )}
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-6">
-              {/* Product Image Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Product Image
-                </label>
+      {/* Products by category */}
+      {Object.keys(groupedTemplates).length === 0 ? (
+        allTemplatesCount === 0 ? (
+          <Message
+            title="No ready-made products yet"
+            body="LocalMart is still setting up this list. You can add your products one by one for now."
+            action={
+              <Button href="/vendor/products/new" full>
+                Add a product
+              </Button>
+            }
+          />
+        ) : searchQuery ? (
+          <Message
+            title={`Nothing matches “${searchQuery}”`}
+            body="Try another word, or clear the search."
+            action={
+              <Button variant="secondary" full onClick={() => setSearchQuery("")}>
+                Clear search
+              </Button>
+            }
+          />
+        ) : (
+          <Message
+            title="Nothing in this category yet"
+            body={`There are ${allTemplatesCount} products in other categories.`}
+            action={
+              <Button variant="secondary" full onClick={() => onCategoryChange("all")}>
+                Show all products
+              </Button>
+            }
+          />
+        )
+      ) : (
+        Object.entries(groupedTemplates).map(([categoryName, categoryTemplates]) => {
+          const allSelected = categoryTemplates.every((t) => selectedProducts.has(t.id));
+
+          return (
+            <section key={categoryName} className="mb-6">
+              <div className="flex items-end justify-between gap-3 px-1 pb-2">
+                <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-label-2">
+                  {categoryName} · {categoryTemplates.length}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => handleSelectCategory(categoryName)}
+                  className="-my-2 flex min-h-[44px] items-center text-[15px] font-medium text-tint cursor-pointer"
+                >
+                  {allSelected ? "Untick all" : "Tick all"}
+                </button>
+              </div>
+
+              <ul className="grid gap-3 lg:grid-cols-2 lg:items-start">
+                {categoryTemplates.map((template) => {
+                  const isSelected = selectedProducts.has(template.id);
+                  const selectedProduct = selectedProducts.get(template.id);
+                  const name = selectedProduct?.customName || template.name;
+                  const image = selectedProduct?.customImage || template.suggestedImage;
+                  const customized =
+                    selectedProduct &&
+                    (selectedProduct.customName || selectedProduct.customDescription || selectedProduct.customImage);
+                  const priceMissing = showPriceErrors && !!selectedProduct && !(selectedProduct.price > 0);
+
+                  return (
+                    <li
+                      key={template.id}
+                      className={cx("overflow-hidden rounded-2xl bg-card", isSelected && "ring-2 ring-tint")}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleToggleProduct(template)}
+                        aria-pressed={isSelected}
+                        className="flex min-h-[80px] w-full items-center gap-3 p-3 text-left transition-colors active:bg-fill cursor-pointer sm:p-4"
+                      >
+                        <span
+                          aria-hidden
+                          className={cx(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-2 transition-colors",
+                            isSelected ? "border-tint bg-tint text-white" : "border-label/25 bg-card",
+                          )}
+                        >
+                          {isSelected && <Check className="h-[18px] w-[18px]" strokeWidth={3} />}
+                        </span>
+                        <Thumb src={image} alt={name} size={56} />
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 block text-[16px] font-semibold leading-snug text-label">
+                            {name}
+                          </span>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-label-2">
+                            {template.suggestedPrice ? (
+                              <span className="tabular-nums">{rupees(template.suggestedPrice)} usual price</span>
+                            ) : (
+                              <span>Set your price</span>
+                            )}
+                            {template.suggestedWeight ? (
+                              <span className="tabular-nums">· {template.suggestedWeight} kg</span>
+                            ) : null}
+                            {template.isPopular && <Pill tone="brand">Popular</Pill>}
+                          </span>
+                        </span>
+                      </button>
+
+                      {/* Price & stock (editable when ticked) */}
+                      {isSelected && selectedProduct && (
+                        <div className="border-t border-hairline p-3 sm:p-4">
+                          <div className="grid grid-cols-2 gap-3">
+                            <Field
+                              label="Your price"
+                              htmlFor={`price-${template.id}`}
+                              error={priceMissing ? "Add a price" : undefined}
+                            >
+                              <RupeeInput
+                                id={`price-${template.id}`}
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                aria-invalid={priceMissing || undefined}
+                                value={selectedProduct.price || ""}
+                                onChange={(e) =>
+                                  handleUpdateProduct(template.id, "price", parseFloat(e.target.value) || 0)
+                                }
+                              />
+                            </Field>
+                            <Field label="In stock" htmlFor={`stock-${template.id}`}>
+                              <input
+                                id={`stock-${template.id}`}
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                value={selectedProduct.stockQuantity}
+                                onChange={(e) =>
+                                  handleUpdateProduct(template.id, "stockQuantity", parseInt(e.target.value) || 0)
+                                }
+                                className={cx(inputClass, "tabular-nums")}
+                              />
+                            </Field>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(selectedProduct)}
+                              className="-ml-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-1 text-[15px] font-medium text-tint cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                              Change name or photo
+                            </button>
+                            {customized && <Pill tone="ok">Changed</Pill>}
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })
+      )}
+
+      {/* One button adds everything ticked (nothing to tick → no bar) */}
+      {allTemplatesCount > 0 && <StickyBarSpacer />}
+      {allTemplatesCount > 0 && (
+      <StickyBar aboveTabBar>
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          {count > 0 ? (
+            <>
+              <span className="text-[16px] font-semibold tabular-nums text-label">{count} ticked</span>
+              <button
+                type="button"
+                onClick={() => setSelectedProducts(new Map())}
+                disabled={loading}
+                className="flex min-h-[44px] items-center px-2 text-[15px] font-medium text-tint disabled:opacity-40 cursor-pointer"
+              >
+                Clear
+              </button>
+            </>
+          ) : (
+            <span className="text-[15px] leading-snug text-label-2">Tick the products you sell</span>
+          )}
+        </div>
+        <Button onClick={handleBulkAdd} loading={loading} disabled={loading || count === 0} className="shrink-0">
+          {loading ? (
+            `Adding ${addedCount} of ${count}…`
+          ) : (
+            <>
+              <Layers className="h-5 w-5" aria-hidden />
+              {count > 0 ? `Add ${count} product${count === 1 ? "" : "s"}` : "Add products"}
+            </>
+          )}
+        </Button>
+      </StickyBar>
+      )}
+
+      {/* Change name / photo before adding */}
+      <Sheet
+        open={editModalOpen && !!editingProduct}
+        onClose={closeEditModal}
+        wide
+        title="Change details"
+        description="Make it match what you sell. This only changes it for your shop."
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={closeEditModal}>
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={saveEditedProduct}>
+              Save
+            </Button>
+          </div>
+        }
+      >
+        {editingProduct && (
+          <>
+            <section className="mb-3 space-y-5 rounded-2xl bg-card p-4 sm:p-5">
+              <Field label="Photo" hint="Use your own photo or keep this one. A square photo looks best.">
                 <ImageUploader
                   value={editForm.image}
                   onChange={(url) => setEditForm({ ...editForm, image: url })}
@@ -631,112 +584,77 @@ export default function BulkAddProductsClient({
                   previewSize="md"
                   allowUrlInput={true}
                 />
-                <p className="text-xs text-gray-400 mt-2">
-                  Upload your own image or use the template image. Recommended: Square images (500x500px)
-                </p>
-              </div>
+              </Field>
 
-              {/* Product Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Product Name *
-                </label>
+              <Field label="Name" htmlFor="bulk-edit-name">
                 <input
+                  id="bulk-edit-name"
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter product name"
+                  className={inputClass}
+                  placeholder="e.g. Tata Salt 1 kg"
                 />
-              </div>
+              </Field>
 
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description *
-                </label>
+              <Field label="About this product" htmlFor="bulk-edit-description">
                 <textarea
+                  id="bulk-edit-description"
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Enter product description"
+                  className={textareaClass}
+                  placeholder="Size, brand, colour — what customers should know"
                 />
-              </div>
+              </Field>
 
-              {/* Price, Stock, Weight */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Price (₹) *
-                  </label>
-                  <input
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Field label="Price" htmlFor="bulk-edit-price">
+                  <RupeeInput
+                    id="bulk-edit-price"
                     type="number"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="0"
                     step="0.01"
+                    placeholder="0"
+                    value={editForm.price || ""}
+                    onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) || 0 })}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Quantity *
-                  </label>
+                </Field>
+                <Field label="In stock" htmlFor="bulk-edit-stock">
                   <input
+                    id="bulk-edit-stock"
                     type="number"
+                    inputMode="numeric"
+                    min="0"
                     value={editForm.stockQuantity}
                     onChange={(e) => setEditForm({ ...editForm, stockQuantity: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min="0"
+                    className={cx(inputClass, "tabular-nums")}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Weight (kg)
-                  </label>
+                </Field>
+                <Field label="Weight (kg)" htmlFor="bulk-edit-weight" optional className="col-span-2 sm:col-span-1">
                   <input
+                    id="bulk-edit-weight"
                     type="number"
-                    value={editForm.weight}
-                    onChange={(e) => setEditForm({ ...editForm, weight: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
+                    value={editForm.weight || ""}
+                    onChange={(e) => setEditForm({ ...editForm, weight: parseFloat(e.target.value) || 0 })}
+                    className={cx(inputClass, "tabular-nums")}
                   />
-                </div>
+                </Field>
               </div>
+            </section>
 
-              {/* Original Template Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Original Template</p>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700">{editingProduct.name}</span>
-                  <span className="text-xs text-gray-400">•</span>
-                  <span className="text-sm text-gray-500">₹{editingProduct.suggestedPrice || 0}</span>
-                  <span className="text-xs text-gray-400">•</span>
-                  <span className="text-sm text-gray-500">{editingProduct.category?.name}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
-              <button
-                onClick={closeEditModal}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={saveEditedProduct}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            {/* Where it started */}
+            <p className="px-1 text-[14px] leading-snug text-label-2">
+              Started from: {editingProduct.name}
+              {editingProduct.suggestedPrice ? ` · ${rupees(editingProduct.suggestedPrice)} usual price` : ""}
+              {editingProduct.category?.name ? ` · ${editingProduct.category.name}` : ""}
+            </p>
+          </>
+        )}
+      </Sheet>
     </div>
   );
 }

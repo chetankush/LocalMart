@@ -1,8 +1,10 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Plus, Store, Package, ShoppingCart } from "lucide-react";
+import { LogIn, Plus, ShieldAlert, Store } from "lucide-react";
 import VendorStoreCard from "@/components/VendorStoreCard";
+import { Button, LargeTitle } from "@/components/app/ui";
+import { MessageCard } from "@/components/app/seller";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -34,37 +36,28 @@ export default async function VendorStoresPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600 mb-6">Please sign in to view your stores.</p>
-          <Link
-            href="/sign-in"
-            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <MessageCard icon={<LogIn className="h-8 w-8" aria-hidden />} title="Sign in to see your shops">
+        <Button href="/sign-in" full>
+          Sign in
+        </Button>
+      </MessageCard>
     );
   }
 
   if (user.role !== "VENDOR") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">⛔</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600 mb-6">This page is only for vendors.</p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
-          >
-            Go to Home
-          </Link>
-        </div>
-      </div>
+      <MessageCard
+        icon={<ShieldAlert className="h-8 w-8" aria-hidden />}
+        title="This page is for shop owners"
+        body="Want to sell on LocalMart? Open your shop in a few minutes."
+      >
+        <Button href="/become-vendor" full>
+          Open my shop
+        </Button>
+        <Button href="/" variant="secondary" full>
+          Go to home
+        </Button>
+      </MessageCard>
     );
   }
 
@@ -73,166 +66,89 @@ export default async function VendorStoresPage() {
 
   if (!session?.access_token) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h1>
-          <p className="text-gray-600 mb-6">Please sign in again.</p>
-          <Link
-            href="/sign-in"
-            className="inline-block px-6 py-3 bg-[#FF9933] text-white rounded-lg hover:bg-[#e8872b] transition-colors cursor-pointer"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
+      <MessageCard icon={<LogIn className="h-8 w-8" aria-hidden />} title="Please sign in again">
+        <Button href="/sign-in" full>
+          Sign in
+        </Button>
+      </MessageCard>
     );
   }
 
   const stores = await getVendorStores(session.access_token);
+  const open = stores.filter((s: any) => s.status === "ACTIVE").length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Your Stores</h1>
-              <p className="text-gray-600 mt-1">
-                Manage all your stores in one place
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Link
-                href="/vendor/dashboard"
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                ← Dashboard
-              </Link>
-              <Link
-                href="/become-vendor"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Add New Store
-              </Link>
-            </div>
-          </div>
+    <div className="mx-auto w-full max-w-2xl px-4 pt-3 pb-8 sm:pt-6 lg:max-w-6xl lg:px-8">
+      <LargeTitle
+        title="Your shops"
+        back={{ href: "/vendor/settings", label: "My shop" }}
+        subtitle={
+          stores.length > 0
+            ? `${stores.length} shop${stores.length === 1 ? "" : "s"} · ${open} open`
+            : "Open your first shop to start selling"
+        }
+        trailing={
+          stores.length > 0 ? (
+            <span className="hidden sm:block">
+              <Button href="/become-vendor" size="md">
+                <Plus className="h-[18px] w-[18px]" aria-hidden />
+                Open another shop
+              </Button>
+            </span>
+          ) : undefined
+        }
+      />
+
+      {stores.length === 0 ? (
+        <div className="rounded-3xl bg-card px-6 py-12 text-center">
+          <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-tint-soft text-tint">
+            <Store className="h-8 w-8" aria-hidden />
+          </span>
+          <h2 className="text-[20px] font-semibold text-label">No shops yet</h2>
+          <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">
+            Add your shop name and address. It takes about 2 minutes.
+          </p>
+          <Button href="/become-vendor" className="mt-6">
+            <Plus className="h-5 w-5" aria-hidden />
+            Open my shop
+          </Button>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {stores.map((store: any) => (
+            <VendorStoreCard
+              key={store.id}
+              store={{
+                id: store.id,
+                businessName: store.businessName,
+                businessType: store.businessType,
+                storeDescription: store.storeDescription,
+                storeLogo: store.storeLogo,
+                storeImages: store.storeImages,
+                city: store.city,
+                status: store.status,
+                isActive: store.isActive,
+                productCount: store.productCount || 0,
+                orderCount: store.orderCount || 0,
+                pendingOrders: store.pendingOrders || 0,
+              }}
+              showStats={true}
+              showManageButton={true}
+            />
+          ))}
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {stores.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Store className="w-10 h-10 text-orange-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Stores Yet</h2>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              You haven&apos;t created any stores yet. Start by adding your first store to begin selling.
-            </p>
-            <Link
-              href="/become-vendor"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              Create Your First Store
-            </Link>
-          </div>
-        ) : (
-          <>
-            {/* Stats Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Store className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">{stores.length}</div>
-                    <div className="text-sm text-gray-500">Total Stores</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Store className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">
-                      {stores.filter((s: any) => s.status === "ACTIVE").length}
-                    </div>
-                    <div className="text-sm text-gray-500">Active Stores</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Package className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">-</div>
-                    <div className="text-sm text-gray-500">Total Products</div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <ShoppingCart className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-gray-900">-</div>
-                    <div className="text-sm text-gray-500">Total Orders</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stores Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {stores.map((store: any) => (
-                <VendorStoreCard
-                  key={store.id}
-                  store={{
-                    id: store.id,
-                    businessName: store.businessName,
-                    businessType: store.businessType,
-                    storeDescription: store.storeDescription,
-                    storeLogo: store.storeLogo,
-                    storeImages: store.storeImages,
-                    city: store.city,
-                    status: store.status,
-                    isActive: store.isActive,
-                    productCount: store.productCount || 0,
-                    orderCount: store.orderCount || 0,
-                    pendingOrders: store.pendingOrders || 0,
-                  }}
-                  showStats={true}
-                  showManageButton={true}
-                />
-              ))}
-
-              {/* Add New Store Card */}
-              <Link
-                href="/become-vendor"
-                className="rounded-3xl bg-white shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 transition-all flex flex-col items-center justify-center p-12 min-h-[400px] cursor-pointer"
-              >
-                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Plus className="w-10 h-10 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Add New Store</h3>
-                <p className="text-sm text-gray-500 text-center">
-                  Expand your business with another location
-                </p>
-              </Link>
-            </div>
-          </>
-        )}
-      </div>
+          <Link
+            href="/become-vendor"
+            className="flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-hairline p-6 text-center transition-colors hover:border-tint/40 hover:bg-card active:bg-card"
+          >
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-tint-soft text-tint">
+              <Plus className="h-7 w-7" aria-hidden />
+            </span>
+            <span className="text-[17px] font-semibold text-label">Open another shop</span>
+            <span className="-mt-2 text-[15px] text-label-2">Another branch or a new business</span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

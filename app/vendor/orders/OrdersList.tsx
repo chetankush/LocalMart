@@ -1,6 +1,9 @@
 "use client";
 
 import { OrderStatus } from "@/src/generated/prisma";
+import Link from "next/link";
+import { ReceiptText } from "lucide-react";
+import { buttonClass } from "@/components/app/ui";
 import OrderCard from "./OrderCard";
 
 interface OrderItem {
@@ -73,9 +76,17 @@ export default function OrdersList({ orders }: OrdersListProps) {
 
   if (list.length === 0) {
     return (
-      <div className="rounded-2xl bg-card px-6 py-12 text-center">
-        <p className="text-[17px] font-semibold text-label">No orders yet</p>
-        <p className="mt-1 text-[15px] text-label-2">New orders show up here with a sound.</p>
+      <div className="rounded-3xl bg-card px-6 py-12 text-center">
+        <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-tint-soft text-tint">
+          <ReceiptText className="h-8 w-8" aria-hidden />
+        </span>
+        <p className="text-[20px] font-semibold text-label">No orders yet</p>
+        <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">
+          New orders show up here with a sound. Share your shop link to get your first one.
+        </p>
+        <Link href="/vendor/dashboard" className={`mt-6 ${buttonClass("secondary", "md")}`}>
+          Go to Home
+        </Link>
       </div>
     );
   }

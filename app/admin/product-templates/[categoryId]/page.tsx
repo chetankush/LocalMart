@@ -2,9 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
+import { toast } from "sonner";
+import { FolderTree, Package, Pencil, Plus, Search, Sparkles, Star, Trash2 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { Button, Pill, Row, Thumb, rupees } from "@/components/app/ui";
+import { Field, FormCard, RupeeInput, Toggle, inputClass, textareaClass } from "@/components/app/form";
+import { List, StatGrid, StatTile } from "@/components/app/seller";
+import { Sheet } from "@/components/app/Sheet";
+import {
+  AdminGate,
+  AdminPage,
+  EmptyBlock,
+  SearchField,
+  TableCard,
+  Toolbar,
+  tdClass,
+  thClass,
+  trClass,
+} from "@/components/app/admin";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface Category {
   id: string;
@@ -32,10 +48,18 @@ interface ProductTemplate {
   createdAt: string;
 }
 
+const BACK = { href: "/admin/product-templates", label: "Ready-made products" };
+
+const iconButton =
+  "flex h-10 w-10 items-center justify-center rounded-full text-label-2 transition-colors hover:bg-fill hover:text-label disabled:opacity-40 cursor-pointer";
+
+const usedLabel = (n: number) => (n === 0 ? "Not used yet" : `Used ${n} ${n === 1 ? "time" : "times"}`);
+
 export default function CategoryTemplatesPage() {
   const router = useRouter();
   const params = useParams();
   const categoryId = params.categoryId as string;
+  const confirm = useConfirm();
 
   const [category, setCategory] = useState<Category | null>(null);
   const [templates, setTemplates] = useState<ProductTemplate[]>([]);
@@ -44,6 +68,8 @@ export default function CategoryTemplatesPage() {
   const [seeding, setSeeding] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProductTemplate | null>(null);
+  const [search, setSearch] = useState("");
+  const [errors, setErrors] = useState<{ name?: string; description?: string }>({});
 
   // Form state
   const [formData, setFormData] = useState({
@@ -56,12 +82,15 @@ export default function CategoryTemplatesPage() {
     tags: "",
   });
 
-  // Check authentication
+  // Admins only — same server check as the other admin pages (the old
+  // localStorage flag was only set by the admin sign-in form)
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("adminAuth");
-    if (!isAuthenticated) {
-      router.push("/admin/login");
-    }
+    fetch("/api/admin/check-auth")
+      .then((r) => (r.ok ? r.json() : { isAdmin: false }))
+      .then((d) => {
+        if (!d.isAdmin) router.push("/admin/login");
+      })
+      .catch(() => router.push("/admin/login"));
   }, [router]);
 
   useEffect(() => {
@@ -89,6 +118,7 @@ export default function CategoryTemplatesPage() {
       }
     } catch (error) {
       console.error("Error fetching data:", error);
+      toast.error("Couldn't load ready-made products");
     } finally {
       setLoading(false);
     }
@@ -96,6 +126,7 @@ export default function CategoryTemplatesPage() {
 
   const openAddModal = () => {
     setEditingTemplate(null);
+    setErrors({});
     setFormData({
       name: "",
       description: "",
@@ -110,6 +141,7 @@ export default function CategoryTemplatesPage() {
 
   const openEditModal = (template: ProductTemplate) => {
     setEditingTemplate(template);
+    setErrors({});
     setFormData({
       name: template.name,
       description: template.description,
@@ -124,7 +156,11 @@ export default function CategoryTemplatesPage() {
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.description) {
-      alert("Please fill in name and description");
+      setErrors({
+        name: formData.name ? undefined : "Add a name, e.g. “Rice (1 kg)”.",
+        description: formData.description ? undefined : "Add a short description — sellers can change it later.",
+      });
+      toast.error("Name and description are needed");
       return;
     }
 
@@ -149,41 +185,52 @@ export default function CategoryTemplatesPage() {
       }
 
       if (response.success) {
-        alert(editingTemplate ? "Template updated successfully!" : "Template created successfully!");
+        toast.success(editingTemplate ? "Product saved" : "Product added");
         setShowModal(false);
         fetchData();
       } else {
-        alert("Failed to save template");
+        toast.error("Couldn't save this product");
       }
     } catch (error: any) {
       console.error("Error saving template:", error);
-      alert(error.message || "Failed to save template");
+      toast.error(error.message || "Couldn't save this product");
     } finally {
       setProcessing(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+    const name = templates.find((t) => t.id === id)?.name;
+    const ok = await confirm({
+      title: name ? `Delete “${name}”?` : "Delete this product?",
+      description: "Sellers won't see it in the ready-made list any more. This can't be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const response = await apiClient.deleteProductTemplate(id);
       if (response.success) {
-        alert("Template deleted successfully!");
+        toast.success("Product deleted");
+        if (editingTemplate?.id === id) setShowModal(false);
         fetchData();
       } else {
-        alert("Failed to delete template");
+        toast.error("Couldn't delete this product");
       }
     } catch (error: any) {
       console.error("Error deleting template:", error);
-      alert(error.message || "Failed to delete template");
+      toast.error(error.message || "Couldn't delete this product");
     }
   };
 
   const handleSeedExamples = async () => {
-    if (!confirm(`Seed example product templates for ${category?.name}? This will add sample products to help you get started.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Add sample products to ${category?.name ?? "this category"}?`,
+      description: "Adds a few common products to get you started. Ones that are already here are skipped.",
+      confirmLabel: "Add samples",
+    });
+    if (!ok) return;
 
     setSeeding(true);
     try {
@@ -192,334 +239,362 @@ export default function CategoryTemplatesPage() {
         const created = response.created ?? 0;
         const skipped = response.skipped ?? 0;
         if (created === 0 && skipped > 0) {
-          alert(`All example templates already exist for this category.`);
+          toast.info("All the sample products are already here.");
         } else if (created === 0 && skipped === 0) {
-          alert(`No example templates available for ${category?.name}. You can add templates manually.`);
+          toast.info(`There are no sample products for ${category?.name} yet. Add them by hand.`);
         } else {
-          alert(`${response.message}\n\nCreated: ${created}\nSkipped (already exists): ${skipped}`);
+          toast.success(response.message || "Sample products added", {
+            description: `${created} added · ${skipped} already there`,
+          });
         }
         fetchData();
       } else {
-        alert("Failed to seed templates");
+        toast.error("Couldn't add sample products");
       }
     } catch (error: any) {
       console.error("Error seeding templates:", error);
-      alert(error.message || "Failed to seed templates");
+      toast.error(error.message || "Couldn't add sample products");
     } finally {
       setSeeding(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Refetches (after saving) keep the page on screen; only the first load waits
+  if (loading && !category) return <AdminGate label="Loading products…" />;
 
   if (!category) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">Category not found</p>
-          <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700 cursor-pointer">
-            ← Back to Categories
-          </Link>
-        </div>
-      </div>
+      <AdminPage title="Category not found" back={BACK}>
+        <EmptyBlock
+          icon={<FolderTree className="h-7 w-7" aria-hidden />}
+          title="We couldn't find this category"
+          body="It may have been deleted. Pick another one from the list."
+          action={
+            <Button variant="secondary" href={BACK.href}>
+              See all categories
+            </Button>
+          }
+        />
+      </AdminPage>
     );
   }
 
+  const q = search.trim().toLowerCase();
+  const shown = q
+    ? templates.filter(
+        (t) =>
+          t.name.toLowerCase().includes(q) ||
+          t.description?.toLowerCase().includes(q) ||
+          t.tags?.some((tag) => tag.toLowerCase().includes(q)),
+      )
+    : templates;
+  const popularCount = templates.filter((t) => t.isPopular).length;
+  const totalUsage = templates.reduce((sum, t) => sum + t.usageCount, 0);
+  const noPhoto = templates.filter((t) => !t.suggestedImage).length;
+  const price = (t: ProductTemplate) => (t.suggestedPrice ? rupees(t.suggestedPrice) : null);
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center text-white text-2xl">
-                {category.icon || category.name[0]}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{category.name}</h1>
-                <p className="text-sm text-gray-600">{templates.length} templates</p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleSeedExamples}
-                disabled={seeding}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 cursor-pointer"
-              >
-                {seeding ? "Seeding..." : "Seed Examples"}
-              </button>
-              <button
-                onClick={openAddModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 cursor-pointer"
-              >
-                + Add Template
-              </button>
-              <Link href="/admin/product-templates" className="text-blue-600 hover:text-blue-700 flex items-center cursor-pointer">
-                ← Back to Categories
-              </Link>
-            </div>
-          </div>
-        </div>
+    <AdminPage
+      title={category.name}
+      subtitle={`${templates.length} ready-made ${templates.length === 1 ? "product" : "products"} sellers can add in one tap.`}
+      back={BACK}
+      actions={
+        <>
+          <Button variant="secondary" onClick={handleSeedExamples} loading={seeding}>
+            {seeding ? "Adding…" : "Add samples"}
+          </Button>
+          <Button onClick={openAddModal}>
+            <Plus className="h-5 w-5" aria-hidden />
+            Add product
+          </Button>
+        </>
+      }
+    >
+      <div className="mb-6">
+        <StatGrid>
+          <StatTile label="Products" value={templates.length} />
+          <StatTile label="Popular" value={popularCount} hint="Shown first to sellers" />
+          <StatTile label="Times used" value={totalUsage} hint="Added by sellers" />
+          <StatTile label="Without a photo" value={noPhoto} tone={noPhoto > 0 ? "warn" : undefined} />
+        </StatGrid>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Stats */}
-        <div className="mb-6 grid grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-sm text-gray-600">Total Templates</p>
-            <p className="text-2xl font-bold text-gray-900">{templates.length}</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-sm text-gray-600">Popular Templates</p>
-            <p className="text-2xl font-bold text-green-600">{templates.filter(t => t.isPopular).length}</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <p className="text-sm text-gray-600">Total Usage</p>
-            <p className="text-2xl font-bold text-purple-600">{templates.reduce((sum, t) => sum + t.usageCount, 0)}</p>
-          </div>
-        </div>
+      {templates.length === 0 ? (
+        <EmptyBlock
+          icon={<Package className="h-7 w-7" aria-hidden />}
+          title="No ready-made products yet"
+          body="Add a few sample products to get started, or add your own."
+          action={
+            <Button variant="secondary" onClick={handleSeedExamples} loading={seeding}>
+              {!seeding && <Sparkles className="h-[18px] w-[18px]" aria-hidden />}
+              Add sample products
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <Toolbar>
+            <SearchField value={search} onChange={setSearch} placeholder="Search products or tags" />
+          </Toolbar>
 
-        {/* Templates Table */}
-        {templates.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg">
-            <div className="text-6xl mb-4">📦</div>
-            <p className="text-gray-600 mb-4">No templates in this category yet.</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={handleSeedExamples}
-                disabled={seeding}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 cursor-pointer"
-              >
-                {seeding ? "Seeding..." : "Seed Example Products"}
-              </button>
-              <button
-                onClick={openAddModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
-              >
-                Add Template Manually
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {templates.map((template) => (
-                  <tr key={template.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {template.suggestedImage ? (
-                          <Image
-                            src={template.suggestedImage}
-                            alt={template.name}
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 rounded object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400">
-                            📦
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-medium text-gray-900">{template.name}</p>
-                          <p className="text-xs text-gray-500 line-clamp-1">{template.description}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {template.suggestedPrice ? `₹${template.suggestedPrice}` : "-"}
-                    </td>
-                    <td className="px-6 py-4">
-                      {template.isPopular ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Popular</span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">Normal</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {template.usageCount} times
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {template.tags?.slice(0, 3).map((tag, i) => (
-                          <span key={i} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">
-                            {tag}
-                          </span>
-                        ))}
-                        {template.tags?.length > 3 && (
-                          <span className="text-xs text-gray-500">+{template.tags.length - 3}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openEditModal(template)}
-                          className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(template.id)}
-                          className="text-red-600 hover:text-red-800 font-medium cursor-pointer"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+          {shown.length === 0 ? (
+            <EmptyBlock
+              icon={<Search className="h-7 w-7" aria-hidden />}
+              title="Nothing matches"
+              body={`No product in ${category.name} matches “${search.trim()}”.`}
+              action={
+                <Button variant="secondary" onClick={() => setSearch("")}>
+                  Clear search
+                </Button>
+              }
+            />
+          ) : (
+            <>
+              {/* Desktop */}
+              <TableCard>
+                <thead>
+                  <tr>
+                    <th className={thClass}>Product</th>
+                    <th className={`${thClass} text-right`}>Suggested price</th>
+                    <th className={thClass}>Tags</th>
+                    <th className={`${thClass} text-right`}>Used</th>
+                    <th className={thClass}>
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
+                </thead>
+                <tbody>
+                  {shown.map((template) => (
+                    <tr key={template.id} className={`${trClass} cursor-pointer`} onClick={() => openEditModal(template)}>
+                      <td className={tdClass}>
+                        <div className="flex items-center gap-3">
+                          <Thumb src={template.suggestedImage} alt="" size={44} />
+                          <div className="min-w-0">
+                            <p className="flex flex-wrap items-center gap-2 font-semibold text-label">
+                              {template.name}
+                              {template.isPopular && (
+                                <Pill tone="brand" icon={<Star className="h-3.5 w-3.5" aria-hidden />}>
+                                  Popular
+                                </Pill>
+                              )}
+                            </p>
+                            <p className="line-clamp-1 max-w-md text-[13px] text-label-2">{template.description}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap text-right tabular-nums`}>
+                        {price(template) ?? <span className="text-label-3">—</span>}
+                      </td>
+                      <td className={tdClass}>
+                        {template.tags?.length ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {template.tags.slice(0, 3).map((tag, i) => (
+                              <Pill key={i}>{tag}</Pill>
+                            ))}
+                            {template.tags.length > 3 && (
+                              <span className="text-[13px] text-label-2">+{template.tags.length - 3}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-label-3">—</span>
+                        )}
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap text-right tabular-nums text-label-2`}>
+                        {template.usageCount} {template.usageCount === 1 ? "time" : "times"}
+                      </td>
+                      <td className={`${tdClass} text-right`} onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(template)}
+                            className={iconButton}
+                            aria-label={`Edit ${template.name}`}
+                            title="Edit"
+                          >
+                            <Pencil className="h-[18px] w-[18px]" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(template.id)}
+                            className={`${iconButton} hover:bg-bad-soft hover:text-bad`}
+                            aria-label={`Delete ${template.name}`}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-[18px] w-[18px]" aria-hidden />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </TableCard>
+
+              {/* Phone */}
+              <List className="md:hidden">
+                {shown.map((template) => (
+                  <Row
+                    key={template.id}
+                    onClick={() => openEditModal(template)}
+                    leading={<Thumb src={template.suggestedImage} alt="" size={48} />}
+                    title={<span className="font-semibold">{template.name}</span>}
+                    subtitle={
+                      <span className="tabular-nums">
+                        {price(template) ?? "No price"} · {usedLabel(template.usageCount)}
+                      </span>
+                    }
+                    trailing={
+                      template.isPopular ? (
+                        <Pill tone="brand" icon={<Star className="h-3.5 w-3.5" aria-hidden />}>
+                          Popular
+                        </Pill>
+                      ) : undefined
+                    }
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {editingTemplate ? "Edit Template" : "Add New Template"}
-                </h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl cursor-pointer"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Category:</strong> {category.name}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., Rice (1kg)"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Describe the product..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                  <input
-                    type="text"
-                    value={formData.suggestedImage}
-                    onChange={(e) => setFormData({ ...formData, suggestedImage: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Suggested Price (₹)</label>
-                    <input
-                      type="number"
-                      value={formData.suggestedPrice}
-                      onChange={(e) => setFormData({ ...formData, suggestedPrice: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="0.00"
-                      step="0.01"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Suggested Weight (kg)</label>
-                    <input
-                      type="number"
-                      value={formData.suggestedWeight}
-                      onChange={(e) => setFormData({ ...formData, suggestedWeight: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="0.00"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="rice, grains, kirana"
-                  />
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.isPopular}
-                      onChange={(e) => setFormData({ ...formData, isPopular: e.target.checked })}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Mark as Popular (shown first to vendors)</span>
-                  </label>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={processing}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {processing ? "Saving..." : editingTemplate ? "Update Template" : "Create Template"}
-                  </button>
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="px-6 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </List>
+            </>
+          )}
+        </>
       )}
-    </div>
+
+      {/* ── Add / edit ── */}
+      <Sheet
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        wide
+        title={editingTemplate ? "Edit product" : "Add product"}
+        description={`In ${category.name}`}
+        footer={
+          <div className="flex items-center gap-3">
+            {editingTemplate && (
+              <Button
+                variant="danger"
+                className="px-3"
+                onClick={() => handleDelete(editingTemplate.id)}
+                disabled={processing}
+                aria-label="Delete product"
+              >
+                <Trash2 className="h-5 w-5" aria-hidden />
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            )}
+            <Button variant="secondary" className="flex-1" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" form="template-form" className="flex-[1.6]" loading={processing}>
+              {editingTemplate ? "Save changes" : "Add product"}
+            </Button>
+          </div>
+        }
+      >
+        <form
+          id="template-form"
+          noValidate
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <FormCard title="Product">
+            <Field label="Name" htmlFor="tpl-name" error={errors.name}>
+              <input
+                id="tpl-name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (errors.name) setErrors({ ...errors, name: undefined });
+                }}
+                aria-invalid={!!errors.name}
+                className={inputClass}
+                placeholder="e.g. Rice (1 kg)"
+              />
+            </Field>
+            <Field label="Description" htmlFor="tpl-description" error={errors.description}>
+              <textarea
+                id="tpl-description"
+                value={formData.description}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  if (errors.description) setErrors({ ...errors, description: undefined });
+                }}
+                rows={3}
+                aria-invalid={!!errors.description}
+                className={textareaClass}
+                placeholder="What it is, in a line or two"
+              />
+            </Field>
+          </FormCard>
+
+          <FormCard title="Photo">
+            <Field label="Photo link" htmlFor="tpl-image" hint="Paste a link to the photo (starts with https://)." optional>
+              <div className="flex items-center gap-3">
+                <Thumb src={formData.suggestedImage || null} alt="" size={48} />
+                <input
+                  id="tpl-image"
+                  type="url"
+                  inputMode="url"
+                  value={formData.suggestedImage}
+                  onChange={(e) => setFormData({ ...formData, suggestedImage: e.target.value })}
+                  className={`${inputClass} min-w-0 flex-1`}
+                  placeholder="https://example.com/photo.jpg"
+                />
+              </div>
+            </Field>
+          </FormCard>
+
+          <FormCard title="Price and weight" description="Suggestions only — each seller sets their own.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Suggested price" htmlFor="tpl-price" optional>
+                <RupeeInput
+                  id="tpl-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.suggestedPrice}
+                  onChange={(e) => setFormData({ ...formData, suggestedPrice: e.target.value })}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="Weight" htmlFor="tpl-weight" optional>
+                <div className="relative">
+                  <input
+                    id="tpl-weight"
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={formData.suggestedWeight}
+                    onChange={(e) => setFormData({ ...formData, suggestedWeight: e.target.value })}
+                    className={`${inputClass} pr-12 tabular-nums`}
+                    placeholder="0"
+                  />
+                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">kg</span>
+                </div>
+              </Field>
+            </div>
+          </FormCard>
+
+          <FormCard>
+            <Field label="Search words" htmlFor="tpl-tags" hint="Separate with commas, e.g. rice, grains, kirana." optional>
+              <input
+                id="tpl-tags"
+                type="text"
+                value={formData.tags}
+                onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                className={inputClass}
+                placeholder="rice, grains, kirana"
+              />
+            </Field>
+            <Toggle
+              checked={formData.isPopular}
+              onChange={(next) => setFormData({ ...formData, isPopular: next })}
+              label="Popular"
+              description="Shown first to sellers when they add products."
+            />
+          </FormCard>
+        </form>
+      </Sheet>
+    </AdminPage>
   );
 }
