@@ -95,6 +95,26 @@ const Navbar = () => {
 
   useEffect(() => setVoiceOk(hasVoice()), []);
 
+  // Once the shopper scrolls, fold the header down to just what's needed:
+  // phones keep the search bar, desktop drops the category row
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        setCompact((c) => (c ? y > 40 : y > 140));
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
   // Publish the header's height (--header-h) so bars like a shop's filter
   // chips can stick right under it on any screen size
   const headerRef = useRef<HTMLElement>(null);
@@ -263,7 +283,7 @@ const Navbar = () => {
       <header ref={headerRef} className="sticky top-0 z-50 border-b border-hairline bg-white">
         {/* ── Phone header: logo + delivery area, then search ── */}
         <div className="lg:hidden">
-          <div className="flex h-14 items-center gap-3 px-4">
+          <div className={`h-14 items-center gap-3 px-4 ${compact && shopping ? "hidden" : "flex"}`}>
             <Logo onHome={onHome} />
             {shopping ? (
               locationButton
@@ -290,11 +310,11 @@ const Navbar = () => {
               {!sellerArea && !focused && <CartIcon />}
             </div>
           </div>
-          {shopping && <div className="px-4 pb-3">{searchTrigger(false)}</div>}
+          {shopping && <div className={`px-4 pb-3 ${compact ? "pt-2" : ""}`}>{searchTrigger(false)}</div>}
         </div>
 
         {/* ── Desktop header ── */}
-        <div className="mx-auto hidden h-[72px] max-w-[1400px] items-center gap-6 px-8 lg:flex">
+        <div className="mx-auto hidden h-16 max-w-[1400px] items-center gap-6 px-8 lg:flex">
           <Logo onHome={onHome} />
           {sellerArea && <span className="rounded-md bg-tint-soft px-2 py-0.5 text-[13px] font-semibold text-tint">{adminArea ? "Admin" : "Seller"}</span>}
           {shopping && <div className="w-[220px] shrink-0">{locationButton}</div>}
@@ -321,8 +341,8 @@ const Navbar = () => {
           </nav>
         </div>
 
-        {/* ── Desktop category strip ── */}
-        {shopping && (
+        {/* ── Desktop category strip (folds away once you scroll) ── */}
+        {shopping && !compact && (
           <nav aria-label="Categories" className="hidden border-t border-hairline lg:block">
             <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-1 overflow-x-auto px-6 text-[14px] scrollbar-hide">
               {CATEGORIES.map((c) => (

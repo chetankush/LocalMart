@@ -624,6 +624,16 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     );
   }, []);
 
+  // Height of the pinned chip bar (52px + borders), for things that sit under it
+  const hasChipBar = fabricCollections.length > 0;
+  useEffect(() => {
+    if (!hasChipBar) return;
+    document.documentElement.style.setProperty("--shopbar-h", "54px");
+    return () => {
+      document.documentElement.style.removeProperty("--shopbar-h");
+    };
+  }, [hasChipBar]);
+
   const scrollToCatalog = useCallback(() => {
     document.getElementById("saree-catalog")?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -861,7 +871,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         palette={{ band: "#4A0D18", bandText: "#FFFFFF", eyebrow: "#E9C979", button: "#E9C979", buttonText: "#2E0710" }}
       />
 
-      <header className={`relative z-10 mx-auto max-w-7xl px-4 ${heroSlides.length > 0 ? "-mt-5 sm:mt-4" : "pt-4"}`}>
+      <header className={`relative z-10 mx-auto max-w-[1440px] px-4 ${heroSlides.length > 0 ? "mt-3 sm:mt-4" : "pt-4"}`}>
         <div className="rounded-2xl border border-[#EADBC8] bg-white p-4 shadow-[0_8px_24px_rgba(74,13,24,0.10)] sm:flex sm:items-center sm:gap-6 sm:p-6">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             {vendor.storeLogo ? (
@@ -937,10 +947,52 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         </div>
       </header>
 
+      {/* Fabric chips pinned under the header from here to the end of the page */}
+      {fabricCollections.length > 0 && (
+        <div
+          className="sticky z-30 mt-4 border-y border-[#EADBC8] bg-[#FBF6EE]/95 backdrop-blur"
+          style={{ top: "var(--header-h, 64px)" }}
+        >
+          <div className="mx-auto flex h-[52px] max-w-[1440px] items-center gap-2 px-4">
+            <div className="-ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto pl-4 scrollbar-hide lg:justify-center">
+              {[{ key: null as string | null, label: "All sarees" }, ...fabricCollections].map((f) => (
+                <button
+                  key={f.key ?? "all"}
+                  onClick={() => {
+                    setActiveFabric(f.key);
+                    scrollToCatalog();
+                  }}
+                  aria-pressed={activeFabric === f.key}
+                  className={`h-9 shrink-0 rounded-full border px-4 text-[14px] font-semibold transition-colors cursor-pointer ${
+                    activeFabric === f.key
+                      ? "border-[#6E1423] bg-[#6E1423] text-white"
+                      : "border-[#EADBC8] bg-white text-gray-700 hover:border-[#6E1423]"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowMobileFilters(true)}
+              className="relative flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-[#EADBC8] bg-white px-3 text-[14px] font-semibold text-gray-800 lg:hidden cursor-pointer"
+              aria-label="Filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              {activeFilterCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#6E1423] px-1 text-[11px] font-bold text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ============================================================== */}
       {/* Promise strip (Sudathi's USP row, in the shop's own words)       */}
       {/* ============================================================== */}
-      <section className="mx-auto max-w-7xl px-4 pt-5">
+      <section className="mx-auto max-w-[1440px] px-4 pt-5">
         <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0">
           {[
             { icon: Wallet, title: "Cash on delivery", text: "Pay when it arrives" },
@@ -968,7 +1020,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* 5. Trending collections (by fabric)                            */}
       {/* ============================================================== */}
       {fabricCollections.length >= 2 && (
-        <section className="max-w-7xl mx-auto px-4 pt-10 pb-2">
+        <section className="max-w-[1440px] mx-auto px-4 pt-10 pb-2">
           <SectionHeading eyebrow="Woven with tradition" title="Shop by Fabric" />
           <div className="flex gap-4 sm:gap-5 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-hide lg:justify-center lg:overflow-visible lg:mx-0 lg:px-0">
             {fabricCollections.slice(0, 5).map((f) => (
@@ -1010,7 +1062,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* 4. "The Saree Store" — Sudathi-style photo grid of collections */}
       {/* ============================================================== */}
       {bento.length >= 3 && (
-        <section className="max-w-7xl mx-auto px-4 pt-10 pb-2">
+        <section className="max-w-[1440px] mx-auto px-4 pt-10 pb-2">
           <SectionHeading eyebrow="Find the perfect drape" title="The Saree Store" />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:h-[560px] lg:grid-cols-3 lg:grid-rows-2">
             {bento.map((t, i) => {
@@ -1053,7 +1105,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
 
       {/* "Loved by our customers" — wide banner + tall saree tiles */}
       {loved.length >= 3 && (
-        <section className="max-w-7xl mx-auto px-4 pt-12 pb-2">
+        <section className="max-w-[1440px] mx-auto px-4 pt-12 pb-2">
           <div className="relative flex min-h-[180px] overflow-hidden rounded-2xl bg-[#4A0D18] sm:min-h-[240px]">
             <div className="relative z-10 flex flex-1 flex-col justify-center px-6 py-6 sm:px-10">
               <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#E9C979]">
@@ -1115,7 +1167,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* 6. Trending now + budget collection                            */}
       {/* ============================================================== */}
       {newArrivals.length >= 4 && (
-        <section className="max-w-7xl mx-auto px-4 pt-12">
+        <section className="max-w-[1440px] mx-auto px-4 pt-12">
           <SectionHeading eyebrow="Fresh from the loom" title="Trending Now" />
           <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 snap-x scrollbar-hide lg:grid lg:grid-cols-4 lg:overflow-visible lg:mx-0 lg:px-0">
             {newArrivals.slice(0, 8).map((p) => (
@@ -1137,7 +1189,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       )}
 
       {budget.length >= 2 && (
-        <section className="max-w-7xl mx-auto px-4 pt-12">
+        <section className="max-w-[1440px] mx-auto px-4 pt-12">
           <button
             type="button"
             onClick={() => {
@@ -1175,33 +1227,14 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* ============================================================== */}
       {/* 7. Full catalog with filters                                   */}
       {/* ============================================================== */}
-      <section id="saree-catalog" className="max-w-7xl mx-auto px-4 pt-10 pb-10 scroll-mt-28">
+      <section
+        id="saree-catalog"
+        className="max-w-[1440px] mx-auto px-4 pt-10 pb-10"
+        style={{ scrollMarginTop: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px) + 8px)" }}
+      >
         <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "saree" : "sarees"} in store`} title="All Sarees" />
 
-        {/* Fabric chips + sort stay pinned under the header while scrolling */}
-        <div
-          className="sticky z-30 -mx-4 mb-6 border-b border-[#EADBC8] bg-[#FBF6EE]/95 px-4 pt-3 backdrop-blur"
-          style={{ top: "var(--header-h, 112px)" }}
-        >
-        {fabricCollections.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide sm:justify-center">
-            {[{ key: null as string | null, label: "All" }, ...fabricCollections].map((f) => (
-              <button
-                key={f.key ?? "all"}
-                onClick={() => setActiveFabric(f.key)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
-                  activeFabric === f.key
-                    ? "bg-[#6E1423] border-[#6E1423] text-white"
-                    : "bg-white border-[#EADBC8] text-gray-700 hover:border-[#6E1423]"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-3 border-t border-[#EADBC8] py-2.5">
+        <div className="mb-6 flex items-center justify-between gap-3 border-y border-[#EADBC8] py-2.5">
           <p className="text-sm text-gray-600">
             Showing <span className="font-bold text-[#4A0D18]">{filteredProducts.length}</span>{" "}
             {filteredProducts.length === 1 ? "saree" : "sarees"}
@@ -1235,12 +1268,15 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
             </button>
           </div>
         </div>
-        </div>
 
         <div className="flex gap-8">
+          {/* Pinned under the header + chip bar; scrolls on its own when taller than the screen */}
           <aside
-            className="hidden lg:block w-60 flex-shrink-0 h-fit sticky bg-white rounded-xl border border-[#EADBC8] p-5"
-            style={{ top: "calc(var(--header-h, 112px) + 128px)" }}
+            className="hidden lg:block w-60 flex-shrink-0 h-fit sticky overflow-y-auto overscroll-contain bg-white rounded-xl border border-[#EADBC8] p-5"
+            style={{
+              top: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px) + 16px)",
+              maxHeight: "calc(100vh - var(--header-h, 64px) - var(--shopbar-h, 0px) - 32px)",
+            }}
           >
             <h3 className={`${serif.className} text-xl font-semibold text-[#4A0D18] mb-5`}>Filters</h3>
             {filterContent}
@@ -1275,7 +1311,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
 
           <div className="flex-1 min-w-0">
             {filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-5">
                 {filteredProducts.map((p) => (
                   <div key={p.id}>{renderCard(p)}</div>
                 ))}
@@ -1330,7 +1366,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
           }}
           aria-hidden="true"
         />
-        <div className="relative max-w-7xl mx-auto px-4 py-14 sm:py-16 grid md:grid-cols-2 gap-10 items-center">
+        <div className="relative max-w-[1440px] mx-auto px-4 py-14 sm:py-16 grid md:grid-cols-2 gap-10 items-center">
           <div className="text-center md:text-left">
             <p className="text-[#E9C979] text-xs font-semibold uppercase tracking-[0.3em] mb-3">
               Our Story

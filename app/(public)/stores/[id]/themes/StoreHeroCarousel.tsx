@@ -87,7 +87,7 @@ export default function StoreHeroCarousel({
     <section
       aria-roledescription="carousel"
       aria-label="Shop highlights"
-      className="relative mx-auto w-full max-w-7xl sm:px-4 sm:pt-4"
+      className="relative mx-auto w-full max-w-[1440px] sm:px-4 sm:pt-4"
       onPointerDown={holdAutoplay}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -100,7 +100,7 @@ export default function StoreHeroCarousel({
         {slides.map((s, i) => {
           const action = (
             <span
-              className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-5 text-[15px] font-semibold"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold sm:h-11 sm:px-5 sm:text-[15px]"
               style={{ background: palette.button, color: palette.buttonText }}
             >
               {s.cta} <ArrowRight className="h-4 w-4" aria-hidden />
@@ -127,15 +127,15 @@ export default function StoreHeroCarousel({
             >
               {s.kind === "banner" ? (
                 wrap(
-                  <div className="relative aspect-[4/5] w-full sm:aspect-[21/8]">
+                  <div className="relative aspect-[16/9] w-full sm:aspect-[21/8]">
                     <Image src={s.image} alt={s.title ?? "Shop banner"} fill sizes="(max-width: 640px) 100vw, 1280px" className="object-cover" priority={i === 0} />
-                    <span className="absolute bottom-9 right-4 sm:bottom-8 sm:right-8">{action}</span>
+                    <span className="absolute bottom-3 right-3 sm:bottom-8 sm:right-8">{action}</span>
                   </div>
                 )
               ) : (
                 wrap(
-                  <div className="flex aspect-[4/5] w-full flex-col sm:aspect-[21/8] sm:flex-row-reverse">
-                    <div className="relative min-h-0 flex-1 bg-[#F4EBDD] sm:flex-[2]">
+                  <div className="flex aspect-[16/11] w-full flex-row-reverse sm:aspect-[21/8]">
+                    <div className="relative min-h-0 w-[44%] shrink-0 bg-[#F4EBDD] sm:w-auto sm:flex-[2]">
                       <Image
                         src={s.image}
                         alt={s.title ?? ""}
@@ -146,23 +146,23 @@ export default function StoreHeroCarousel({
                       />
                     </div>
                     <div
-                      className="flex shrink-0 items-end justify-between gap-3 px-4 pb-9 pt-4 sm:flex-[3] sm:flex-col sm:items-start sm:justify-center sm:pl-24 sm:pr-12 sm:py-10"
+                      className="flex min-w-0 flex-1 flex-col items-start justify-center px-4 py-4 sm:flex-[3] sm:pl-24 sm:pr-12 sm:py-10"
                       style={{ background: palette.band, color: palette.bandText }}
                     >
                       <div className="min-w-0">
                         {s.eyebrow && (
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] sm:text-xs" style={{ color: palette.eyebrow }}>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] sm:text-xs" style={{ color: palette.eyebrow }}>
                             {s.eyebrow}
                           </p>
                         )}
                         {s.title && (
-                          <p className={`mt-1 line-clamp-2 text-[21px] font-semibold leading-tight sm:text-[40px] ${titleClassName}`}>
+                          <p className={`mt-1 line-clamp-3 text-[19px] font-semibold leading-tight sm:line-clamp-2 sm:text-[40px] ${titleClassName}`}>
                             {s.title}
                           </p>
                         )}
-                        {s.price && <p className="mt-0.5 text-[15px] font-semibold opacity-90 sm:mt-2 sm:text-[18px]">{s.price}</p>}
+                        {s.price && <p className="mt-1 text-[14px] font-semibold opacity-90 sm:mt-2 sm:text-[18px]">{s.price}</p>}
                       </div>
-                      <span className="sm:mt-6">{action}</span>
+                      <span className="mt-3 sm:mt-6">{action}</span>
                     </div>
                   </div>
                 )
@@ -182,7 +182,7 @@ export default function StoreHeroCarousel({
               goTo((active - 1 + slides.length) % slides.length);
             }}
             aria-label="Previous slide"
-            className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:left-7 sm:h-12 sm:w-12 cursor-pointer"
+            className="absolute left-2 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:left-7 sm:flex sm:h-12 sm:w-12 cursor-pointer"
           >
             <ChevronLeft className="h-6 w-6" aria-hidden />
           </button>
@@ -193,7 +193,7 @@ export default function StoreHeroCarousel({
               goTo((active + 1) % slides.length);
             }}
             aria-label="Next slide"
-            className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:right-7 sm:h-12 sm:w-12 cursor-pointer"
+            className="absolute right-2 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:right-7 sm:flex sm:h-12 sm:w-12 cursor-pointer"
           >
             <ChevronRight className="h-6 w-6" aria-hidden />
           </button>
