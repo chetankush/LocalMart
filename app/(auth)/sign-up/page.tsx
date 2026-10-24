@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { safeReturnPath, signInHref } from "@/lib/auth/returnTo";
 
-export default function SignUpPage() {
-  const router = useRouter();
+function SignUpForm() {
+  const params = useSearchParams();
+  // Where they were going before we asked them to sign in
+  const returnTo = safeReturnPath(params.get("redirect") ?? params.get("next"));
+  const signInLink = returnTo === "/" ? "/sign-in" : signInHref(returnTo);
   const { signUpWithEmail, signInWithGoogle } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +45,7 @@ export default function SignUpPage() {
   const handleGoogleSignUp = async () => {
     setLoading(true);
     setError("");
-    await signInWithGoogle();
+    await signInWithGoogle(returnTo);
   };
 
   if (success) {
@@ -68,11 +72,11 @@ export default function SignUpPage() {
               Check your email
             </h2>
             <p className="text-gray-600 mb-6">
-              We've sent you an email with a confirmation link. Please check
+              We&apos;ve sent you an email with a confirmation link. Please check
               your inbox and click the link to verify your account.
             </p>
             <Link
-              href="/sign-in"
+              href={signInLink}
               className="inline-block bg-blue-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
             >
               Go to Sign In
@@ -194,7 +198,7 @@ export default function SignUpPage() {
           <p className="text-sm text-gray-600">
             Already have an account?{" "}
             <Link
-              href="/sign-in"
+              href={signInLink}
               className="text-blue-600 hover:underline font-medium cursor-pointer"
             >
               Sign In
@@ -203,5 +207,14 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary in the App Router
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-canvas" />}>
+      <SignUpForm />
+    </Suspense>
   );
 }

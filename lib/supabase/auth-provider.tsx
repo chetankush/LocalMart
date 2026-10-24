@@ -13,7 +13,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (returnTo?: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signUpWithEmail: (
     email: string,
@@ -51,11 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (returnTo?: string) => {
+    // Come back to the page the shopper was on (checked again in the callback)
+    const next = returnTo && returnTo !== "/" ? `?next=${encodeURIComponent(returnTo)}` : "";
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback${next}`,
       },
     });
   };

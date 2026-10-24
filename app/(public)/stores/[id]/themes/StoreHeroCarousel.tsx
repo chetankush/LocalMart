@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface HeroSlide {
   key: string;
@@ -146,7 +146,7 @@ export default function StoreHeroCarousel({
                       />
                     </div>
                     <div
-                      className="flex shrink-0 items-end justify-between gap-3 px-4 pb-9 pt-4 sm:flex-[3] sm:flex-col sm:items-start sm:justify-center sm:px-12 sm:py-10"
+                      className="flex shrink-0 items-end justify-between gap-3 px-4 pb-9 pt-4 sm:flex-[3] sm:flex-col sm:items-start sm:justify-center sm:pl-24 sm:pr-12 sm:py-10"
                       style={{ background: palette.band, color: palette.bandText }}
                     >
                       <div className="min-w-0">
@@ -171,6 +171,34 @@ export default function StoreHeroCarousel({
           );
         })}
       </div>
+
+      {/* Previous / next — vertically centred on the left and right edges */}
+      {many && (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              holdAutoplay();
+              goTo((active - 1 + slides.length) % slides.length);
+            }}
+            aria-label="Previous slide"
+            className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:left-7 sm:h-12 sm:w-12 cursor-pointer"
+          >
+            <ChevronLeft className="h-6 w-6" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              holdAutoplay();
+              goTo((active + 1) % slides.length);
+            }}
+            aria-label="Next slide"
+            className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#2E0710] shadow-md backdrop-blur hover:bg-white sm:right-7 sm:h-12 sm:w-12 cursor-pointer"
+          >
+            <ChevronRight className="h-6 w-6" aria-hidden />
+          </button>
+        </>
+      )}
 
       {/* Segmented progress lines — tap one to jump to that slide */}
       {many && (

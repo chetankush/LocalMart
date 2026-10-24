@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import ReviewForm from "./ReviewForm";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -46,14 +47,14 @@ export default async function WriteReviewPage({
 
   // Require authentication
   if (!user) {
-    redirect(`/login?redirect=/stores/${id}/write-review`);
+    redirect(signInHref(`/stores/${id}/write-review`));
   }
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect(`/login?redirect=/stores/${id}/write-review`);
+    redirect(signInHref(`/stores/${id}/write-review`));
   }
 
   // Get vendor and review data

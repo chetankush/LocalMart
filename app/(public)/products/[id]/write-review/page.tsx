@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import ProductReviewForm from "./ProductReviewForm";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -43,7 +44,7 @@ export default async function WriteReviewPage({ params }: WriteReviewPageProps) 
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect(`/signin?redirect=/products/${id}/write-review`);
+    redirect(signInHref(`/products/${id}/write-review`));
   }
 
   // Get product and review data
