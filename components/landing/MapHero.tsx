@@ -3,8 +3,10 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Map as MapIcon, Search, Store } from "lucide-react";
+import { AdBannerCard } from "@/components/ads/HomeAdBanner";
+import type { ServedAd } from "@/lib/ads";
 import type { MapShop } from "@/components/map/ShopMap";
 import type { BusinessHours } from "@/lib/landing/distance";
 import { GROUPS, type Tile } from "@/components/landing/CategoryGrid";
@@ -31,12 +33,14 @@ export interface HeroPromo {
   cta: string;
   image: string | null;
   /** Card colour (solid, soft) */
-  tone: "rose" | "green";
+  tone: "rose" | "green" | "amber" | "sky";
 }
 
 const TONES = {
   rose: { bg: "bg-[#FDECEF]", eyebrow: "text-tint" },
   green: { bg: "bg-[#E7F6EC]", eyebrow: "text-ok" },
+  amber: { bg: "bg-[#FFF4D6]", eyebrow: "text-[#8A6A00]" },
+  sky: { bg: "bg-[#E8F1FB]", eyebrow: "text-link" },
 };
 
 type MapShopFull = MapShop &
@@ -136,6 +140,7 @@ export default function MapHero({
   noLocation = false,
   onChooseArea,
   shopTypes = [],
+  ads = [],
 }: {
   /** Shown until the map's own list (all live shops nearby) arrives */
   shops: MapShop[];
@@ -148,6 +153,8 @@ export default function MapHero({
   onChooseArea?: () => void;
   /** Kinds of shop open here (businessType), for the category slides */
   shopTypes?: string[];
+  /** Paid picture banners for this area — a card beside the carousel (a slide on phones) */
+  ads?: ServedAd[];
 }) {
   const shops = useMapShops(initialShops, user);
   const desktop = useIsDesktop();
@@ -174,59 +181,192 @@ export default function MapHero({
         ),
       });
     }
-    // Phones: the promo cards become slides ("Shop new", "See deals")
+    // Phones: the paid banners and the promo cards become slides
     if (!desktop) {
+      out.splice(
+        1,
+        0,
+        ...ads.map((ad) => ({ key: `ad-${ad.adId}`, label: ad.banner?.title || ad.vendor.businessName, node: <AdBannerCard ad={ad} /> })),
+      );
       for (const p of promos) out.push({ key: `promo-${p.href}`, label: p.title, node: <PromoSlide promo={p} /> });
     }
     for (const shop of featuredShops(shops, noLocation ? 2 : 4)) {
       out.push({ key: `shop-${shop.id}`, label: shop.businessName, node: <ShopSlide shop={shop} /> });
     }
     return out;
-  }, [noLocation, onChooseArea, shopTypes, place, count, desktop, shops, user, promos]);
+  }, [noLocation, onChooseArea, shopTypes, place, count, desktop, shops, user, promos, ads]);
+
+  // Desktop, beside the carousel: paid banners on top (or the first promo),
+  // and a small carousel below — the other promos, kinds of shop open here,
+  // and "open your shop"
+  const side = useMemo(() => {
+    const cards: HeroPromo[] = [...promos];
+    for (const t of categoryTiles(shopTypes, 2)) {
+      cards.push({
+        href: `/stores?category=${t.slug}`,
+        eyebrow: place ? `In ${place}` : "Shops near you",
+        title: `${t.label} shops`,
+        cta: "See shops",
+        image: t.image.replace(/\?.*$/, "?w=500&h=500&fit=crop"),
+        tone: "sky",
+      });
+    }
+    cards.push({
+      href: "/become-vendor",
+      eyebrow: "Sell on LocalMart",
+      title: "Put your shop online — free",
+      cta: "Open your shop",
+      image: null,
+      tone: "amber",
+    });
+    const top = ads.length ? null : cards.shift() ?? null;
+    return { top, rest: cards };
+  }, [promos, shopTypes, place, ads.length]);
 
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6">
       {/* grid-cols-1 (minmax(0,1fr)): the slides must never widen the page */}
-      <div className={`grid grid-cols-1 gap-4 ${promos.length ? "lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : ""}`}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <div className="min-w-0">
           <HeroCarousel slides={slides} />
         </div>
 
-        {/* ── Desktop: promo cards beside the carousel ── */}
-        {promos.length > 0 && (
-          <div className="hidden gap-4 lg:grid lg:h-[420px] lg:grid-rows-2">
-            {promos.slice(0, 2).map((p) => {
-              const tone = TONES[p.tone];
-              return (
-                <Link
-                  key={p.href}
-                  href={p.href}
-                  className={`group relative flex items-center overflow-hidden rounded-3xl ${tone.bg} p-5 transition-transform active:scale-[0.99]`}
-                >
-                  <div className="relative z-10 max-w-[55%]">
-                    <p className={`text-[12px] font-bold uppercase tracking-[0.06em] ${tone.eyebrow}`}>{p.eyebrow}</p>
-                    <h3 className="mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] text-label">{p.title}</h3>
-                    <span className="mt-2 inline-flex items-center gap-0.5 text-[14px] font-semibold text-label underline-offset-4 group-hover:underline">
-                      {p.cta}
-                      <ChevronRight className="h-4 w-4" aria-hidden />
-                    </span>
-                  </div>
-                  {p.image && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.image}
-                      alt=""
-                      className="absolute right-4 top-1/2 h-[78%] w-[38%] -translate-y-1/2 rounded-2xl object-cover object-top"
-                      loading="lazy"
-                    />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        )}
+        {/* ── Desktop: two cards beside the carousel ── */}
+        <div className="hidden gap-4 lg:grid lg:h-[420px] lg:grid-rows-2">
+          {ads.length > 0 ? (
+            <CardCarousel
+              label="Shops near you"
+              onPhoto
+              items={ads.map((ad) => ({
+                key: ad.adId,
+                label: ad.banner?.title || ad.vendor.businessName,
+                render: (active: boolean) => <AdBannerCard ad={ad} active={active} />,
+              }))}
+            />
+          ) : (
+            side.top && <PromoCard promo={side.top} />
+          )}
+          <CardCarousel
+            label="More on LocalMart"
+            items={side.rest.map((p) => ({ key: p.href, label: p.title, render: () => <PromoCard promo={p} /> }))}
+          />
+        </div>
       </div>
     </section>
+  );
+}
+
+/** Desktop: a soft-coloured promo card ("New arrivals", "Deals"…) */
+function PromoCard({ promo: p }: { promo: HeroPromo }) {
+  const tone = TONES[p.tone];
+  return (
+    <Link
+      href={p.href}
+      className={`group relative flex h-full items-center overflow-hidden rounded-3xl ${tone.bg} p-5 transition-transform active:scale-[0.99]`}
+    >
+      <div className={`relative z-10 ${p.image ? "max-w-[55%]" : "max-w-[80%]"}`}>
+        <p className={`text-[12px] font-bold uppercase tracking-[0.06em] ${tone.eyebrow}`}>{p.eyebrow}</p>
+        <h3 className="mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] text-label">{p.title}</h3>
+        <span className="mt-2 inline-flex items-center gap-0.5 text-[14px] font-semibold text-label underline-offset-4 group-hover:underline">
+          {p.cta}
+          <ChevronRight className="h-4 w-4" aria-hidden />
+        </span>
+      </div>
+      {p.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={p.image}
+          alt=""
+          className="absolute right-4 top-1/2 h-[78%] w-[38%] -translate-y-1/2 rounded-2xl object-cover object-top"
+          loading="lazy"
+        />
+      ) : (
+        <Store className="absolute -bottom-3 right-3 h-28 w-28 text-label/[0.06]" aria-hidden />
+      )}
+    </Link>
+  );
+}
+
+/**
+ * A small card that shows one item at a time. It never moves by itself — only
+ * the big carousel beside it does, so the page stays calm. Each visit starts
+ * on a different item (so every card, and every paid banner, gets its turn);
+ * the dots or a swipe show the others. Hidden items can't be tapped or tabbed to.
+ */
+function CardCarousel({
+  items,
+  label,
+  onPhoto = false,
+}: {
+  items: { key: string; label: string; render: (active: boolean) => ReactNode }[];
+  label: string;
+  /** Items are photos: white dots, top right (clear of their buttons) */
+  onPhoto?: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  // Picked in the browser after the first paint, so the server's HTML matches
+  const [ready, setReady] = useState(false);
+  const n = items.length;
+  useEffect(() => {
+    setIndex(n > 1 ? Math.floor(Math.random() * n) : 0);
+    setReady(true);
+  }, [n]);
+  const current = n ? index % n : 0;
+  const go = (step: number) => setIndex((i) => (((i + step) % n) + n) % n);
+
+  // Swipe left / right on touch screens
+  const startX = useRef<number | null>(null);
+
+  if (n === 0) return null;
+  return (
+    <div
+      className="relative h-full min-h-0"
+      role="region"
+      aria-roledescription="carousel"
+      aria-label={label}
+      onTouchStart={(e) => (startX.current = e.touches[0]?.clientX ?? null)}
+      onTouchEnd={(e) => {
+        const from = startX.current;
+        const to = e.changedTouches[0]?.clientX;
+        startX.current = null;
+        if (from != null && to != null && Math.abs(to - from) > 40 && n > 1) go(to < from ? 1 : -1);
+      }}
+    >
+      {items.map((it, i) => (
+        <div
+          key={it.key}
+          role="group"
+          aria-roledescription="slide"
+          aria-label={`${i + 1} of ${n}: ${it.label}`}
+          aria-hidden={i !== current}
+          inert={i !== current}
+          className={`absolute inset-0 transition-opacity duration-500 ${ready && i === current ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        >
+          {it.render(ready && i === current)}
+        </div>
+      ))}
+      {n > 1 && (
+        <div className={`absolute z-10 flex items-center gap-1 ${onPhoto ? "right-4 top-3 drop-shadow" : "bottom-3 left-5"}`}>
+          {items.map((it, i) => (
+            <button
+              key={it.key}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Show ${i + 1} of ${n}`}
+              aria-current={i === current}
+              className="flex h-6 items-center px-0.5"
+              style={{ minHeight: 0 }}
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all ${
+                  i === current ? `w-4 ${onPhoto ? "bg-white" : "bg-label/70"}` : `w-1.5 ${onPhoto ? "bg-white/55" : "bg-label/25"}`
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

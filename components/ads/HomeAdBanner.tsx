@@ -4,7 +4,49 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocation } from "@/context/LocationContext";
-import { trackAd, useAds, type ServedAd } from "@/lib/ads";
+import { trackAd, useAdImpression, useAds, type ServedAd } from "@/lib/ads";
+
+/**
+ * A paid banner as a card in the home hero (the top-right card on desktop,
+ * a carousel slide on phones). Counts a view once per visit — when it's the
+ * card showing (`active`), or when half of it scrolls into view — and taps.
+ */
+export function AdBannerCard({ ad, active }: { ad: ServedAd; active?: boolean }) {
+  const seen = useAdImpression<HTMLAnchorElement>(active === undefined ? ad.adId : "");
+  useEffect(() => {
+    if (active) trackAd(ad.adId, "impression");
+  }, [active, ad.adId]);
+  return (
+    <Link
+      ref={active === undefined ? seen : undefined}
+      href={`/stores/${ad.vendor.id}`}
+      onClickCapture={() => trackAd(ad.adId, "click")}
+      className="group relative block h-full overflow-hidden rounded-3xl bg-[#1F1F1F]"
+    >
+      {ad.banner?.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={ad.banner.image}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        />
+      )}
+      <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" aria-hidden />
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 sm:p-5">
+        <div className="min-w-0 text-white">
+          <p className="truncate text-[13px] font-medium text-white/85">{ad.vendor.businessName}</p>
+          <p className="line-clamp-2 text-[20px] font-bold leading-tight tracking-[-0.01em] sm:text-[22px]">
+            {ad.banner?.title || `Visit ${ad.vendor.businessName}`}
+          </p>
+        </div>
+        {/* Phones: just the arrow, so the title has room */}
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center gap-0.5 rounded-full bg-white text-[14px] font-semibold text-label sm:w-auto sm:px-4">
+          <span className="hidden sm:inline">Visit shop</span> <ChevronRight className="h-4 w-4" aria-hidden />
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 function Slide({ ad, active }: { ad: ServedAd; active: boolean }) {
   // Every slide is on the page (faded out); count a view only while it is the one showing
@@ -24,9 +66,6 @@ function Slide({ ad, active }: { ad: ServedAd; active: boolean }) {
         <img src={ad.banner.image} alt="" className="h-full w-full object-cover" />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-      <span className="absolute right-3 top-3 rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-        Ad
-      </span>
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 sm:p-6">
         <div className="min-w-0 text-white">
           <p className="truncate text-[13px] font-medium text-white/85">{ad.vendor.businessName}</p>

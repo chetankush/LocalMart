@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useLocation } from "@/context/LocationContext";
 import ShopSpotlight from "@/components/landing/ShopSpotlight";
 import SponsoredShops from "@/components/ads/SponsoredShops";
-import HomeAdBanner from "@/components/ads/HomeAdBanner";
+import { useAds } from "@/lib/ads";
 import NotInYourArea from "@/components/landing/NotInYourArea";
 import OutOfAreaStrip from "@/components/landing/OutOfAreaStrip";
 import FirstVisitIntro from "@/components/landing/FirstVisitIntro";
@@ -190,6 +190,14 @@ export default function LandingPageClient({
 
   const hasNearbyVendors = vendors.length > 0;
   const shopTypesHere = useMemo(() => [...new Set(vendors.map((v) => v.businessType))], [vendors]);
+  // Paid picture banners for this area — shown as a card beside the hero, not a full-width strip
+  const servedBanners = useAds({
+    placement: "HOME_BANNER",
+    pincode: location?.pincode,
+    city: location?.city,
+    enabled: !outOfArea,
+  });
+  const bannerAds = useMemo(() => servedBanners.filter((a) => a.banner?.image), [servedBanners]);
   const openLocationModal = useCallback(() => setShowLocationModal(true), []);
 
   // Hero: the shops on a little map, and two promo cards (newest, best deal)
@@ -214,6 +222,23 @@ export default function LandingPageClient({
   };
   const bestDeal = [...allProducts].sort((a, b) => discountOf(b) - discountOf(a))[0];
   const promos: HeroPromo[] = [];
+  // "New collection arrived" for each shop that added 2+ things lately (newest shop first)
+  const newByShop = new Map<string, { name: string; count: number; image: string | null }>();
+  for (const p of enrichedNew) {
+    const shop = newByShop.get(p.vendor.id) ?? { name: p.vendor.businessName, count: 0, image: imageOf(p) };
+    shop.count += 1;
+    newByShop.set(p.vendor.id, shop);
+  }
+  for (const [id, shop] of [...newByShop].filter(([, sh]) => sh.count >= 2).slice(0, 2)) {
+    promos.push({
+      href: `/stores/${id}?show=new`,
+      eyebrow: "New collection arrived",
+      title: shop.name,
+      cta: `See ${shop.count} new pieces`,
+      image: shop.image,
+      tone: "rose",
+    });
+  }
   if (enrichedNew.length > 0) {
     promos.push({
       href: "#new-arrivals",
@@ -259,8 +284,6 @@ export default function LandingPageClient({
           <FirstVisitIntro onChoose={() => setShowLocationModal(true)} />
         )}
 
-        {!outOfArea && <HomeAdBanner />}
-
         <MapHero
           shops={mapShops}
           user={heroUser}
@@ -269,6 +292,7 @@ export default function LandingPageClient({
           noLocation={!locationSet && !outOfArea}
           onChooseArea={openLocationModal}
           shopTypes={shopTypesHere}
+          ads={bannerAds}
         />
 
         <CategoryShowcase shopTypes={vendors.map((v) => v.businessType)} />

@@ -33,7 +33,6 @@ export default function ShopCard({
   action,
   onClick,
   priority = false,
-  sponsored = false,
 }: {
   shop: ShopCardShop;
   /** Distance from the shopper, if known */
@@ -44,7 +43,7 @@ export default function ShopCard({
   action?: ReactNode;
   onClick?: () => void;
   priority?: boolean;
-  /** Paid placement: shows a small "Ad" tag */
+  /** Paid placement (no tag is shown — the owner asked for a clean card) */
   sponsored?: boolean;
 }) {
   const rating = Number(shop.averageRating) || 0;
@@ -87,11 +86,6 @@ export default function ShopCard({
           )}
         </div>
         <p className="mt-1 truncate text-[14px] text-label-2">
-          {sponsored && (
-            <span className="mr-1.5 rounded border border-label/20 px-1 py-px text-[11px] font-semibold text-label-2">
-              Ad
-            </span>
-          )}
           {SHOP_KIND[shop.businessType] ?? "Shop"} · {area}
         </p>
       </div>

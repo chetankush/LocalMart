@@ -28,7 +28,7 @@ function AdCard({ ad, mounted }: { ad: ServedAd; mounted: boolean }) {
 }
 
 /**
- * Paid shops for one spot ("Featured"), always marked "Ad". Shows nothing
+ * Paid shops for one spot, under a "Featured" heading. Shows nothing
  * when no shop has booked this spot for the shopper's area.
  */
 export default function SponsoredShops({
@@ -80,7 +80,7 @@ export default function SponsoredShops({
 
   if (variant === "home") {
     return (
-      <HomeSection title={title} subtitle="Sponsored · shops that pay to be shown here">
+      <HomeSection title={title} subtitle="Shops worth a visit near you">
         {list}
       </HomeSection>
     );
@@ -89,7 +89,6 @@ export default function SponsoredShops({
     <section className="mb-6" aria-label={title}>
       <div className="mb-3 flex items-baseline gap-2">
         <h2 className="text-[18px] font-bold leading-tight text-label">{title}</h2>
-        <span className="text-[13px] text-label-2">Sponsored</span>
       </div>
       {list}
     </section>

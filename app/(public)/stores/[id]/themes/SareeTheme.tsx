@@ -294,6 +294,88 @@ function SectionHeading({
   );
 }
 
+/**
+ * "New collection is here" — shown only when the shop added designs in the
+ * last NEW_ARRIVAL_DAYS days. The photos of the newest pieces change by
+ * themselves; the button opens the New arrivals list.
+ */
+function NewCollectionBanner({ items, count, onOpen }: { items: Product[]; count: number; onOpen: () => void }) {
+  const photos = items
+    .map((p) => toImageList(p.images)[0])
+    .filter((x): x is string => Boolean(x))
+    .slice(0, 5);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (photos.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setShown((n) => (n + 1) % photos.length), 3500);
+    return () => clearInterval(t);
+  }, [photos.length]);
+  // Fixed time zone, so the server and the phone print the same date
+  const latest = items[0]
+    ? new Date(items[0].createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })
+    : null;
+
+  return (
+    <section className="max-w-[1440px] mx-auto px-4 pt-8" aria-labelledby="new-collection-title">
+      <div className="relative overflow-hidden rounded-2xl border border-[#E9C979] bg-gradient-to-br from-[#FFF8E6] via-[#FBEFD2] to-[#F3DDB0] shadow-[0_10px_30px_-18px_rgba(74,13,24,0.45)]">
+        <div className="grid grid-cols-[minmax(0,1fr)_42%] items-stretch sm:grid-cols-[minmax(0,1fr)_38%]">
+          <div className="flex flex-col justify-center px-4 py-6 sm:px-10 sm:py-10">
+            <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#B8862B]">
+              <span className="relative flex h-2 w-2" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C8102E] opacity-60 motion-reduce:animate-none" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#C8102E]" />
+              </span>
+              Just arrived
+            </p>
+            <h2
+              id="new-collection-title"
+              className={`${serif.className} mt-1.5 text-[30px] font-semibold leading-[1.02] text-[#4A0D18] sm:text-[50px]`}
+            >
+              New collection is here
+            </h2>
+            <p className="mt-1 text-[15px] font-medium text-[#6E1423] sm:text-[17px]">नया कलेक्शन आ गया</p>
+            <p className="mt-2 text-[14px] text-gray-700">
+              {count} new {count === 1 ? "design" : "designs"}
+              {latest && <span className="text-gray-500"> · latest added {latest}</span>}
+            </p>
+            <button
+              type="button"
+              onClick={onOpen}
+              className="mt-4 inline-flex h-11 w-fit items-center gap-2 rounded-full bg-[#4A0D18] px-5 text-[14px] font-bold text-white transition-colors hover:bg-[#6E1423] cursor-pointer sm:h-12 sm:px-7 sm:text-[15px]"
+            >
+              <span className="sm:hidden">Shop new</span>
+              <span className="hidden sm:inline">See the new collection</span>
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+
+          <div className="relative min-h-[230px] sm:min-h-[320px]">
+            {photos.map((src, k) => (
+              <Image
+                key={src}
+                src={src}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 42vw, 540px"
+                className={`object-cover object-top transition-opacity duration-1000 ${k === shown ? "opacity-100" : "opacity-0"}`}
+              />
+            ))}
+            {/* Soft edge into the text side */}
+            <span className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#FBEFD2] to-transparent sm:w-16" aria-hidden />
+            {photos.length > 1 && (
+              <span className="absolute bottom-3 right-3 flex gap-1" aria-hidden>
+                {photos.map((src, k) => (
+                  <span key={src} className={`h-1.5 rounded-full transition-all ${k === shown ? "w-4 bg-white" : "w-1.5 bg-white/60"}`} />
+                ))}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SareeCard({
   product,
   vendorName,
@@ -618,6 +700,13 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
 
   // Products added in the last NEW_ARRIVAL_DAYS — gets its own chip
   const newArrivalCount = useMemo(() => products.filter((p) => isNewArrival(p.createdAt)).length, [products]);
+  const newestPieces = useMemo(
+    () =>
+      products
+        .filter((p) => isNewArrival(p.createdAt))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [products],
+  );
 
   // Height of the pinned chip bar (52px + borders), for things that sit under it
   const hasChipBar = fabricCollections.length > 0;
@@ -632,6 +721,20 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const scrollToCatalog = useCallback(() => {
     document.getElementById("saree-catalog")?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const openNewCollection = useCallback(() => {
+    setActiveFabric(NEW_CHIP);
+    scrollToCatalog();
+  }, [scrollToCatalog]);
+
+  // From the home page's "New collection" card (/stores/<id>?show=new)
+  useEffect(() => {
+    if (newArrivalCount === 0) return;
+    if (new URLSearchParams(window.location.search).get("show") !== "new") return;
+    setActiveFabric(NEW_CHIP);
+    const t = setTimeout(() => document.getElementById("saree-catalog")?.scrollIntoView({ behavior: "smooth" }), 400);
+    return () => clearTimeout(t);
+  }, [newArrivalCount]);
 
   const openFabric = useCallback(
     (key: string) => {
@@ -1024,6 +1127,10 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         </ul>
       </section>
 
+      {newArrivalCount > 0 && (
+        <NewCollectionBanner items={newestPieces} count={newArrivalCount} onOpen={openNewCollection} />
+      )}
+
       {/* ============================================================== */}
       {/* 5. Trending collections (by fabric)                            */}
       {/* ============================================================== */}
@@ -1240,7 +1347,11 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         className="max-w-[1440px] mx-auto px-4 pt-10 pb-10"
         style={{ scrollMarginTop: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px) + 8px)" }}
       >
-        <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "saree" : "sarees"} in store`} title="All Sarees" />
+        {activeFabric === NEW_CHIP ? (
+          <SectionHeading eyebrow="Just arrived · नया कलेक्शन" title="The New Collection" />
+        ) : (
+          <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "saree" : "sarees"} in store`} title="All Sarees" />
+        )}
 
         <div className="mb-6 flex items-center justify-between gap-3 border-y border-[#EADBC8] py-2.5">
           <p className="text-sm text-gray-600">
