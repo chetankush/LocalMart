@@ -38,10 +38,12 @@ async function getProduct(productId: string, authToken: string) {
   }
 }
 
-async function getCategories() {
+// LocalMart's shared categories plus the seller's own shop categories
+async function getCategories(authToken: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/categories`, {
-      next: { revalidate: 300 },
+    const response = await fetch(`${API_BASE_URL}/categories/mine`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -73,7 +75,7 @@ export default async function EditProductPage({
 
   const [product, categories] = await Promise.all([
     getProduct(id, session.access_token),
-    getCategories(),
+    getCategories(session.access_token),
   ]);
 
   if (!product) {
@@ -87,7 +89,11 @@ export default async function EditProductPage({
         subtitle={product.name}
         back={{ href: "/vendor/products", label: "Products" }}
       />
-      <EditProductForm product={product} categories={categories} />
+      <EditProductForm
+        product={product}
+        // Shared categories + this product's shop's own
+        categories={categories.filter((c: { vendorId?: string | null }) => !c.vendorId || c.vendorId === product.vendorId)}
+      />
     </Page>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
+import RentInfo from "@/components/rentals/RentInfo";
 import ProductReviews from "./ProductReviews";
 import ProductPageClient from "./ProductPageClient";
 import { TrackProductView } from "@/components/TrackView";
@@ -162,7 +163,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <div className="min-h-screen bg-card pb-6">
         <div className="mx-auto max-w-6xl lg:grid lg:grid-cols-2 lg:gap-10 lg:px-8 lg:pt-8">
           <ImageGallery images={images} productName={product.name} discountPercent={discount} />
-          <ProductInfo product={{ ...product, images }} vendor={v} />
+          {product.listingType === "RENT" ? (
+            // Rented, not bought: pick dates and how many, then ask the shop
+            <RentInfo product={product} vendor={v} />
+          ) : (
+            <ProductInfo product={{ ...product, images }} vendor={v} />
+          )}
         </div>
 
         <div className="mx-auto max-w-6xl space-y-4 px-4 pt-6 lg:px-8">

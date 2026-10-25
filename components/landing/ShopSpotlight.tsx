@@ -4,6 +4,7 @@ import { isStoreOpen, calculateDistanceKm } from "@/lib/landing/distance";
 import { useMounted } from "@/hooks/useMounted";
 import { HomeSection } from "@/components/app/commerce";
 import ShopCard from "./ShopCard";
+import MapLinkButton from "@/components/map/MapLinkButton";
 import type { Vendor } from "./StoresNearYouSection";
 
 /**
@@ -31,12 +32,15 @@ export default function ShopSpotlight({
   const one = vendors.length === 1;
 
   return (
-    <HomeSection title={title} href="/stores" linkLabel="See all">
+    <HomeSection title={title} href="/stores" linkLabel="See all" action={<MapLinkButton />}>
       <ul
         className={
           one
-            ? "grid"
-            : "-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3"
+            ? // Full width on phones; on bigger screens one shop keeps the
+              // same card size as a full row instead of stretching edge to edge
+              // grid-cols-1 = minmax(0, 1fr), so a long address can't widen the page
+              "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            :"-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3"
         }
       >
         {vendors.slice(0, 10).map((v) => {

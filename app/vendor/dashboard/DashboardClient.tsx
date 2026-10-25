@@ -2,22 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  Bell,
-  Check,
-  ChevronRight,
-  Clock,
-  Eye,
-  Layers,
-  Megaphone,
-  Package,
-  Plus,
-  ReceiptText,
-  Send,
-  Share2,
-  ShieldAlert,
-  Store,
-} from "lucide-react";
+import { Bell, CalendarCheck, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock } from "lucide-react";
 import ShareStoreModal from "@/components/ShareStoreModal";
 import { Button, Notice, Pill, Row, Thumb, formatIST, rupees } from "@/components/app/ui";
 import {
@@ -31,6 +16,8 @@ import {
   shopStatus,
 } from "@/components/app/seller";
 import { useApprovals } from "../_approvals/ApprovalsPollerContext";
+import { BusyCard } from "../_approvals/ShopBusy";
+import { OrderAlertsCard } from "../_approvals/OrderAlertsSetup";
 
 interface StoreInfo {
   id: string;
@@ -51,6 +38,8 @@ interface StoreData {
   isActive: boolean;
   city: string;
   storeLogo: string | null;
+  /** The owner has put the shop on the map */
+  mapPinSet?: boolean;
   products: any[];
   orders: any[];
   stats: {
@@ -77,7 +66,10 @@ const firstImage = (images: unknown): string | null =>
  */
 export default function DashboardClient({ stores, initialStoreData, firstName }: DashboardClientProps) {
   const [showShareModal, setShowShareModal] = useState(false);
-  const { count: waiting } = useApprovals();
+  const { count: waiting, stores: liveStores } = useApprovals();
+  // "Busy": the live state from the order checker (updates the moment it changes)
+  const liveShop = liveStores.find((s) => s.id === initialStoreData.id);
+  const pausedNow = !!liveShop?.pausedUntil && new Date(liveShop.pausedUntil).getTime() > Date.now();
 
   const shop = initialStoreData;
   const stats = shop.stats;
@@ -85,14 +77,30 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
   const status = shopStatus(shop.status);
   const q = `storeId=${storeId}`;
 
-  // Set-up checklist until the shop has products and a first order
+  const hasPagePhotos = (stores.find((s) => s.id === storeId)?.storeImages?.length ?? 0) > 0;
+
+  // Set-up checklist until the shop has products, photos and a first order
   const setupSteps = [
     { done: true, title: "Shop created", body: "Your name and address are saved" },
+    {
+      done: shop.mapPinSet !== false,
+      title: "Put your shop on the map",
+      body: "So customers nearby can find you · मैप पर दुकान दिखाएं",
+      href: `/vendor/settings?${q}#shop-location`,
+      action: "Set",
+    },
     {
       done: stats.totalProducts > 0,
       title: "Add your products",
       body: "Photo, name and price — that's all",
       href: `/vendor/products/new?${q}`,
+      action: "Add",
+    },
+    {
+      done: hasPagePhotos,
+      title: "Add photos to your shop page",
+      body: "Your shop front or best products — customers see them first",
+      href: `/vendor/shop-page?${q}`,
       action: "Add",
     },
     {
@@ -103,7 +111,7 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
       action: "Share",
     },
   ];
-  const showSetup = stats.totalProducts === 0 || stats.totalOrders === 0;
+  const showSetup = stats.totalProducts === 0 || stats.totalOrders === 0 || !hasPagePhotos || shop.mapPinSet === false;
   const doneCount = setupSteps.filter((s) => s.done).length;
 
   return (
@@ -116,10 +124,14 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
             {shop.businessName}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-label-2">
-            <Pill tone={status.tone}>
-              {shop.status === "ACTIVE" && <span className="h-2 w-2 rounded-full bg-ok" aria-hidden />}
-              {status.label}
-            </Pill>
+            {pausedNow ? (
+              <Pill tone="warn">Paused · new orders stopped</Pill>
+            ) : (
+              <Pill tone={status.tone}>
+                {shop.status === "ACTIVE" && <span className="h-2 w-2 rounded-full bg-ok" aria-hidden />}
+                {status.label}
+              </Pill>
+            )}
             {shop.city && <span>{shop.city}</span>}
           </div>
         </div>
@@ -152,12 +164,18 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                   {waiting} new order{waiting === 1 ? "" : "s"} waiting
                 </span>
                 <span className="mt-0.5 block text-[15px] leading-snug text-white/85">
-                  Accept within 10 minutes · अभी देखें
+                  Answer within 5 minutes · अभी देखें
                 </span>
               </span>
               <ChevronRight className="h-6 w-6 shrink-0" aria-hidden />
             </Link>
           )}
+
+          {/* ── Taking orders / "I'm busy" (live shops) ── */}
+          {shop.status === "ACTIVE" && <BusyCard />}
+
+          {/* ── Phone rings for new orders ── */}
+          <OrderAlertsCard />
 
           {/* ── Shop not live yet ── */}
           {shop.status === "PENDING_APPROVAL" && (
@@ -283,6 +301,24 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 hindi="ग्राहकों को बताएं"
               />
               <ActionTile
+                href={`/vendor/visits?${q}`}
+                icon={<CalendarCheck className="h-[22px] w-[22px]" />}
+                title="Visits"
+                hindi="दुकान पर आने वाले ग्राहक"
+              />
+              <ActionTile
+                href={`/vendor/ads?${q}`}
+                icon={<TrendingUp className="h-[22px] w-[22px]" />}
+                title="Promote my shop"
+                hindi="सबसे ऊपर दिखें"
+              />
+              <ActionTile
+                href={`/vendor/rentals?${q}`}
+                icon={<CalendarClock className="h-[22px] w-[22px]" />}
+                title="Rent out"
+                hindi="किराये पर दें"
+              />
+              <ActionTile
                 href={`/vendor/products?${q}`}
                 icon={<Package className="h-[22px] w-[22px]" />}
                 title="My products"
@@ -348,7 +384,7 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                           <span className="font-medium tabular-nums text-label">{rupees(Number(product.price))}</span>
                           {" · "}
                           <span className={stock === 0 ? "text-bad" : undefined}>
-                            {stock === 0 ? "Out of stock" : `${stock} in stock`}
+                            {stock === 0 ? "Not available" : product.trackStock === false ? "Available" : `${stock} in stock`}
                           </span>
                         </>
                       }
@@ -386,6 +422,13 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 leading={<IconBox tone="brand" size={40}><Store className="h-5 w-5" /></IconBox>}
                 title="Shop details & photos"
                 subtitle="Name, address, phone, UPI"
+                chevron
+              />
+              <Row
+                href={`/vendor/shop-page?${q}`}
+                leading={<IconBox tone="brand" size={40}><Palette className="h-5 w-5" /></IconBox>}
+                title="Design my shop page"
+                subtitle="Add your own photos"
                 chevron
               />
               <Row

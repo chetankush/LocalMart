@@ -112,8 +112,8 @@ export default function GroceryTheme({ vendor, products }: GroceryThemeProps) {
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-gray-900">Fresh Products</div>
-                <div className="text-sm text-gray-600">ताजा सामान की गारंटी</div>
+                <div className="font-semibold text-gray-900">Local Shop</div>
+                <div className="text-sm text-gray-600">आपके पास की दुकान</div>
               </div>
             </div>
 
@@ -136,8 +136,8 @@ export default function GroceryTheme({ vendor, products }: GroceryThemeProps) {
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-gray-900">Best Prices</div>
-                <div className="text-sm text-gray-600">सबसे अच्छे दाम</div>
+                <div className="font-semibold text-gray-900">Cash on Delivery</div>
+                <div className="text-sm text-gray-600">सामान आने पर पैसे दें</div>
               </div>
             </div>
           </div>

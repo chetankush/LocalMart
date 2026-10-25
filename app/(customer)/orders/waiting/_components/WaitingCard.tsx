@@ -1,4 +1,5 @@
 'use client';
+import { shortOrderNo } from "@/components/app/ui";
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Clock, Phone, XCircle } from 'lucide-react';
 import { UpiPayCard } from '@/components/payments/UpiPayCard';
@@ -20,8 +21,9 @@ interface OrderSummary {
 }
 
 const CONFIRMED = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-const REPLY_WINDOW_MS = 10 * 60 * 1000;
-const MAX_POLL_MS = 12 * 60 * 1000;
+// The shop has 5 minutes to answer; after that the order is cancelled
+const REPLY_WINDOW_MS = 5 * 60 * 1000;
+const MAX_POLL_MS = 7 * 60 * 1000;
 
 /** Minutes the shop has left to reply, refreshed every 15 s */
 function useMinutesLeft(placedAt: string) {
@@ -37,6 +39,9 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
   const [status, setStatus] = useState('PENDING');
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus ?? 'PENDING');
   const [timedOut, setTimedOut] = useState(false);
+  const [removedItems, setRemovedItems] = useState<string[]>([]);
+  const [total, setTotal] = useState(order.totalAmount);
+  const [noAnswer, setNoAnswer] = useState(false);
   const pollAbort = useRef(false);
   const minutesLeft = useMinutesLeft(order.placedAt);
 
@@ -54,6 +59,9 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
         const res = await apiClient.getOrderStatus(order.id);
         setStatus(res.status);
         setPaymentStatus(res.paymentStatus);
+        if (res.removedItems) setRemovedItems(res.removedItems);
+        if (typeof res.totalAmount === 'number') setTotal(res.totalAmount);
+        setNoAnswer(!!res.noAnswer);
         // Stop once the shop has answered
         if (res.status !== 'PENDING') return;
       } catch {
@@ -77,19 +85,25 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
   let title = `Waiting for ${order.storeName}`;
   let body =
     minutesLeft > 0
-      ? `The shop usually replies within a few minutes (about ${minutesLeft} min left). You can leave this page.`
-      : 'The shop is taking a little longer. We’ll update My Orders when they reply.';
+      ? `The shop has ${minutesLeft} min to reply. If they don’t, the order is cancelled and nothing is charged. You can leave this page.`
+      : 'Checking with the shop… · दुकान से पूछ रहे हैं';
 
   if (confirmed) {
     icon = <CheckCircle2 className="h-7 w-7 text-ok" aria-hidden />;
     iconBg = 'bg-ok-soft';
     title = `Confirmed by ${order.storeName}`;
-    body = upi ? 'Now pay the shop to complete your order.' : 'Pay in cash when your order arrives.';
+    body = removedItems.length
+      ? `${removedItems.join(', ')} ${removedItems.length === 1 ? 'wasn’t' : 'weren’t'} available, so ${removedItems.length === 1 ? 'it was' : 'they were'} taken off. New total ${rupees(total)}${upi ? ' — pay this amount.' : ', pay in cash on delivery.'}`
+      : upi
+        ? 'Now pay the shop to complete your order.'
+        : 'Pay in cash when your order arrives.';
   } else if (rejected) {
     icon = <XCircle className="h-7 w-7 text-bad" aria-hidden />;
     iconBg = 'bg-bad-soft';
-    title = `${order.storeName} couldn’t take your order`;
-    body = 'Nothing was charged. Try another shop nearby.';
+    title = noAnswer ? `${order.storeName} didn’t answer in time` : `${order.storeName} couldn’t take your order`;
+    body = noAnswer
+      ? 'We cancelled the order so you’re not left waiting. Nothing was charged. Try another shop nearby.'
+      : 'Nothing was charged. Try another shop nearby.';
   } else if (status === 'PRE_ORDER') {
     title = 'Saved as a pre-order';
     body = `${order.storeName} didn’t reply in time. They’ll confirm as soon as they can.`;
@@ -106,7 +120,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
         <span className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full ${iconBg}`}>{icon}</span>
         <h2 className="text-[22px] font-bold leading-tight tracking-[-0.01em] text-label">{title}</h2>
         <p className="mx-auto mt-1.5 max-w-sm text-[16px] leading-snug text-label-2">{body}</p>
-        <p className="mt-2 text-[13px] text-label-3">Order #{order.orderNumber}</p>
+        <p className="mt-2 text-[13px] text-label-3">Order #{shortOrderNo(order.orderNumber)}</p>
       </div>
 
       {confirmed && upi && (
@@ -114,7 +128,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
           <UpiPayCard
             orderId={order.id}
             orderNumber={order.orderNumber}
-            amount={order.totalAmount}
+            amount={total}
             storeName={order.storeName}
             upiId={order.upiId}
             paymentStatus={paymentStatus}
@@ -131,14 +145,14 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
       <details className="group border-t border-hairline">
         <summary className="flex min-h-[52px] cursor-pointer list-none items-center justify-between px-4 text-[16px] text-label">
           <span>
-            {itemCount} item{itemCount === 1 ? '' : 's'} · <span className="font-semibold">{rupees(order.totalAmount)}</span>
+            {itemCount} item{itemCount === 1 ? '' : 's'} · <span className="font-semibold">{rupees(total)}</span>
           </span>
           <span className="text-[15px] text-tint group-open:hidden">Show</span>
           <span className="hidden text-[15px] text-tint group-open:inline">Hide</span>
         </summary>
         <ul className="px-4 pb-3 text-[15px] text-label-2">
           {order.items.map((i) => (
-            <li key={i.name} className="flex justify-between gap-3 py-1">
+            <li key={i.name} className={`flex justify-between gap-3 py-1 ${removedItems.includes(i.name) ? 'text-label-3 line-through' : ''}`}>
               <span>
                 {i.quantity} × {i.name}
               </span>

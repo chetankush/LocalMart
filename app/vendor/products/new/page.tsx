@@ -37,10 +37,12 @@ async function getVendorStores(authToken: string): Promise<StoreInfo[]> {
   }
 }
 
-async function getCategories() {
+// LocalMart's shared categories plus the seller's own shop categories
+async function getCategories(authToken: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/categories`, {
-      next: { revalidate: 300 },
+    const response = await fetch(`${API_BASE_URL}/categories/mine`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -73,7 +75,7 @@ export default async function AddProductPage({
 
   const [stores, categories] = await Promise.all([
     getVendorStores(session.access_token),
-    getCategories(),
+    getCategories(session.access_token),
   ]);
 
   if (stores.length === 0) {
@@ -96,7 +98,12 @@ export default async function AddProductPage({
         subtitle="नया सामान जोड़ें"
         back={{ href: "/vendor/products", label: "Products" }}
       />
-      <AddProductForm vendorId={vendorInfo.id} categories={categories} businessType={vendorInfo.businessType} />
+      <AddProductForm
+        vendorId={vendorInfo.id}
+        // Shared categories + this shop's own (not the seller's other shops')
+        categories={categories.filter((c: { vendorId?: string | null }) => !c.vendorId || c.vendorId === vendorInfo.id)}
+        businessType={vendorInfo.businessType}
+      />
     </Page>
   );
 }

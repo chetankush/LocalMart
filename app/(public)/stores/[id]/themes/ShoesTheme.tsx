@@ -1,5 +1,6 @@
 "use client";
 
+import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -949,32 +950,7 @@ export default function ShoesTheme({ vendor, products }: ShoesThemeProps) {
       >
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              {
-                icon: Truck,
-                title: "Free Delivery",
-                desc: "On orders above \u20B9999",
-                accent: "#e94560",
-              },
-              {
-                icon: RefreshCw,
-                title: "Easy Returns",
-                desc: "7-day return policy",
-                accent: "#38bdf8",
-              },
-              {
-                icon: ShieldCheck,
-                title: "100% Authentic",
-                desc: "Genuine products only",
-                accent: "#4ade80",
-              },
-              {
-                icon: Star,
-                title: "Top Rated",
-                desc: "Trusted by customers",
-                accent: "#facc15",
-              },
-            ].map((item, idx) => {
+            {shopPromises(vendor).map((p) => ({ icon: p.icon, title: p.title, desc: p.text, accent: "#e94560" })).map((item, idx) => {
               const Icon = item.icon;
               return (
                 <div

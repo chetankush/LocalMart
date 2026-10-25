@@ -407,12 +407,16 @@ export default function FashionTheme({ vendor, products }: FashionThemeProps) {
                       <div key={product.id} className="group flex flex-col">
                          {/* Card Image */}
                          <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-3">
-                            <Image
-                               src={product.images?.[0] || 'https://via.placeholder.com/300x400?text=No+Image'}
-                               alt={product.name}
-                               fill
-                               className="object-cover transition-transform duration-700 group-hover:scale-105"
-                            />
+                            {product.images?.[0] ? (
+                               <Image
+                                  src={product.images[0]}
+                                  alt={product.name}
+                                  fill
+                                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                               />
+                            ) : (
+                               <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">No photo yet</div>
+                            )}
                             
                             {/* Overlay Actions */}
                             <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/50 to-transparent">

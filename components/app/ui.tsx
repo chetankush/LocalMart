@@ -8,6 +8,9 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Loader2, Package } from "lucide-react";
 import type { ReactNode, ButtonHTMLAttributes } from "react";
 
+/** "ORD-1792852933822-IAXX4DD42" → "IAXX4DD42": short enough to read out on a call */
+export const shortOrderNo = (n: string) => n.split("-").pop() || n;
+
 export const rupees = (n: number) =>
   `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 

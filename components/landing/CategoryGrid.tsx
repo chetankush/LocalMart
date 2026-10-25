@@ -9,7 +9,7 @@ import { HomeSection } from "@/components/app/commerce";
  * shopper knows what's coming — they never lead to an empty page.
  */
 
-interface Tile {
+export interface Tile {
   label: string;
   hindi: string;
   slug: string; // /stores?category=<slug>
@@ -19,7 +19,8 @@ interface Tile {
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=300&h=300&fit=crop`;
 
-const GROUPS: { title: string; tiles: Tile[] }[] = [
+// Shared with the home page category showcase
+export const GROUPS: { title: string; tiles: Tile[] }[] = [
   {
     title: "Daily needs",
     tiles: [
@@ -51,19 +52,22 @@ const GROUPS: { title: string; tiles: Tile[] }[] = [
 
 export default function CategoryGrid({ shopTypes }: { shopTypes: string[] }) {
   const available = new Set(shopTypes);
-  // Groups with at least one open category first
-  const groups = [...GROUPS].sort(
-    (a, b) =>
-      Number(b.tiles.some((t) => available.has(t.type))) - Number(a.tiles.some((t) => available.has(t.type)))
-  );
+  // Groups with at least one shop open here get full picture cards; the
+  // rest fold into one small "Coming soon" card instead of rows of grey tiles
+  const live = GROUPS.filter((g) => g.tiles.some((t) => available.has(t.type)));
+  const soon = GROUPS.filter((g) => !live.includes(g)).flatMap((g) => g.tiles);
+
+  // Desktop: three groups side by side; with fewer, two columns so nothing
+  // stretches into an empty block
+  const wide = live.length >= 3;
 
   return (
     <HomeSection title="Shop by category">
-      <div className="grid gap-6 lg:grid-cols-3 lg:gap-4">
-        {groups.map((g) => (
+      <div className={`grid gap-6 lg:items-start lg:gap-4 ${wide ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        {live.map((g) => (
           <div key={g.title} className="lg:rounded-2xl lg:border lg:border-hairline lg:p-4">
             <h3 className="mb-2.5 text-[15px] font-semibold text-label-2 lg:text-[17px] lg:font-bold lg:text-label">{g.title}</h3>
-            <ul className="grid grid-cols-4 gap-x-2 gap-y-3 sm:gap-x-4 lg:grid-cols-2 lg:gap-3">
+            <ul className={`grid grid-cols-4 gap-x-2 gap-y-3 sm:gap-x-4 lg:gap-3 ${wide ? "lg:grid-cols-2" : ""}`}>
               {g.tiles.map((t) => {
                 const on = available.has(t.type);
                 const inner = (
@@ -103,6 +107,23 @@ export default function CategoryGrid({ shopTypes }: { shopTypes: string[] }) {
             </ul>
           </div>
         ))}
+
+        {soon.length > 0 && (
+          <div className={`rounded-2xl bg-fill p-4 ${live.length === 1 ? "" : "lg:col-span-full"}`}>
+            <h3 className="text-[15px] font-semibold text-label lg:text-[17px] lg:font-bold">Coming soon near you</h3>
+            <p className="mt-0.5 text-[13px] text-label-2">Shops for these are joining LocalMart · जल्द आ रहा है</p>
+            <ul className={`mt-3 grid grid-cols-4 gap-x-2 gap-y-3 sm:grid-cols-8 ${live.length === 1 ? "lg:grid-cols-4" : ""}`}>
+              {soon.map((t) => (
+                <li key={t.label} aria-label={`${t.label}: coming soon to your area`}>
+                  <span className="relative mx-auto block aspect-square w-full max-w-[72px] overflow-hidden rounded-xl bg-card">
+                    <Image src={t.image} alt="" fill sizes="72px" className="object-cover opacity-50 grayscale" />
+                  </span>
+                  <span className="mt-1 block text-center text-[12px] font-medium leading-tight text-label-2">{t.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </HomeSection>
   );

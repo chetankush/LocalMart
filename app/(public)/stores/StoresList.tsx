@@ -6,6 +6,8 @@ import { BusinessType } from "@/src/generated/prisma";
 import { MapPin, Bell, Store } from "lucide-react";
 import { Button, EmptyState, LargeTitle, Page, Row, Section } from "@/components/app/ui";
 import ShopCard from "@/components/landing/ShopCard";
+import SponsoredShops from "@/components/ads/SponsoredShops";
+import MapLinkButton, { FloatingMapButton } from "@/components/map/MapLinkButton";
 import { useMounted } from "@/hooks/useMounted";
 import { calculateDistanceKm, isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -85,6 +87,8 @@ export default function StoresList({
     BusinessType | "ALL"
   >("ALL");
   const [showLocationModal, setShowLocationModal] = useState(false);
+  // Shops already shown in the "Featured" row above — not listed twice
+  const [featuredIds, setFeaturedIds] = useState<string[]>([]);
   const [isSubscribedToArea, setIsSubscribedToArea] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscribeMessage, setSubscribeMessage] = useState<string | null>(null);
@@ -232,6 +236,13 @@ export default function StoresList({
         }
       />
 
+      {/* Phones: the map button up top (the cart bar sits at the bottom) */}
+      {filteredVendors.length > 0 && (
+        <div className="mb-4 lg:hidden">
+          <MapLinkButton type={selectedCategory === "ALL" ? null : selectedCategory} label="See these shops on the map" />
+        </div>
+      )}
+
       {/* Only the kinds of shop that exist here, with counts */}
       {typeCounts.length > 1 && (
         <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide" role="group" aria-label="Filter shops">
@@ -254,9 +265,21 @@ export default function StoresList({
         </div>
       )}
 
+      {filteredVendors.length > 0 && <FloatingMapButton type={selectedCategory === "ALL" ? null : selectedCategory} />}
+
+      <SponsoredShops
+        placement="SHOP_LIST"
+        category={selectedCategory === "ALL" ? null : selectedCategory}
+        pincode={areaPincode}
+        city={selectedCity}
+        title="Featured"
+        variant="inline"
+        onShops={setFeaturedIds}
+      />
+
       {filteredVendors.length > 0 ? (
-        <ul className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sortedVendors.map((vendor) => {
+        <ul className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:pb-16">
+          {sortedVendors.filter((v) => !featuredIds.includes(v.id)).map((vendor) => {
             const c = vendor.businessAddress?.coordinates;
             const km = hasCoords && c ? calculateDistanceKm(location!.latitude!, location!.longitude!, c.lat, c.lng) : null;
             const open = mounted && vendor.businessHours ? isStoreOpen(vendor.businessHours) : null;

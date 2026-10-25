@@ -59,7 +59,7 @@ const filters: { key: Exclude<FilterKey, null>; label: string }[] = [
   { key: "open", label: "Open now" },
   { key: "nearby", label: "Nearby" },
   { key: "rating", label: "4★ & above" },
-  { key: "fast", label: "Fast delivery" },
+  { key: "fast", label: "Home delivery" },
 ];
 
 export default function StoresNearYouSection({

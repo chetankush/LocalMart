@@ -107,6 +107,9 @@ export default async function VendorProductsPage() {
     stock: Number(p.stockQuantity ?? 0) || 0,
     lowStockAt: Number(p.lowStockThreshold) || 10,
     isActive: Boolean(p.isActive),
+    counted: p.trackStock !== false,
+    availableAgainAt: p.availableAgainAt ?? null,
+    stockBeforeOff: p.stockBeforeOff ?? null,
   }));
 
   const outOfStock = items.filter((p) => p.stock <= 0).length;

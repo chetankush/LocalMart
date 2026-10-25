@@ -1,5 +1,6 @@
 "use client";
 
+import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -8,6 +9,7 @@ import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import AddStepper from "@/components/cart/AddStepper";
 import StoreHeroCarousel, { type HeroSlide } from "./StoreHeroCarousel";
+import { SAREE_FABRICS, SAREE_OCCASIONS, fabricSpot, occasionSpot, pageImagesOf } from "@/lib/shop-page";
 import {
   ArrowRight,
   Clock,
@@ -49,6 +51,7 @@ interface Product {
   tags?: string[];
   isFeatured?: boolean;
   category?: { name: string; slug: string } | null;
+  listingType?: "SALE" | "RENT" | null;
 }
 
 interface StoreAddress {
@@ -117,37 +120,10 @@ const serif = Cormorant_Garamond({
   display: "swap",
 });
 
-const FABRICS: Collection[] = [
-  { key: "banarasi", label: "Banarasi", keywords: ["banarasi", "benarasi", "banaras"] },
-  {
-    key: "kanjivaram",
-    label: "Kanjivaram",
-    keywords: ["kanjivaram", "kanjeevaram", "kanchipuram", "kancheepuram"],
-  },
-  { key: "silk", label: "Silk", keywords: ["silk", "pattu"] },
-  { key: "cotton", label: "Cotton", keywords: ["cotton"] },
-  { key: "georgette", label: "Georgette", keywords: ["georgette"] },
-  { key: "chiffon", label: "Chiffon", keywords: ["chiffon"] },
-  { key: "organza", label: "Organza & Tissue", keywords: ["organza", "tissue"] },
-  { key: "linen", label: "Linen", keywords: ["linen"] },
-  {
-    key: "fancy",
-    label: "Fancy & Designer",
-    keywords: ["fancy", "designer", "embroider", "sequin", "stone work"],
-  },
-];
+// Tiles are shared with the seller's "Design my shop page" screen
+const FABRICS: Collection[] = SAREE_FABRICS;
 
-const OCCASIONS: Collection[] = [
-  { key: "wedding", label: "Wedding", keywords: ["wedding", "bridal", "shaadi", "marriage"] },
-  {
-    key: "festive",
-    label: "Festive",
-    keywords: ["festive", "festival", "diwali", "puja", "pooja", "navratri"],
-  },
-  { key: "party", label: "Party Wear", keywords: ["party"] },
-  { key: "office", label: "Office Wear", keywords: ["office", "formal", "workwear"] },
-  { key: "daily", label: "Daily Wear", keywords: ["daily", "casual", "everyday", "regular"] },
-];
+const OCCASIONS: Collection[] = SAREE_OCCASIONS;
 
 // max is exclusive so decimal prices never fall between two ranges
 const PRICE_RANGES = [
@@ -170,6 +146,8 @@ const SORT_OPTIONS = [
 ];
 
 const NEW_ARRIVAL_DAYS = 30;
+// Chip key for "New arrivals" in the pinned chip bar (not a fabric)
+const NEW_CHIP = "new";
 const RAIL_SIZE = 8;
 // Below this many products the rails would just repeat the catalog
 
@@ -404,6 +382,15 @@ function SareeCard({
         )}
       </Link>
         <div className="absolute bottom-2 right-2">
+          {product.listingType === "RENT" ? (
+            // Rented by date on its page, never put in the cart
+            <Link
+              href={`/products/${product.id}`}
+              className="flex h-9 items-center rounded-lg border border-[#6E1423] bg-white px-4 text-[14px] font-bold text-[#6E1423] shadow-sm"
+            >
+              RENT
+            </Link>
+          ) : (
           <AddStepper
             disabled={isOutOfStock}
             item={{
@@ -416,6 +403,7 @@ function SareeCard({
               vendorName,
             }}
           />
+          )}
         </div>
       </div>
 
@@ -494,6 +482,8 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   }, [vendor.businessHours]);
 
   const storeImages = useMemo(() => toImageList(vendor.storeImages), [vendor.storeImages]);
+  // Photos the seller chose for each tile (Design my shop page)
+  const pageImages = useMemo(() => pageImagesOf(vendor.themeCustomization), [vendor.themeCustomization]);
   const whatsappDigits = vendor.whatsappNumber
     ? vendor.whatsappNumber.replace(/[^0-9]/g, "")
     : null;
@@ -524,10 +514,11 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     () =>
       FABRICS.map((f) => {
         const matched = products.filter((p) => matchesCollection(searchText.get(p.id) || "", f));
-        const cover = matched.map((p) => toImageList(p.images)[0]).find(Boolean) || null;
+        const cover =
+          pageImages[fabricSpot(f.key)] || matched.map((p) => toImageList(p.images)[0]).find(Boolean) || null;
         return { ...f, count: matched.length, cover };
       }).filter((f) => f.count > 0),
-    [products, searchText]
+    [products, searchText, pageImages]
   );
 
   const occasionTiles = useMemo(() => {
@@ -539,7 +530,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         key: o.key,
         label: o.label,
         count: matched.length,
-        cover: coverOf(matched),
+        cover: pageImages[occasionSpot(o.key)] || coverOf(matched),
         kind: "occasion",
       };
     });
@@ -552,7 +543,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       kind: "price",
     });
     return tiles.filter((t) => t.count > 0);
-  }, [products, searchText]);
+  }, [products, searchText, pageImages]);
 
   const occasionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -577,7 +568,8 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   // Hero: the owner's own banners first, then featured and newest products.
   // A new product shows up here by itself — nothing extra for the owner to do.
   const heroSlides = useMemo<HeroSlide[]>(() => {
-    const banners: HeroSlide[] = storeImages.slice(0, 3).map((src, i) => ({
+    // Every main photo the owner added (up to 5), then at least one product
+    const banners: HeroSlide[] = storeImages.slice(0, 5).map((src, i) => ({
       key: `banner-${i}`,
       image: src,
       kind: "banner",
@@ -590,7 +582,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
     );
     const picks = [...newest.filter((p) => p.isFeatured), ...newest.filter((p) => !p.isFeatured)]
       .filter((p) => p.stockQuantity > 0 && toImageList(p.images).length > 0)
-      .slice(0, Math.max(0, 5 - banners.length));
+      .slice(0, Math.max(1, 5 - banners.length));
     const productSlides: HeroSlide[] = picks.map((p) => {
       const price = Number(p.price);
       const off = calcDiscount(price, p.compareAtPrice ? Number(p.compareAtPrice) : undefined);
@@ -623,6 +615,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   }, []);
+
+  // Products added in the last NEW_ARRIVAL_DAYS — gets its own chip
+  const newArrivalCount = useMemo(() => products.filter((p) => isNewArrival(p.createdAt)).length, [products]);
 
   // Height of the pinned chip bar (52px + borders), for things that sit under it
   const hasChipBar = fabricCollections.length > 0;
@@ -660,7 +655,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    if (activeFabric) {
+    if (activeFabric === NEW_CHIP) {
+      result = result.filter((p) => isNewArrival(p.createdAt));
+    } else if (activeFabric) {
       const fabric = FABRICS.find((f) => f.key === activeFabric);
       if (fabric) {
         result = result.filter((p) => matchesCollection(searchText.get(p.id) || "", fabric));
@@ -955,7 +952,11 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         >
           <div className="mx-auto flex h-[52px] max-w-[1440px] items-center gap-2 px-4">
             <div className="-ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto pl-4 scrollbar-hide lg:justify-center">
-              {[{ key: null as string | null, label: "All sarees" }, ...fabricCollections].map((f) => (
+              {[
+                { key: null as string | null, label: "All sarees" },
+                ...(newArrivalCount > 0 ? [{ key: NEW_CHIP, label: "New arrivals" }] : []),
+                ...fabricCollections,
+              ].map((f) => (
                 <button
                   key={f.key ?? "all"}
                   onClick={() => {
@@ -963,13 +964,25 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                     scrollToCatalog();
                   }}
                   aria-pressed={activeFabric === f.key}
-                  className={`h-9 shrink-0 rounded-full border px-4 text-[14px] font-semibold transition-colors cursor-pointer ${
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[14px] font-semibold transition-colors cursor-pointer ${
                     activeFabric === f.key
                       ? "border-[#6E1423] bg-[#6E1423] text-white"
                       : "border-[#EADBC8] bg-white text-gray-700 hover:border-[#6E1423]"
                   }`}
                 >
+                  {/* Small dot so new stock catches the eye */}
+                  {f.key === NEW_CHIP && (
+                    <span
+                      className={`h-2 w-2 rounded-full ${activeFabric === f.key ? "bg-white" : "bg-[#C8102E]"}`}
+                      aria-hidden
+                    />
+                  )}
                   {f.label}
+                  {f.key === NEW_CHIP && (
+                    <span className={`text-[12px] font-bold ${activeFabric === f.key ? "text-white/80" : "text-[#C8102E]"}`}>
+                      {newArrivalCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -994,12 +1007,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* ============================================================== */}
       <section className="mx-auto max-w-[1440px] px-4 pt-5">
         <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-4 sm:px-0">
-          {[
-            { icon: Wallet, title: "Cash on delivery", text: "Pay when it arrives" },
-            { icon: IndianRupee, title: "UPI to the shop", text: "Pay us directly" },
-            { icon: PhoneCall, title: "We call first", text: "Confirm colour & size" },
-            { icon: Store, title: "Visit the shop", text: vendor.locality || vendor.city || "See it in person" },
-          ].map(({ icon: Icon, title, text }) => (
+          {shopPromises(vendor).map(({ icon: Icon, title, text }) => (
             <li
               key={title}
               className="flex min-w-[46%] shrink-0 items-center gap-2.5 rounded-xl border border-[#EADBC8] bg-white px-3 py-2.5 sm:min-w-0"

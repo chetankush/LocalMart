@@ -1,8 +1,9 @@
 "use client";
 
+import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import ProductFilters from "@/components/ProductFilters";
 import AddToCartButton from "../AddToCartButton";
@@ -28,6 +29,7 @@ interface Product {
   name: string;
   description: string;
   price: any;
+  compareAtPrice?: number | string | null;
   images: any;
   stockQuantity: number;
   vendorId: string;
@@ -109,7 +111,6 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
   const { setBranding } = useStoreBranding();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(3600); // 1 hour in seconds
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
 
@@ -127,13 +128,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     };
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
 
-  // Timer for flash deals
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 3600));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+
 
 
 
@@ -182,17 +177,26 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     );
   });
 
-  // Get flash deals (products with discounts - top 6)
+  // Real discount from the shop's own MRP (compare-at price); 0 if none
+  function getDiscountPercent(product: Product) {
+    const price = Number(product.price);
+    const mrp = Number(product.compareAtPrice || 0);
+    return mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  }
+  function getOriginalPrice(product: Product) {
+    return Math.round(Number(product.compareAtPrice || product.price));
+  }
+
+  // Deals: only products the shop has really marked down (MRP > price)
   const flashDeals = products
-    .filter((p) => p.stockQuantity > 0)
-    .slice(0, 6)
-    .map((product) => {
-      const discountPercent = Math.floor(Math.random() * 30) + 10; // 10-40%
-      const originalPrice = Math.round(
-        Number(product.price) / (1 - discountPercent / 100)
-      );
-      return { ...product, discountPercent, originalPrice };
-    });
+    .filter((p) => p.stockQuantity > 0 && getDiscountPercent(p) > 0)
+    .map((product) => ({
+      ...product,
+      discountPercent: getDiscountPercent(product),
+      originalPrice: getOriginalPrice(product),
+    }))
+    .sort((a, b) => b.discountPercent - a.discountPercent)
+    .slice(0, 6);
 
   // Handle scroll arrows visibility for Flash Deals
   useEffect(() => {
@@ -211,18 +215,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
   }, [flashDeals]); // Re-run when flash deals change/render
 
   // Calculate discount percentage
-  const getDiscountPercent = (price: number) => {
-    const discounts = [10, 15, 20, 25, 30, 35, 40];
-    return discounts[Math.floor(price) % discounts.length];
-  };
 
-  const getOriginalPrice = (price: number, discount: number) => {
-    return Math.round(price / (1 - discount / 100));
-  };
-
-  const hours = Math.floor(timeLeft / 3600);
-  const minutes = Math.floor((timeLeft % 3600) / 60);
-  const seconds = timeLeft % 60;
 
   const [showCategoryLeftArrow, setShowCategoryLeftArrow] = useState(false);
 
@@ -278,36 +271,12 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
     return [];
   })();
 
-  // Random hero headings - like popular stores (memoized to persist across renders)
-  const randomHero = useMemo(() => {
-    const heroHeadings = [
-      {
-        title: "Fresh Groceries at Your Doorstep",
-        subtitle: "Get everything you need delivered in just 10-15 minutes",
-      },
-      {
-        title: "Shop Smart, Shop Fast",
-        subtitle: "Quality products delivered to your home in minutes",
-      },
-      {
-        title: "Your Neighborhood Store Online",
-        subtitle: "Everything you need, just a click away",
-      },
-      {
-        title: "Fresh & Fast Delivery",
-        subtitle: "Get your daily essentials in 10-15 minutes",
-      },
-      {
-        title: "Quality Products, Quick Delivery",
-        subtitle: "Shop from thousands of items with fast delivery",
-      },
-      {
-        title: "Convenience at Your Fingertips",
-        subtitle: "Order groceries and essentials in seconds",
-      },
-    ];
-    return heroHeadings[Math.floor(Math.random() * heroHeadings.length)];
-  }, []);
+  // Hero heading — only things that are true for every local shop (no made-up
+  // delivery times or item counts), and the same on server and phone
+  const randomHero = {
+    title: "Your Neighbourhood Store Online",
+    subtitle: vendor.city ? `Order from ${vendor.businessName} and get it delivered in ${vendor.city}` : "Everything you need, just a click away",
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -628,19 +597,12 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                 </div>
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    Flash Deals
+                    Deals
                   </h2>
-                  <p className="text-sm text-gray-600">Limited time offers</p>
+                  <p className="text-sm text-gray-600">Marked down by the shop</p>
                 </div>
               </div>
-              <div className="text-right bg-gray-50 px-4 py-2 rounded-xl border border-gray-200">
-                <p className="text-xs text-gray-600 mb-1">Ends in</p>
-                <p className="text-lg font-bold text-orange-600">
-                  {String(hours).padStart(2, "0")}:
-                  {String(minutes).padStart(2, "0")}:
-                  {String(seconds).padStart(2, "0")}
-                </p>
-              </div>
+
             </div>
 
             <div className="relative">
@@ -796,11 +758,8 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                 ? product.images
                 : [];
               const firstImage = images.length > 0 ? images[0] : null;
-              const discountPercent = getDiscountPercent(Number(product.price));
-              const originalPrice = getOriginalPrice(
-                Number(product.price),
-                discountPercent
-              );
+              const discountPercent = getDiscountPercent(product);
+              const originalPrice = getOriginalPrice(product);
 
               return (
                 <div
@@ -809,7 +768,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                   className="bg-white rounded-none border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden group relative flex flex-col"
                 >
                   {/* Discount Badge */}
-                  {discountPercent >= 20 && (
+                  {discountPercent > 0 && (
                     <div className="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold z-10 shadow-lg">
                       {discountPercent}% OFF
                     </div>
@@ -876,26 +835,19 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
                           <span className="text-lg font-bold text-gray-900">
                             ₹{Number(product.price).toFixed(0)}
                           </span>
-                          {discountPercent >= 5 && (
+                          {discountPercent > 0 && (
                             <span className="text-sm text-gray-500 line-through">
                               ₹{originalPrice}
                             </span>
                           )}
                         </div>
-                        {discountPercent >= 5 && (
+                        {discountPercent > 0 && (
                           <div className="text-xs text-green-600 font-bold">
                             Save ₹{originalPrice - Number(product.price)}
                           </div>
                         )}
                       </div>
 
-                      {/* Delivery Info */}
-                      <div className="text-xs text-gray-500 bg-gray-50 inline-block px-2 py-1 rounded">
-                        <span className="text-green-600 font-bold">
-                          FREE Delivery
-                        </span>{" "}
-                        by Tomorrow
-                      </div>
                     </div>
                   </Link>
 
@@ -953,32 +905,7 @@ export default function KiranaTheme({ vendor, products }: KiranaThemeProps) {
       <section className="bg-gradient-to-b from-gray-50 to-white py-12 border-t border-gray-200">
         <div className="max-w-7xl mx-auto px-8 md:px-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              {
-                title: "Fast Delivery",
-                description: "10-15 minutes",
-                icon: Truck,
-                color: "bg-green-100 text-green-600",
-              },
-              {
-                title: "100% Authentic",
-                description: "Quality guaranteed",
-                icon: CheckCircle,
-                color: "bg-blue-100 text-blue-600",
-              },
-              {
-                title: "Secure Payment",
-                description: "Multiple options",
-                icon: ShoppingBag,
-                color: "bg-purple-100 text-purple-600",
-              },
-              {
-                title: "Local Support",
-                description: "Trusted seller",
-                icon: Phone,
-                color: "bg-orange-100 text-orange-600",
-              },
-            ].map((benefit, index) => {
+            {shopPromises(vendor).map((p) => ({ title: p.title, description: p.text, icon: p.icon, color: "bg-green-100 text-green-600" })).map((benefit, index) => {
               const Icon = benefit.icon;
               return (
                 <div

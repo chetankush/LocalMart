@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  CalendarCheck,
   ChevronRight,
   FolderTree,
   Home,
   IndianRupee,
   LayoutGrid,
   LogOut,
+  Megaphone,
   MessageSquareText,
   Package,
   ReceiptText,
@@ -19,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
+import { AdminGate } from "@/components/app/admin";
 
 type Item = { href: string; label: string; icon: typeof Store; match?: (p: string) => boolean };
 
@@ -28,6 +31,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: "/admin", label: "Shops & requests", icon: Store, match: (p) => p === "/admin" },
       { href: "/admin/orders", label: "Orders", icon: ReceiptText },
+      { href: "/admin/visits", label: "Shop visits", icon: CalendarCheck },
       { href: "/admin/users", label: "People", icon: Users },
     ],
   },
@@ -35,6 +39,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: "Money & numbers",
     items: [
       { href: "/admin/revenue", label: "Revenue", icon: IndianRupee },
+      { href: "/admin/ads", label: "Ads", icon: Megaphone },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -223,10 +228,38 @@ export function AdminNav() {
   );
 }
 
-/** Sidebar + room for it — except on the sign-in screen */
+/**
+ * Sidebar + room for it — except on the sign-in screen. Also the one place
+ * that makes sure the person is an admin: checked on every admin page, and
+ * anyone else is sent to the admin sign-in.
+ */
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() ?? "";
-  if (path.startsWith("/admin/login")) return <>{children}</>;
+  const router = useRouter();
+  const isLogin = path.startsWith("/admin/login");
+  const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+    if (isLogin) return;
+    let live = true;
+    fetch("/api/admin/check-auth", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { isAdmin: false }))
+      .catch(() => ({ isAdmin: false }))
+      .then((d: { isAdmin?: boolean }) => {
+        if (!live) return;
+        if (d.isAdmin) setAllowed(true);
+        else {
+          setAllowed(false);
+          router.replace("/admin/login");
+        }
+      });
+    return () => {
+      live = false;
+    };
+  }, [path, isLogin, router]);
+
+  if (isLogin) return <>{children}</>;
+  if (!allowed) return <AdminGate />;
   return (
     <>
       <AdminNav />

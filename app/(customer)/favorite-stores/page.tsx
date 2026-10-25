@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 import FavoriteStoresClient from "./FavoriteStoresClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -32,14 +33,14 @@ export default async function FavoriteStoresPage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect("/sign-in");
+    redirect(signInHref("/favorite-stores"));
   }
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/favorite-stores"));
   }
 
   const favorites = await getFavoriteStores(session.access_token);

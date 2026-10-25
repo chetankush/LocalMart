@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Image from "next/image";
 
 interface ProductReviewFormProps {
@@ -83,7 +84,8 @@ export default function ProductReviewForm({
       }
 
       // Success - redirect back to product page
-      router.push(`/products/${productId}?reviewSubmitted=true#reviews`);
+      toast.success("Thanks! Your review is live.");
+      router.push(`/products/${productId}#reviews`);
       router.refresh();
     } catch (error: any) {
       console.error("Error submitting review:", error);

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
+  Check,
   Dumbbell,
   Home,
   Info,
@@ -20,6 +21,15 @@ import {
 import { useBusinessCategories } from '@/hooks/useBusinessCategories';
 import { Button, Notice, StickyBar, StickyBarSpacer } from '@/components/app/ui';
 import { ChoiceCard, Field, RupeeInput, inputClass } from '@/components/app/form';
+import dynamic from 'next/dynamic';
+import { DEFAULT_TOWN, distanceKm, fillFromPin } from '@/lib/geo';
+import type { PickedLocation } from '@/components/map/LocationPinPicker';
+
+// The map loads in the browser only
+const ShopLocationField = dynamic(() => import('@/components/map/ShopLocationField'), {
+  ssr: false,
+  loading: () => <div className="h-[168px] animate-pulse rounded-2xl bg-fill" />,
+});
 
 interface VendorOnboardingWizardProps {
   userId: string;
@@ -35,9 +45,13 @@ const INITIAL_FORM = {
   contactEmail: '',
   contactPhone: '',
   street: '',
+  locality: '',
   city: '',
   state: '',
   zipCode: '',
+  // The pin the owner puts on their shop (required)
+  latitude: null as number | null,
+  longitude: null as number | null,
   deliveryRadius: '5',
   deliveryCharge: '50',
   minOrderAmount: '100',
@@ -142,7 +156,34 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
       [name]: e.target.value,
     }));
     setErrors(prev => ({ ...prev, [name]: undefined }));
+    setFilledFromPin(prev => prev.filter(f => f !== name));
   };
+
+  // Pin confirmed on the map: the address fills in from it
+  const [filledFromPin, setFilledFromPin] = useState<string[]>([]);
+  const pickLocation = (picked: PickedLocation) => {
+    const before = formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null;
+    const moved = !before || distanceKm(before, picked) > 0.05;
+    const { next, filled } = fillFromPin(
+      { street: formData.street, locality: formData.locality, city: formData.city, state: formData.state, pincode: formData.zipCode },
+      picked.address,
+      moved,
+    );
+    setFormData((prev) => ({
+      ...prev,
+      street: next.street,
+      locality: next.locality,
+      city: next.city ?? prev.city,
+      state: next.state ?? prev.state,
+      zipCode: next.pincode,
+      latitude: picked.lat,
+      longitude: picked.lng,
+    }));
+    const names = filled.map((f) => (f === 'pincode' ? 'zipCode' : f));
+    setFilledFromPin(names);
+    setErrors((prev) => ({ ...prev, latitude: undefined, ...Object.fromEntries(names.map((n) => [n, undefined])) }));
+  };
+  const pinFilled = (name: string) => (filledFromPin.includes(name) ? 'ring-2 ring-ok/40 bg-ok-soft/40' : '');
 
   const pickType = (value: string) => {
     setFormData(prev => ({ ...prev, businessType: value }));
@@ -161,6 +202,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
       }
     }
     if (step === 2) {
+      if (!formData.latitude || !formData.longitude) e.latitude = 'Put your shop on the map first — customers use it to find you';
       if (!formData.street.trim()) e.street = 'Add your shop address so customers can find you';
       if (!formData.city.trim()) e.city = 'Add your city';
       if (!formData.state.trim()) e.state = 'Add your state';
@@ -323,11 +365,34 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
           </>
         )}
 
-        {/* Step 2: Location */}
+        {/* Step 2: Location — the pin first, then the written address (filled from it) */}
         {currentStep === 2 && (
           <>
+            <div>
+              <p className="mb-2 text-[15px] font-semibold text-label">Where is your shop?</p>
+              <ShopLocationField
+                id="ob-latitude"
+                value={formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+                onChange={pickLocation}
+                near={DEFAULT_TOWN.at}
+                nearLabel={formData.city || DEFAULT_TOWN.label}
+                addressText={[formData.street, formData.locality, formData.city].filter(Boolean).join(', ')}
+                error={errors.latitude}
+              />
+            </div>
+
+            {filledFromPin.length > 0 && (
+              <div role="status" className="flex items-start gap-2.5 rounded-xl bg-ok-soft px-3.5 py-3 text-[14px] leading-snug text-label">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={3} aria-hidden />
+                <p>
+                  <span className="font-semibold">Filled from your pin.</span> Add your shop number and check it once.
+                  <span className="block text-label-2">पता पिन से भरा गया — दुकान नंबर जोड़ें और जाँच लें।</span>
+                </p>
+              </div>
+            )}
+
             <Field
-              label="Shop address"
+              label="Shop no., building, street"
               htmlFor="ob-street"
               hint="Shop number, street and a landmark"
               error={errors.street}
@@ -340,8 +405,20 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
                 onChange={handleChange}
                 aria-invalid={!!errors.street}
                 autoComplete="street-address"
-                className={inputClass}
+                className={cx(inputClass, pinFilled('street'))}
                 placeholder="Shop No. 12, Main Market"
+              />
+            </Field>
+
+            <Field label="Area" htmlFor="ob-locality" optional>
+              <input
+                id="ob-locality"
+                type="text"
+                name="locality"
+                value={formData.locality}
+                onChange={handleChange}
+                className={cx(inputClass, pinFilled('locality'))}
+                placeholder="e.g. Civil Lines, Station Road"
               />
             </Field>
 
@@ -355,7 +432,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
                   onChange={handleChange}
                   aria-invalid={!!errors.city}
                   autoComplete="address-level2"
-                  className={inputClass}
+                  className={cx(inputClass, pinFilled('city'))}
                   placeholder="Guna"
                 />
               </Field>
@@ -368,7 +445,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
                   onChange={handleChange}
                   aria-invalid={!!errors.state}
                   autoComplete="address-level1"
-                  className={inputClass}
+                  className={cx(inputClass, pinFilled('state'))}
                   placeholder="Madhya Pradesh"
                 />
               </Field>
@@ -385,7 +462,7 @@ export default function VendorOnboardingWizard({ userId }: VendorOnboardingWizar
                 maxLength={6}
                 aria-invalid={!!errors.zipCode}
                 autoComplete="postal-code"
-                className={cx(inputClass, 'tabular-nums sm:max-w-[200px]')}
+                className={cx(inputClass, 'tabular-nums sm:max-w-[200px]', pinFilled('zipCode'))}
                 placeholder="473001"
               />
             </Field>

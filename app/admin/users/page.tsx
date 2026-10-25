@@ -45,10 +45,11 @@ const ROLE_FILTERS = [
   { value: "ADMIN", label: "Admins" },
 ];
 
+// No "Admin" here on purpose: admin access is only given on the server
+// (scripts/set-admin.ts), never from this screen
 const ROLE_OPTIONS = [
   { value: "CUSTOMER", label: "Shopper" },
   { value: "VENDOR", label: "Seller" },
-  { value: "ADMIN", label: "Admin" },
 ];
 
 // "an admin", "a seller", "a shopper"
@@ -58,9 +59,8 @@ const withArticle = (role: string) => {
 };
 
 const ROLE_EFFECT: Record<string, string> = {
-  ADMIN: "They can open this admin area and change shops, orders and people.",
   VENDOR: "They get a seller account. They still need an approved shop to sell.",
-  CUSTOMER: "They lose any seller or admin access and can only shop.",
+  CUSTOMER: "They lose seller access and can only shop.",
 };
 
 // What the person can do with their current role
@@ -377,17 +377,27 @@ export default function AdminUsersPage() {
             <section>
               <SectionHeader title="Role" />
               <div className="rounded-2xl bg-card p-4">
-                <div className={updatingId === selected.id ? "pointer-events-none opacity-50" : undefined}>
-                  <Segmented
-                    label="Role"
-                    options={ROLE_OPTIONS}
-                    value={selected.role}
-                    onChange={(v) => handleRoleChange(selected.id, v)}
-                  />
-                </div>
-                <p className="mt-3 text-[14px] leading-snug text-label-2">
-                  {ROLE_NOW[selected.role] ?? "Pick what this person can do on LocalMart."}
-                </p>
+                {selected.role === "ADMIN" ? (
+                  // Admin accounts are managed on the server only
+                  <p className="text-[15px] leading-snug text-label-2">
+                    <span className="font-semibold text-label">Admin.</span> {ROLE_NOW.ADMIN} This can&apos;t be
+                    changed from here.
+                  </p>
+                ) : (
+                  <>
+                    <div className={updatingId === selected.id ? "pointer-events-none opacity-50" : undefined}>
+                      <Segmented
+                        label="Role"
+                        options={ROLE_OPTIONS}
+                        value={selected.role}
+                        onChange={(v) => handleRoleChange(selected.id, v)}
+                      />
+                    </div>
+                    <p className="mt-3 text-[14px] leading-snug text-label-2">
+                      {ROLE_NOW[selected.role] ?? "Pick what this person can do on LocalMart."}
+                    </p>
+                  </>
+                )}
               </div>
             </section>
           </div>

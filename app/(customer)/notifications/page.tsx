@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useRouter } from "next/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -34,7 +35,7 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,12 +43,13 @@ export default function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    if (loading) return;
     if (!user) {
-      router.push("/sign-in");
+      router.push(signInHref("/notifications"));
       return;
     }
     fetchNotifications();
-  }, [user, filter]);
+  }, [user, loading, filter]);
 
   const fetchNotifications = async () => {
     setIsLoading(true);

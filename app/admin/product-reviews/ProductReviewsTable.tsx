@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -145,6 +146,7 @@ export default function ProductReviewsTable({
   initialReviews,
   initialTotal,
 }: ProductReviewsTableProps) {
+  const router = useRouter();
   const confirm = useConfirm();
   const [reviews, setReviews] = useState<ProductReview[]>(initialReviews);
   // Which review is being changed, so only its buttons spin
@@ -170,6 +172,8 @@ export default function ProductReviewsTable({
 
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
       toast.success("Review deleted");
+      // The number tiles above come from the server page — redraw them
+      router.refresh();
     } catch (error) {
       console.error("Error deleting review:", error);
       toast.error("Couldn't delete the review. Try again.");
@@ -188,6 +192,7 @@ export default function ProductReviewsTable({
 
       setReviews((prev) => prev.map((r) => (r.id === reviewId ? { ...r, isHidden: !currentState } : r)));
       toast.success(!currentState ? "Review hidden from customers" : "Review is visible again");
+      router.refresh();
     } catch (error) {
       console.error("Error updating review:", error);
       toast.error("Couldn't change the review. Try again.");

@@ -19,7 +19,7 @@ type AuthContextType = {
     email: string,
     password: string,
     fullName?: string
-  ) => Promise<{ error: any }>;
+  ) => Promise<{ error: any; signedIn: boolean }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     fullName?: string
   ) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -85,7 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    return { error };
+    // Signed straight in when email confirmation is turned off
+    return { error, signedIn: !!data?.session };
   };
 
   const value = {

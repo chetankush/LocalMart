@@ -1,10 +1,10 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import ReviewForm from "./ReviewForm";
 import { signInHref } from "@/lib/auth/returnTo";
+import { Button, LargeTitle, Page } from "@/components/app/ui";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -66,119 +66,48 @@ export default async function WriteReviewPage({
 
   const { vendor, existingReview, isOwnStore } = data;
 
-  // Check if user is trying to review their own store
+  const storeImages = Array.isArray(vendor.storeImages) ? vendor.storeImages : [];
+  const storeImage = storeImages[0] || vendor.storeLogo;
+
+  // Shop owners can't rate their own shop
   if (isOwnStore) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-2xl mx-auto px-4">
-          <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-            <div className="text-6xl mb-4">⚠️</div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Cannot Review Your Own Store
-            </h1>
-            <p className="text-gray-600 mb-6">
-              You cannot submit a review for your own store.
-            </p>
-            <Link
-              href={`/stores/${id}`}
-              className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Back to Store
-            </Link>
-          </div>
+      <Page>
+        <LargeTitle title="This is your shop" back={{ href: `/stores/${id}`, label: "Shop" }} />
+        <div className="rounded-2xl bg-card p-6 text-center">
+          <p className="text-[16px] text-label-2">
+            Ratings come from your customers. Share your shop link with them after a delivery to get more reviews.
+          </p>
+          <Button href={`/stores/${id}`} className="mt-5" full>
+            Back to my shop
+          </Button>
         </div>
-      </div>
+      </Page>
     );
   }
 
-  // Get store image for header
-  const storeImages = Array.isArray(vendor.storeImages) ? vendor.storeImages : [];
-  const storeImage = storeImages.length > 0 ? storeImages[0] : vendor.storeLogo;
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Ratings & Reviews</h1>
-        </div>
+    <Page>
+      <LargeTitle
+        title={existingReview ? "Update your review" : "Rate this shop"}
+        subtitle="Your rating helps other shoppers nearby."
+        back={{ href: `/stores/${id}`, label: "Shop" }}
+      />
 
-        {/* Two Panel Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Review Guidance */}
-          <div className="lg:col-span-1">
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-6">
-                What makes a good review
-              </h2>
-
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    Have you visited this store?
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Your review should be about your shopping experience with this store.
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    Why review a store?
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Your valuable feedback will help fellow shoppers discover great local stores!
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-semibold text-gray-900 mb-2">
-                    How to review a store?
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Share your experience about the store's service, product quality, and overall shopping experience. An honest opinion is always appreciated. If you have an issue, please contact us from the{" "}
-                    <Link href="/help" className="text-blue-600 hover:underline">
-                      help centre
-                    </Link>
-                    .
-                  </p>
-                </div>
-              </div>
-            </div>
+      <div className="mb-3 flex items-center gap-3 rounded-2xl bg-card p-4">
+        {storeImage ? (
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-fill">
+            <Image src={storeImage} alt="" fill sizes="48px" className="object-cover" />
           </div>
-
-          {/* Right Panel - Review Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              {/* Store Header */}
-              <div className="flex items-center justify-end mb-6">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-700 max-w-[200px] truncate">
-                    {vendor.businessName}
-                  </span>
-                  {storeImage && (
-                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
-                      <Image
-                        src={storeImage}
-                        alt={vendor.businessName}
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <ReviewForm
-                vendorId={id}
-                vendorName={vendor.businessName}
-                existingReview={existingReview}
-              />
-            </div>
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-tint-soft text-[18px] font-bold text-tint">
+            {vendor.businessName?.[0] ?? "S"}
           </div>
-        </div>
+        )}
+        <p className="min-w-0 text-[16px] font-semibold leading-snug text-label">{vendor.businessName}</p>
       </div>
-    </div>
+
+      <ReviewForm vendorId={id} vendorName={vendor.businessName} existingReview={existingReview} />
+    </Page>
   );
 }

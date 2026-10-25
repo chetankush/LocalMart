@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { refreshShopPage } from "@/lib/refreshShopPage";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -15,6 +16,7 @@ import {
   MapPin,
   Megaphone,
   Package,
+  Palette,
   Pill as PillIcon,
   Send,
   Share2,
@@ -29,19 +31,14 @@ import ShareStoreModal from "@/components/ShareStoreModal";
 import { Button, Pill, Row, StickyBar, buttonClass } from "@/components/app/ui";
 import { Field, FormCard, inputClass, textareaClass } from "@/components/app/form";
 import { IconBox, List } from "@/components/app/seller";
+import { DEFAULT_TOWN, distanceKm, fillFromPin, pincodeCentre, type LatLng } from "@/lib/geo";
+import type { PickedLocation } from "@/components/map/LocationPinPicker";
 
-// Dynamically import map component to avoid SSR issues
-const LocationPicker = dynamic(
-  () => import("@/app/vendor/settings/LocationPicker"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-72 items-center justify-center rounded-2xl bg-fill animate-pulse sm:h-96">
-        <p className="text-[15px] text-label-2">Loading map…</p>
-      </div>
-    ),
-  }
-);
+// The map loads in the browser only
+const ShopLocationField = dynamic(() => import("@/components/map/ShopLocationField"), {
+  ssr: false,
+  loading: () => <div className="h-[168px] animate-pulse rounded-2xl bg-fill" />,
+});
 
 interface VendorSettingsFormProps {
   vendor: {
@@ -67,7 +64,8 @@ interface VendorSettingsFormProps {
   };
 }
 
-const MAX_PHOTOS = 10;
+// Same limit as "Design my shop page" — these are the big photos at the top
+const MAX_PHOTOS = 5;
 
 // Shop type picked during onboarding — shown read-only
 const BUSINESS_TYPES: Record<string, { label: string; Icon: typeof Store }> = {
@@ -97,6 +95,13 @@ export function ShopShortcuts({
   return (
     <section className="mb-6">
       <List>
+        <Row
+          href={`/vendor/shop-page?storeId=${storeId}`}
+          leading={<IconBox tone="solid" size={40}><Palette className={icon} /></IconBox>}
+          title="Design my shop page"
+          subtitle="Add your own photos · दुकान का पेज सजाएं"
+          chevron
+        />
         <Row
           href={`/stores/${storeId}`}
           leading={<IconBox tone="brand" size={40}><Eye className={icon} /></IconBox>}
@@ -155,6 +160,7 @@ export default function VendorSettingsForm({
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingStoreImage, setUploadingStoreImage] = useState(false);
 
+  const roughPin = vendor.businessAddress?.coordinatesSource === "pincode";
   const [formData, setFormData] = useState({
     businessName: vendor.businessName,
     storeDescription: vendor.storeDescription || "",
@@ -167,8 +173,9 @@ export default function VendorSettingsForm({
     pincode: vendor.pincode || "",
     storeLogo: vendor.storeLogo || "",
     storeImages: Array.isArray(vendor.storeImages) ? vendor.storeImages : [],
-    latitude: vendor.businessAddress?.coordinates?.lat || 0,
-    longitude: vendor.businessAddress?.coordinates?.lng || 0,
+    // A spot guessed from the PIN code isn't the owner's pin
+    latitude: roughPin ? 0 : Number(vendor.businessAddress?.coordinates?.lat) || 0,
+    longitude: roughPin ? 0 : Number(vendor.businessAddress?.coordinates?.lng) || 0,
     whatsappNumber: vendor.whatsappNumber || "",
     upiId: vendor.upiId || "",
     telegramLink: vendor.telegramLink || "",
@@ -191,6 +198,7 @@ export default function VendorSettingsForm({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setFilledFromPin((prev) => prev.filter((f) => f !== e.target.name));
   };
 
   const handleImageUpload = async (
@@ -227,6 +235,21 @@ export default function VendorSettingsForm({
     }
   };
 
+  // Photos save the moment they're added or removed — no "Save changes"
+  // needed, so a seller can't lose them by leaving the page
+  const savePhotos = async (data: { storeLogo?: string; storeImages?: string[] }, done: string) => {
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.updateShopPage(data, vendor.id);
+      toast.success(done);
+      void refreshShopPage(vendor.id);
+      return true;
+    } catch (error: any) {
+      toast.error(error?.message || "Couldn't save the photo. Please try again.");
+      return false;
+    }
+  };
+
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset so picking the same photo again still fires onChange
@@ -244,7 +267,7 @@ export default function VendorSettingsForm({
     }
 
     const url = await handleImageUpload(file, "logo");
-    if (url) {
+    if (url && (await savePhotos({ storeLogo: url }, "Logo saved · लोगो सेव हो गया"))) {
       setFormData((prev) => ({ ...prev, storeLogo: url }));
     }
   };
@@ -275,10 +298,10 @@ export default function VendorSettingsForm({
       const validUrls = uploadedUrls.filter((url) => url !== null) as string[];
 
       if (validUrls.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          storeImages: [...prev.storeImages, ...validUrls],
-        }));
+        const next = [...formData.storeImages, ...validUrls];
+        if (await savePhotos({ storeImages: next }, validUrls.length === 1 ? "Photo added to your shop" : `${validUrls.length} photos added`)) {
+          setFormData((prev) => ({ ...prev, storeImages: next }));
+        }
       }
     } catch (error) {
       console.error("Error uploading store images:", error);
@@ -289,24 +312,39 @@ export default function VendorSettingsForm({
     }
   };
 
-  const handleRemoveStoreImage = (indexToRemove: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      storeImages: prev.storeImages.filter(
-        (_: any, index: number) => index !== indexToRemove
-      ),
-    }));
+  const handleRemoveStoreImage = async (indexToRemove: number) => {
+    const next = formData.storeImages.filter((_: any, index: number) => index !== indexToRemove);
+    if (await savePhotos({ storeImages: next }, "Photo removed")) {
+      setFormData((prev) => ({ ...prev, storeImages: next }));
+    }
   };
 
-  // Stable identity: LocationPicker rebuilds the map whenever this changes,
-  // so a new function on every keystroke would reset the map while typing
-  const handleLocationSelect = useCallback((lat: number, lng: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng,
-    }));
-  }, []);
+  // Where the map starts when there's no pin yet: the rough spot we had,
+  // else the PIN code's area, else the town
+  const [mapStart, setMapStart] = useState<LatLng>(() => {
+    const c = vendor.businessAddress?.coordinates;
+    return roughPin && Number(c?.lat) && Number(c?.lng) ? { lat: Number(c.lat), lng: Number(c.lng) } : DEFAULT_TOWN.at;
+  });
+  useEffect(() => {
+    if (roughPin || !vendor.pincode) return;
+    pincodeCentre(vendor.pincode).then((at) => at && setMapStart(at));
+  }, [roughPin, vendor.pincode]);
+
+  // Fields just filled in from the pin, to point them out
+  const [filledFromPin, setFilledFromPin] = useState<string[]>([]);
+  // The pin's street line when the owner already typed their own
+  const [streetFromPin, setStreetFromPin] = useState<string | null>(null);
+
+  const handlePinPicked = (picked: PickedLocation) => {
+    const before = formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null;
+    // Moved more than ~50 m → the area, town and PIN follow the new pin
+    const moved = !before || distanceKm(before, picked) > 0.05;
+    const { next, filled, streetSuggestion } = fillFromPin(formData, picked.address, moved);
+    setFormData({ ...next, latitude: picked.lat, longitude: picked.lng });
+    setFilledFromPin(filled);
+    setStreetFromPin(moved ? streetSuggestion : null);
+  };
+  const pinFilled = (name: string) => (filledFromPin.includes(name) ? "ring-2 ring-ok/40 bg-ok-soft/40" : "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +356,7 @@ export default function VendorSettingsForm({
 
       if (data.success) {
         toast.success("Changes saved · बदलाव सेव हो गए");
+        void refreshShopPage(vendor.id);
         router.refresh();
       } else {
         toast.error((data as any).error || (data as any).message || "Couldn't save. Please try again.");
@@ -397,6 +436,9 @@ export default function VendorSettingsForm({
               {photoCount} of {MAX_PHOTOS}
             </span>
           </div>
+          <p className="-mt-1 mb-3 text-[14px] leading-snug text-label-2">
+            They slide at the top of your shop page, in this order. Saved as soon as you add them.
+          </p>
 
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
             {formData.storeImages.map((imageUrl: string, index: number) => (
@@ -568,7 +610,7 @@ export default function VendorSettingsForm({
             name="upiId"
             value={formData.upiId}
             onChange={handleChange}
-            placeholder="e.g. radhesarees@okaxis"
+            placeholder="e.g. 98xxxxxx10@ybl or yourname@okaxis"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck={false}
@@ -577,9 +619,68 @@ export default function VendorSettingsForm({
         </Field>
       </FormCard>
 
-      {/* ── Address + map pin ── */}
+      {/* ── Map pin first, then the address (filled in from the pin) ── */}
       <FormCard title="Address & map" description="Customers nearby find your shop with this.">
-        <Field label="Shop address" htmlFor="street" hint="Shop number, building and street">
+        <div id="shop-location" className="scroll-mt-24">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] font-semibold text-label">Shop on the map</p>
+            {pinSet ? (
+              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
+                Pin is set
+              </Pill>
+            ) : (
+              <Pill tone="warn" icon={<MapPin className="h-3.5 w-3.5" aria-hidden />}>
+                {roughPin ? "Only rough location" : "Pin not set yet"}
+              </Pill>
+            )}
+          </div>
+          <ShopLocationField
+            value={pinSet ? { lat: formData.latitude, lng: formData.longitude } : null}
+            onChange={handlePinPicked}
+            near={mapStart}
+            nearLabel={formData.city || DEFAULT_TOWN.label}
+            addressText={[formData.street, formData.locality, formData.city].filter(Boolean).join(", ")}
+          />
+        </div>
+
+        {filledFromPin.length > 0 && (
+          <div role="status" className="flex items-start gap-2.5 rounded-xl bg-ok-soft px-3.5 py-3 text-[14px] leading-snug text-label">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={3} aria-hidden />
+            <p>
+              <span className="font-semibold">Address filled from your pin.</span> Add your shop number and check it once.
+              <span className="block text-label-2">पता पिन से भरा गया — दुकान नंबर जोड़ें और एक बार जाँच लें।</span>
+            </p>
+          </div>
+        )}
+
+        {streetFromPin && (
+          <div className="rounded-xl bg-info-soft px-3.5 py-3">
+            <p className="text-[13px] font-medium text-label-2">Address at your pin · पिन वाला पता</p>
+            <p className="mt-0.5 text-[15px] font-semibold leading-snug text-label">{streetFromPin}</p>
+            <div className="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, street: streetFromPin }));
+                  setFilledFromPin((prev) => [...prev, "street"]);
+                  setStreetFromPin(null);
+                }}
+                className="h-10 rounded-full bg-cta px-4 text-[14px] font-semibold text-white hover:bg-cta-hover cursor-pointer"
+              >
+                Use this address
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreetFromPin(null)}
+                className="h-10 rounded-full border border-label/20 bg-card px-4 text-[14px] font-semibold text-label active:bg-fill cursor-pointer"
+              >
+                Keep mine
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Field label="Shop no., building, street" htmlFor="street" hint="e.g. Shop 4, Main Road, near Railway Gate">
           <input
             id="street"
             type="text"
@@ -588,7 +689,7 @@ export default function VendorSettingsForm({
             onChange={handleChange}
             required
             autoComplete="street-address"
-            className={inputClass}
+            className={`${inputClass} ${pinFilled("street")}`}
           />
         </Field>
 
@@ -599,7 +700,7 @@ export default function VendorSettingsForm({
             name="locality"
             value={formData.locality}
             onChange={handleChange}
-            className={inputClass}
+            className={`${inputClass} ${pinFilled("locality")}`}
           />
         </Field>
 
@@ -612,7 +713,7 @@ export default function VendorSettingsForm({
               value={formData.city}
               onChange={handleChange}
               required
-              className={inputClass}
+              className={`${inputClass} ${pinFilled("city")}`}
             />
           </Field>
           <Field label="State" htmlFor="state">
@@ -623,7 +724,7 @@ export default function VendorSettingsForm({
               value={formData.state}
               onChange={handleChange}
               required
-              className={inputClass}
+              className={`${inputClass} ${pinFilled("state")}`}
             />
           </Field>
         </div>
@@ -639,29 +740,9 @@ export default function VendorSettingsForm({
             onChange={handleChange}
             pattern="[0-9]{6}"
             title="PIN code is 6 numbers"
-            className={`${inputClass} tabular-nums`}
+            className={`${inputClass} tabular-nums ${pinFilled("pincode")}`}
           />
         </Field>
-
-        <div className="border-t border-hairline pt-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[15px] font-semibold text-label">Shop on the map</p>
-            {pinSet ? (
-              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
-                Pin is set
-              </Pill>
-            ) : (
-              <Pill tone="warn" icon={<MapPin className="h-3.5 w-3.5" aria-hidden />}>
-                Pin not set yet
-              </Pill>
-            )}
-          </div>
-          <LocationPicker
-            initialLat={formData.latitude}
-            initialLng={formData.longitude}
-            onLocationSelect={handleLocationSelect}
-          />
-        </div>
       </FormCard>
 
       {/* ── Social (folded) ── */}

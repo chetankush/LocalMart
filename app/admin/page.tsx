@@ -35,6 +35,8 @@ type VendorRequest = {
   businessType: string;
   city: string;
   address: string;
+  pincode?: string | null;
+  locality?: string | null;
   description: string | null;
   status: string;
   rejectionReason: string | null;
@@ -168,12 +170,22 @@ export default function AdminDashboard() {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const query = vendorFilter === "ALL" ? "" : `?status=${vendorFilter}`;
-      const response = await fetch(`/api/admin/vendors${query}`, {
-        cache: "no-store",
-      });
-      const data = await response.json();
-      setVendors(data.data || []);
+      // With no status the API only returns live shops, so "All" asks for each one
+      const statuses = vendorFilter === "ALL" ? ["PENDING_APPROVAL", "ACTIVE", "SUSPENDED"] : [vendorFilter];
+      const lists = await Promise.all(
+        statuses.map((st) =>
+          fetch(`/api/admin/vendors?status=${st}`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((d) => (d.data || []) as Vendor[]),
+        ),
+      );
+      const seen = new Set<string>();
+      setVendors(
+        lists
+          .flat()
+          .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      );
     } catch (error) {
       console.error("Error fetching vendors:", error);
       toast.error("Couldn't load shops");
@@ -207,7 +219,7 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message || "Seller approved");
+        toast.success("Seller approved — their shop is live");
         await fetchRequests();
         closeRequest();
       } else {
@@ -237,7 +249,7 @@ export default function AdminDashboard() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message || "Request rejected");
+        toast.success("Request rejected — the seller will see your reason");
         await fetchRequests();
         closeRequest();
       } else {
@@ -324,6 +336,8 @@ export default function AdminDashboard() {
   if (!authChecked) return <AdminGate />;
 
   const isRequests = activeTab === "requests";
+  // The shops API doesn't send owners today; only show the column if it does
+  const hasOwners = vendors.some((v) => v.user);
   const empty = isRequests ? requests.length === 0 : vendors.length === 0;
   const filterLabel = (isRequests ? REQUEST_FILTERS.find((f) => f.value === filter) : SHOP_FILTERS.find((f) => f.value === vendorFilter))?.label ?? "";
 
@@ -430,7 +444,7 @@ export default function AdminDashboard() {
             <thead>
               <tr>
                 <th className={thClass}>Shop</th>
-                <th className={thClass}>Owner</th>
+                {hasOwners && <th className={thClass}>Owner</th>}
                 <th className={thClass}>Place</th>
                 <th className={thClass}>Status</th>
                 <th className={thClass}>Since</th>
@@ -451,16 +465,18 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </td>
-                  <td className={tdClass}>
-                    {vendor.user ? (
-                      <>
-                        <p>{vendor.user.fullName}</p>
-                        <p className="text-[13px] text-label-2">{vendor.user.email}</p>
-                      </>
-                    ) : (
-                      <span className="text-label-3">—</span>
-                    )}
-                  </td>
+                  {hasOwners && (
+                    <td className={tdClass}>
+                      {vendor.user ? (
+                        <>
+                          <p>{vendor.user.fullName}</p>
+                          <p className="text-[13px] text-label-2">{vendor.user.email}</p>
+                        </>
+                      ) : (
+                        <span className="text-label-3">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className={`${tdClass} text-label-2`}>{place(vendor)}</td>
                   <td className={tdClass}>
                     <StatusPill status={vendor.status} />
@@ -546,7 +562,10 @@ export default function AdminDashboard() {
                 </a>
               </Detail>
               <Detail label="Email">{selectedRequest.email}</Detail>
-              <Detail label="City">{selectedRequest.city}</Detail>
+              <Detail label="Area">
+                {[selectedRequest.locality, selectedRequest.city].filter(Boolean).join(", ")}
+              </Detail>
+              <Detail label="PIN code">{selectedRequest.pincode || "Not given"}</Detail>
               <Detail label="Address" wide>
                 {selectedRequest.address}
               </Detail>

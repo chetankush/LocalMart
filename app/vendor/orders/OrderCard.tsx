@@ -8,7 +8,7 @@ import { OrderStatus } from "@/src/generated/prisma";
 import { apiClient } from "@/lib/api/client";
 import { orderRecipient } from "@/lib/orders/recipient";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Button, Pill, Thumb, formatIST, rupees, type Tone } from "@/components/app/ui";
+import { Button, Pill, Thumb, formatIST, rupees, type Tone, shortOrderNo } from "@/components/app/ui";
 
 interface OrderItem {
   id: string;
@@ -17,6 +17,8 @@ interface OrderItem {
   quantity: number;
   unitPrice: any;
   totalPrice: any;
+  /** Taken off the order when the shop accepted ("Items missing") */
+  unavailable?: boolean;
   product: {
     name: string;
     images: any;
@@ -175,15 +177,29 @@ export default function OrderCard({ order }: OrderCardProps) {
 
       {/* What to pack */}
       <ul className="space-y-2 px-4 py-3">
-        {order.items.map((item) => (
-          <li key={item.id} className="flex items-center gap-3">
-            <Thumb src={item.productImage} alt={item.productName} size={44} />
-            <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
-              <span className="font-semibold">{item.quantity} ×</span> {item.productName}
-            </span>
-            <span className="shrink-0 text-[15px] tabular-nums text-label-2">{rupees(Number(item.totalPrice))}</span>
-          </li>
-        ))}
+        {order.items.map((item) =>
+          item.unavailable ? (
+            // Removed when accepting — don't pack it
+            <li key={item.id} className="flex items-center gap-3 opacity-60">
+              <Thumb src={item.productImage} alt={item.productName} size={44} />
+              <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
+                <span className="line-through">
+                  <span className="font-semibold">{item.quantity} ×</span> {item.productName}
+                </span>
+                <span className="block text-[13px] font-semibold text-bad">Removed · don&apos;t send · नहीं भेजना</span>
+              </span>
+              <span className="shrink-0 text-[15px] tabular-nums text-label-3 line-through">{rupees(Number(item.totalPrice))}</span>
+            </li>
+          ) : (
+            <li key={item.id} className="flex items-center gap-3">
+              <Thumb src={item.productImage} alt={item.productName} size={44} />
+              <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
+                <span className="font-semibold">{item.quantity} ×</span> {item.productName}
+              </span>
+              <span className="shrink-0 text-[15px] tabular-nums text-label-2">{rupees(Number(item.totalPrice))}</span>
+            </li>
+          ),
+        )}
       </ul>
 
       {/* Money */}
@@ -253,7 +269,7 @@ export default function OrderCard({ order }: OrderCardProps) {
             {address.phone && <p>Phone {address.phone}</p>}
           </div>
           {order.customerNotes && <p className="rounded-xl bg-warn-soft p-3 text-label">Note: {order.customerNotes}</p>}
-          <p className="text-[13px] text-label-3">Order #{order.orderNumber}</p>
+          <p className="text-[13px] text-label-3">Order #{shortOrderNo(order.orderNumber)}</p>
           {CANCELLABLE.includes(order.status) && (
             <Button variant="danger" size="md" full className="bg-bad-soft" onClick={handleCancel} loading={busy === "cancel"}>
               Cancel order

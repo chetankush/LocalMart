@@ -6,7 +6,7 @@ import { Button, LargeTitle, Notice, Page } from '@/components/app/ui';
 import { MessageCard } from '@/components/app/seller';
 import { useApprovals } from '../_approvals/ApprovalsPollerContext';
 import { ApprovalCard } from './_components/ApprovalCard';
-import { EnableSoundBanner } from './_components/EnableSoundBanner';
+import { BusyCard } from '../_approvals/ShopBusy';
 import { StoreFilterChips } from './_components/StoreFilterChips';
 
 export default function ApprovalsPage() {
@@ -49,7 +49,7 @@ export default function ApprovalsPage() {
         back={{ href: '/vendor/orders', label: 'All orders' }}
         subtitle={
           filtered.length > 0
-            ? `${filtered.length} waiting · Accept or reject within 10 minutes`
+            ? `${filtered.length} waiting · Answer within 5 minutes · 5 मिनट में जवाब दें`
             : 'Orders that need your OK show up here'
         }
         trailing={
@@ -65,7 +65,7 @@ export default function ApprovalsPage() {
         }
       />
 
-      <EnableSoundBanner />
+      <BusyCard />
 
       <StoreFilterChips selectedStoreId={selectedStoreId} onSelect={setSelectedStoreId} />
 
@@ -126,9 +126,9 @@ function EmptyState() {
       </span>
       <h2 className="text-[20px] font-semibold text-label">You&apos;re all caught up</h2>
       <p className="mx-auto mt-1.5 max-w-xs text-[16px] leading-snug text-label-2">
-        Keep this page open. A sound plays when a new order comes in.
+        Your phone rings when a new order comes in. Answer within 5 minutes.
       </p>
-      <p className="mt-1 text-[15px] text-label-3">नया ऑर्डर आने पर आवाज़ आएगी</p>
+      <p className="mt-1 text-[15px] text-label-3">नया ऑर्डर आने पर घंटी बजेगी</p>
     </div>
   );
 }

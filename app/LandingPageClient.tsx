@@ -1,21 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 
 import { useLocation } from "@/context/LocationContext";
 import ShopSpotlight from "@/components/landing/ShopSpotlight";
+import SponsoredShops from "@/components/ads/SponsoredShops";
+import HomeAdBanner from "@/components/ads/HomeAdBanner";
 import NotInYourArea from "@/components/landing/NotInYourArea";
 import OutOfAreaStrip from "@/components/landing/OutOfAreaStrip";
 import FirstVisitIntro from "@/components/landing/FirstVisitIntro";
-import CategoryGrid from "@/components/landing/CategoryGrid";
+import CategoryShowcase from "@/components/landing/CategoryShowcase";
+import MapHero, { MapStrip, type HeroPromo } from "@/components/landing/MapHero";
+import type { MapShop } from "@/components/map/ShopMap";
 import ProductCard from "@/components/landing/ProductCard";
 import { HomeSection, ProductRow } from "@/components/app/commerce";
 import HowItWorksHorizontal from "@/components/landing/HowItWorksHorizontal";
 import FlashDealsSection from "@/components/landing/FlashDealsSection";
 import StoresNearYouSection, { type Vendor } from "@/components/landing/StoresNearYouSection";
 import PopularProductsRail from "@/components/landing/PopularProductsRail";
+import NewArrivalsRail, { newArrivals } from "@/components/landing/NewArrivalsRail";
+import CollectionCards from "@/components/landing/CollectionCards";
 import FaqAccordion from "@/components/landing/FaqAccordion";
 import VendorCtaSection from "@/components/landing/VendorCtaSection";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
@@ -154,7 +160,10 @@ export default function LandingPageClient({
   };
 
   const enrichedDeals = allProducts.map(enrich);
-  const enrichedPopular = popularSorted.map(enrich);
+  // Newest first; "Popular" then skips what "New arrivals" already shows
+  const enrichedNew = newArrivals([...featuredProducts, ...popularProducts]).map(enrich);
+  const showingNew = new Set(enrichedNew.length >= 3 ? enrichedNew.map((p) => p.id) : []);
+  const enrichedPopular = popularSorted.filter((p) => !showingNew.has(p.id)).map(enrich);
 
   const productsByCategory = [...allProducts, ...popularProducts].reduce((acc, p) => {
     const bt = (p.vendor as { businessType?: string }).businessType || "OTHER";
@@ -171,6 +180,8 @@ export default function LandingPageClient({
       products: Array.from(m.values()),
     }))
     .sort((a, b) => b.products.length - a.products.length);
+  // With a single category its row is the same items as "Popular" — skip it
+  const categoryRows = categoryDealSections.length >= 2 ? categoryDealSections : [];
 
   const locationLabel = location?.locality || location?.city || undefined;
   const locationSet = location ? true : locationLoading ? serverHasLocation : false;
@@ -178,8 +189,53 @@ export default function LandingPageClient({
   const liveTowns = [...new Set(vendors.map((v) => v.city).filter(Boolean))];
 
   const hasNearbyVendors = vendors.length > 0;
+  const shopTypesHere = useMemo(() => [...new Set(vendors.map((v) => v.businessType))], [vendors]);
+  const openLocationModal = useCallback(() => setShowLocationModal(true), []);
+
+  // Hero: the shops on a little map, and two promo cards (newest, best deal)
+  const mapShops: MapShop[] = vendors.flatMap((v) => {
+    const c = v.businessAddress?.coordinates;
+    return c && Number(c.lat) && Number(c.lng)
+      ? [{ id: v.id, businessName: v.businessName, businessType: v.businessType, lat: Number(c.lat), lng: Number(c.lng) }]
+      : [];
+  });
+  const heroUser =
+    !outOfArea && typeof location?.latitude === "number" && typeof location?.longitude === "number"
+      ? { lat: location.latitude, lng: location.longitude }
+      : null;
+  const imageOf = (p?: ProductCardProduct) => {
+    const list = Array.isArray(p?.images) ? (p?.images as unknown[]) : [];
+    return (list.find((x) => typeof x === "string") as string | undefined) ?? null;
+  };
+  const discountOf = (p: ProductCardProduct) => {
+    const price = Number(p.price);
+    const mrp = Number(p.compareAtPrice || 0);
+    return mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  };
+  const bestDeal = [...allProducts].sort((a, b) => discountOf(b) - discountOf(a))[0];
+  const promos: HeroPromo[] = [];
+  if (enrichedNew.length > 0) {
+    promos.push({
+      href: "#new-arrivals",
+      eyebrow: "New arrivals",
+      title: "Fresh in the shops this week",
+      cta: "Shop new",
+      image: imageOf(enrichedNew[0]),
+      tone: "rose",
+    });
+  }
+  if (bestDeal && discountOf(bestDeal) > 0) {
+    promos.push({
+      href: "#deals",
+      eyebrow: "Deals",
+      title: `Up to ${Math.max(...allProducts.map(discountOf))}% off near you`,
+      cta: "See deals",
+      image: imageOf(bestDeal),
+      tone: "green",
+    });
+  }
   const hasDeals = enrichedDeals.length > 0;
-  const hasPopularProducts = enrichedPopular.length > 0;
+  const hasPopularProducts = enrichedPopular.length >= (showingNew.size > 0 ? 3 : 1);
 
   // Shoppers with shops nearby get straight to shopping; the explainer
   // sections are for first-time visitors and sit lower down otherwise.
@@ -203,6 +259,22 @@ export default function LandingPageClient({
           <FirstVisitIntro onChoose={() => setShowLocationModal(true)} />
         )}
 
+        {!outOfArea && <HomeAdBanner />}
+
+        <MapHero
+          shops={mapShops}
+          user={heroUser}
+          place={outOfArea ? liveTowns[0] : locationLabel}
+          promos={promos}
+          noLocation={!locationSet && !outOfArea}
+          onChooseArea={openLocationModal}
+          shopTypes={shopTypesHere}
+        />
+
+        <CategoryShowcase shopTypes={vendors.map((v) => v.businessType)} />
+
+        {!outOfArea && <SponsoredShops placement="HOME_FEATURED" />}
+
         <ShopSpotlight
           vendors={vendors}
           userLat={outOfArea ? undefined : location?.latitude}
@@ -211,9 +283,20 @@ export default function LandingPageClient({
           title={outOfArea ? `Shops in ${liveTowns.join(", ") || "LocalMart"}` : undefined}
         />
 
-        <CategoryGrid shopTypes={vendors.map((v) => v.businessType)} />
+        {/* Phones: the map sits here, not at the top */}
+        <MapStrip shops={mapShops} user={heroUser} place={outOfArea ? liveTowns[0] : locationLabel} />
 
-        {hasDeals && <FlashDealsSection products={enrichedDeals} />}
+        {hasDeals && (
+          <div id="deals" className="scroll-mt-28">
+            <FlashDealsSection products={enrichedDeals} />
+          </div>
+        )}
+
+        <div id="new-arrivals" className="scroll-mt-28">
+          <NewArrivalsRail products={enrichedNew} />
+        </div>
+
+        <CollectionCards products={[...featuredProducts, ...popularProducts]} />
 
         {hasPopularProducts && (
           <PopularProductsRail
@@ -223,7 +306,7 @@ export default function LandingPageClient({
           />
         )}
 
-        {categoryDealSections.map((section) => (
+        {categoryRows.map((section) => (
           <HomeSection
             key={section.businessType}
             title={section.title}

@@ -1,5 +1,6 @@
 "use client";
 
+import { UNIT, type RentUnit } from "@/lib/rentals";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import NotifyMeButton from "@/components/NotifyMeButton";
+import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 
 interface Product {
   id: string;
@@ -37,7 +39,11 @@ interface Product {
   reviewCount: number;
   createdAt: Date;
   tags?: string[] | null;
-  category?: string | null;
+  // The shop API sends { name, slug }; older data may be plain text
+  category?: string | { name: string; slug?: string } | null;
+  listingType?: "SALE" | "RENT" | null;
+  rentUnit?: RentUnit | null;
+  rentUnitLabel?: string | null;
 }
 
 type SortKey = "featured" | "new" | "price-asc" | "price-desc" | "rating";
@@ -50,10 +56,16 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "rating", label: "Highest rated" },
 ];
 
+function categoryName(p: Product): string | null {
+  const name = typeof p.category === "string" ? p.category : p.category?.name;
+  return name?.trim() || null;
+}
+
 function deriveCategories(products: Product[]): string[] {
   const set = new Set<string>();
   for (const p of products) {
-    if (p.category) set.add(p.category.trim());
+    const name = categoryName(p);
+    if (name) set.add(name);
     if (Array.isArray(p.tags)) {
       for (const t of p.tags) {
         if (typeof t === "string" && t.trim().length > 0) set.add(t.trim());
@@ -65,7 +77,7 @@ function deriveCategories(products: Product[]): string[] {
 
 function productMatchesCategory(p: Product, cat: string): boolean {
   const c = cat.toLowerCase();
-  if (p.category && p.category.toLowerCase() === c) return true;
+  if (categoryName(p)?.toLowerCase() === c) return true;
   if (Array.isArray(p.tags) && p.tags.some((t) => t?.toLowerCase() === c))
     return true;
   return false;
@@ -98,6 +110,10 @@ interface DefaultThemeProps {
     instagramHandle?: string;
     facebookPage?: string;
     websiteUrl?: string;
+    contactPhone?: string | null;
+    canDeliver?: boolean | null;
+    maxDeliveryDistance?: number | null;
+    businessHours?: BusinessHours | null;
   };
   products: Product[];
 }
@@ -134,6 +150,13 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
   const [sortBy, setSortBy] = useState<SortKey>("featured");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [showInStockOnly, setShowInStockOnly] = useState(false);
+  // null = the shop hasn't set its hours. Worked out after mount so the
+  // server (UTC) and phone (IST) agree during hydration.
+  const [openNow, setOpenNow] = useState<boolean | null>(null);
+  useEffect(() => {
+    const hours = vendor.businessHours;
+    setOpenNow(hours && Object.keys(hours).length ? isStoreOpen(hours) : null);
+  }, [vendor.businessHours]);
 
   useEffect(() => {
     setBranding({
@@ -510,13 +533,14 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                     <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
                       Hours
                     </dt>
+                    {/* Only what the shop told us — never a made-up "Open now" */}
                     <dd className="text-[15px] text-ink leading-relaxed inline-flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent" aria-hidden />
-                      Open now
+                      {openNow !== null && (
+                        <span className={`w-1.5 h-1.5 rounded-full ${openNow ? "bg-accent" : "bg-ink-3"}`} aria-hidden />
+                      )}
+                      {openNow === null ? "Call the shop for timings" : openNow ? "Open now" : "Closed now"}
                     </dd>
-                    <dd className="text-xs text-ink-3 mt-1">
-                      Local delivery available
-                    </dd>
+                    {vendor.contactPhone && <dd className="text-xs text-ink-3 mt-1">{vendor.contactPhone}</dd>}
                   </div>
                 </div>
 
@@ -531,10 +555,14 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                       Delivery
                     </dt>
                     <dd className="text-[15px] text-ink leading-relaxed">
-                      Same-day in {vendor.city || "your area"}
+                      {vendor.canDeliver === false
+                        ? "Pick up from the shop"
+                        : vendor.maxDeliveryDistance
+                          ? `Home delivery within ${vendor.maxDeliveryDistance} km`
+                          : `Home delivery in ${vendor.city || "town"}`}
                     </dd>
                     <dd className="text-xs text-ink-3 mt-1">
-                      Direct from the store
+                      {vendor.canDeliver === false ? "No home delivery" : "Delivered by the shop itself"}
                     </dd>
                   </div>
                 </div>
@@ -550,10 +578,10 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                       Verification
                     </dt>
                     <dd className="text-[15px] text-ink leading-relaxed">
-                      Verified local vendor
+                      Approved by LocalMart
                     </dd>
                     <dd className="text-xs text-ink-3 mt-1">
-                      Real shopkeeper, local pickup
+                      Checked by our team before the shop went live
                     </dd>
                   </div>
                 </div>
@@ -914,7 +942,7 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                           ? Number(product.averageRating)
                           : null;
                       const productCategory =
-                        product.category ||
+                        categoryName(product) ||
                         (Array.isArray(product.tags) && product.tags[0]) ||
                         null;
 
@@ -964,6 +992,12 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                             <div className="mt-2 flex items-baseline justify-between gap-2">
                               <span className="font-heading text-ink text-base sm:text-lg font-semibold tabular-nums">
                                 ₹{price.toFixed(0)}
+                                {product.listingType === "RENT" && (
+                                  <span className="ml-1 font-sans text-[12px] font-normal text-ink-3">
+                                    {product.rentUnitLabel ? `a ${product.rentUnitLabel} ` : ""}
+                                    {UNIT[(product.rentUnit ?? "DAY") as RentUnit].per}
+                                  </span>
+                                )}
                               </span>
                               {productRating != null &&
                                 product.reviewCount > 0 && (

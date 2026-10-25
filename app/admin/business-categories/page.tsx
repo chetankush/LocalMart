@@ -168,7 +168,7 @@ export default function BusinessCategoriesPage() {
       const data = await apiClient.seedBusinessCategories();
 
       if (data.success) {
-        toast.success(data.message || "Default categories added");
+        toast.success("Missing categories added");
         fetchCategories();
       } else {
         toast.error("Couldn't add the default categories");
@@ -239,7 +239,7 @@ export default function BusinessCategoriesPage() {
       }
 
       if (data.success) {
-        toast.success(data.message || (editingCategory ? "Category saved" : "Category added"));
+        toast.success(editingCategory ? "Category saved" : "Category added");
         setShowModal(false);
         fetchCategories();
       } else {
@@ -269,7 +269,7 @@ export default function BusinessCategoriesPage() {
       const data = await apiClient.deleteBusinessCategory(id);
 
       if (data.success) {
-        toast.success(data.message || "Category deleted");
+        toast.success("Category deleted");
         setSelectedId(null);
         fetchCategories();
       } else {
@@ -361,7 +361,7 @@ export default function BusinessCategoriesPage() {
               <tr>
                 <th className={thClass}>Category</th>
                 <th className={thClass}>Code</th>
-                <th className={`${thClass} text-right`}>Order</th>
+                <th className={`${thClass} hidden text-right 2xl:table-cell`}>Order</th>
                 <th className={thClass}>Shown to sellers</th>
                 <th className={thClass}>
                   <span className="sr-only">Actions</span>
@@ -380,7 +380,7 @@ export default function BusinessCategoriesPage() {
                       <CategoryThumb category={category} />
                       <div className="min-w-0">
                         <p className="font-semibold text-label">{category.name}</p>
-                        <p className="max-w-xs truncate text-[13px] text-label-2">
+                        <p className="max-w-[14rem] truncate text-[13px] text-label-2 2xl:max-w-xs">
                           {category.description || "No description"}
                         </p>
                       </div>
@@ -389,7 +389,7 @@ export default function BusinessCategoriesPage() {
                   <td className={tdClass}>
                     <span className="rounded-lg bg-fill px-2 py-1 font-mono text-[13px] text-label-2">{category.value}</span>
                   </td>
-                  <td className={`${tdClass} text-right tabular-nums text-label-2`}>{category.sortOrder}</td>
+                  <td className={`${tdClass} hidden text-right tabular-nums text-label-2 2xl:table-cell`}>{category.sortOrder}</td>
                   <td className={tdClass} onClick={(e) => e.stopPropagation()}>
                     <div className="w-[132px]">
                       <Toggle

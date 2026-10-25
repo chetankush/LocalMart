@@ -22,6 +22,9 @@ export interface StoreQuote {
   storeLogo: string | null;
   contactPhone: string;
   acceptingOrders: boolean;
+  /** Shop pressed "Busy": no new orders until then, with words for the shopper */
+  busyUntil?: string | null;
+  busyMessage?: string | null;
   serviceable: boolean | null; // null = location not known yet
   upiAvailable: boolean;
   items: QuoteItem[];
@@ -241,7 +244,8 @@ class ApiClient {
     );
   }
 
-  async createCategory(data: { name: string }) {
+  // Seller: a category just for their shop (storeId picks which). Admin: a shared one.
+  async createCategory(data: { name: string; storeId?: string }) {
     return this.request<{ success: boolean; data: any; message: string }>(
       "/categories",
       {
@@ -446,6 +450,11 @@ class ApiClient {
     contactPhone: string;
     description?: string;
     state?: string;
+    locality?: string;
+    pincode?: string;
+    /** The shop's pin on the map */
+    latitude?: number | null;
+    longitude?: number | null;
   }) {
     return this.request<{ success: boolean; data: any; message: string }>(
       "/vendor/stores",
@@ -474,6 +483,23 @@ class ApiClient {
   async getVendorTheme(storeId?: string) {
     const query = storeId ? `?storeId=${storeId}` : "";
     return this.request<{ success: boolean; data: any }>(`/vendor/theme${query}`);
+  }
+
+  // Seller's own photos for their shop page: main banner photos and one per
+  // section tile ({ "fabric:silk": url }); null removes a tile's photo
+  async updateShopPage(
+    data: { storeImages?: string[]; pageImages?: Record<string, string | null>; storeLogo?: string },
+    storeId?: string,
+  ) {
+    const query = storeId ? `?storeId=${storeId}` : "";
+    return this.request<{
+      success: boolean;
+      message: string;
+      data: { storeId: string; storeImages: string[]; pageImages: Record<string, string> };
+    }>(`/vendor/shop-page${query}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
   }
 
   async updateVendorTheme(
@@ -511,6 +537,9 @@ class ApiClient {
           businessName: string;
           storeLogo: string | null;
           approvalSoundMuted: boolean;
+          /** "Busy": no new orders until then */
+          pausedUntil?: string | null;
+          pauseReason?: "RUSH" | "CLOSED_TODAY" | "MISSED_ORDERS" | null;
         }>;
         orders: Array<{
           id: string;
@@ -522,27 +551,97 @@ class ApiClient {
           customer: { fullName: string; phone: string | null };
           vendor: { id: string; businessName: string; storeLogo: string | null };
           items: Array<{
+            id: string;
+            productId: string;
+            productImage?: string | null;
             quantity: number;
             productName: string;
             unitPrice: string | number;
             totalPrice: string | number;
           }>;
         }>;
+        /** To line the countdown up with the server's clock */
+        serverTime?: string;
       };
     }>(`/vendor/pending-approvals${query}`, { suppressNetworkError: true });
   }
 
-  async approveOrder(orderId: string) {
-    return this.request<{ success: boolean; data: { id: string; status: string } }>(
+  /** Accept — optionally without items the shop doesn't have (they come off the order) */
+  async approveOrder(
+    orderId: string,
+    body: { unavailableItemIds?: string[]; backIn?: "TWO_HOURS" | "TOMORROW" | null } = {},
+  ) {
+    return this.request<{ success: boolean; data: { id: string; status: string; totalAmount?: string | number } }>(
       `/vendor/orders/${orderId}/approve`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify(body) },
     );
   }
 
-  async rejectOrder(orderId: string) {
+  /** Say no — "items not available" marks them off in the shop; "too busy" can pause new orders */
+  async rejectOrder(
+    orderId: string,
+    body: {
+      reason?: "ITEMS_UNAVAILABLE" | "TOO_BUSY" | "OTHER";
+      unavailableItemIds?: string[];
+      backIn?: "TWO_HOURS" | "TOMORROW" | null;
+      pauseMinutes?: number;
+    } = {},
+  ) {
     return this.request<{ success: boolean; data: { id: string; status: string } }>(
       `/vendor/orders/${orderId}/reject`,
-      { method: "POST" },
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  }
+
+  /** "Busy" — stop new orders for a while (or the rest of today) */
+  async pauseShop(body: { storeId?: string; minutes?: number; restOfDay?: boolean }) {
+    return this.request<{ success: boolean; data: { id: string; pausedUntil: string | null; pauseReason: string | null } }>(
+      `/vendor/pause`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  }
+
+  /** "I'm back" — take orders again */
+  async resumeShop(storeId?: string) {
+    return this.request<{ success: boolean; data: { id: string; pausedUntil: string | null; pauseReason: string | null } }>(
+      `/vendor/resume`,
+      { method: "POST", body: JSON.stringify({ storeId }) },
+    );
+  }
+
+  /** One tap: an item is available or not (back by itself at backIn) */
+  async setProductAvailability(
+    productId: string,
+    body: { available: boolean; backIn?: "TWO_HOURS" | "TOMORROW" | null; quantity?: number },
+  ) {
+    return this.request<{
+      success: boolean;
+      data: { id: string; trackStock: boolean; stockQuantity: number; availableAgainAt: string | null; stockBeforeOff: number | null; isActive: boolean };
+    }>(`/vendor/products/${productId}/availability`, { method: "PATCH", body: JSON.stringify(body) });
+  }
+
+  // ── Phone alerts (web push) ──
+  async getPushPublicKey() {
+    return this.request<{ success: boolean; data: { publicKey: string | null } }>(`/push/public-key`, { suppressAuthError: true, suppressNetworkError: true });
+  }
+
+  async pushSubscribe(sub: { endpoint: string; p256dh: string; auth: string; userAgent?: string }) {
+    return this.request<{ success: boolean; data: { devices: number } }>(`/push/subscribe`, { method: "POST", body: JSON.stringify(sub) });
+  }
+
+  async pushUnsubscribe(endpoint: string) {
+    return this.request<{ success: boolean }>(`/push/unsubscribe`, { method: "POST", body: JSON.stringify({ endpoint }) });
+  }
+
+  async pushTest() {
+    return this.request<{ success: boolean; data: { sent: number } }>(`/push/test`, { method: "POST" });
+  }
+
+  /** Is this shop taking orders right now? (live, for the shop page) */
+  async getShopLiveStatus(storeId: string) {
+    return this.request<{ success: boolean; data: { takingOrders: boolean; busyUntil: string | null; busyMessage: string | null } }>(
+      `/vendors/${storeId}/status`,
+      { suppressAuthError: true, suppressNetworkError: true },
     );
   }
 
@@ -660,6 +759,12 @@ class ApiClient {
       paymentMethod: string | null;
       paymentStatus: string;
       updatedAt: string;
+      /** Total after the shop took off items it didn't have */
+      totalAmount?: number;
+      /** Items the shop didn't have */
+      removedItems?: string[];
+      /** Cancelled because the shop didn't answer in time */
+      noAnswer?: boolean;
     }>(`/orders/${orderId}/status`);
   }
 
@@ -1460,7 +1565,13 @@ class ApiClient {
       throw new Error(error.error || 'Upload failed');
     }
 
-    return response.json() as Promise<{ success: boolean; url: string; path: string }>;
+    // The admin upload API wraps the result in `data` ({ success, data: { url, path } })
+    const json = await response.json();
+    return {
+      success: !!json.success,
+      url: (json.url ?? json.data?.url) as string,
+      path: (json.path ?? json.data?.path) as string,
+    };
   }
 
   // ============================================

@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/supabase/auth-provider';
 import { useLocation } from '@/context/LocationContext';
 import { useCartQuote } from '@/hooks/useCartQuote';
 import { useMounted } from '@/hooks/useMounted';
+import { signInHref } from '@/lib/auth/returnTo';
 import { INDIAN_STATES } from '@/constants/indianStates';
 import { toast } from 'sonner';
 import {
@@ -42,6 +43,20 @@ interface DeliveryAddress {
   zipCode: string;
 }
 
+const DRAFT_KEY = 'lm_checkout_draft';
+// The last address this account ordered to, on this phone — so a repeat
+// order doesn't mean typing the mobile number and house again
+const LAST_ADDRESS_KEY = 'lm_last_address_v1';
+
+function readLastAddress(userId: string): DeliveryAddress | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAST_ADDRESS_KEY) || 'null') as { userId?: string; address?: DeliveryAddress } | null;
+    return saved?.userId === userId && saved.address ? saved.address : null;
+  } catch {
+    return null;
+  }
+}
+
 const fieldInput =
   'mt-0.5 w-full bg-transparent text-[17px] text-label outline-none placeholder:text-label-3';
 
@@ -65,6 +80,20 @@ export default function CheckoutPage() {
     zipCode: location?.pincode || '',
   });
 
+  // Coming back from sign-in: restore the address they had typed
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(DRAFT_KEY);
+      const draft = JSON.parse(raw) as { address?: Partial<DeliveryAddress>; paymentMethod?: PaymentMethod };
+      if (draft.address) setAddress((a) => ({ ...a, ...draft.address }));
+      if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+    } catch {
+      // ignore a broken draft
+    }
+  }, []);
+
   // Problems to show next to each field (not just a passing toast)
   type FieldKey = 'zipCode' | 'fullName' | 'phone' | 'street' | 'city';
   const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
@@ -75,14 +104,31 @@ export default function CheckoutPage() {
   const touched = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user) return;
-    const u = user as { phone?: string; user_metadata?: { full_name?: string; phone?: string } };
+    const u = user as { id: string; phone?: string; user_metadata?: { full_name?: string; phone?: string } };
     const busy = (field: string) =>
       touched.current.has(field) || (document.activeElement as HTMLInputElement | null)?.name === field;
-    setAddress((a) => ({
-      ...a,
-      fullName: a.fullName || busy('fullName') ? a.fullName : u.user_metadata?.full_name || '',
-      phone: a.phone || busy('phone') ? a.phone : u.phone || u.user_metadata?.phone || '',
-    }));
+    const last = readLastAddress(u.id);
+    setAddress((a) => {
+      // House and landmark only when it's the same PIN — never send to an old address
+      const pin = a.zipCode || location?.pincode || '';
+      const samePlace = !!last && (!pin || last.zipCode === pin);
+      const fill = (field: keyof DeliveryAddress, fallback: string) =>
+        a[field] || busy(field) ? a[field] : fallback;
+      return {
+        ...a,
+        fullName: fill('fullName', last?.fullName || u.user_metadata?.full_name || ''),
+        phone: fill('phone', last?.phone || u.phone || u.user_metadata?.phone || ''),
+        ...(samePlace && last
+          ? {
+              street: fill('street', last.street),
+              landmark: fill('landmark', last.landmark),
+              zipCode: a.zipCode || last.zipCode,
+              city: a.city || last.city,
+            }
+          : {}),
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Fill PIN / city from the location the customer already picked
@@ -188,8 +234,14 @@ export default function CheckoutPage() {
     if (!validateForm() || !quote) return;
 
     if (!user) {
-      toast.error('Please sign in to place an order');
-      router.push('/sign-in');
+      // Keep what they typed, sign in, and come straight back here
+      try {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ address, paymentMethod }));
+      } catch {
+        // storage blocked — they'll retype
+      }
+      toast('Sign in to place your order — your cart and address are saved');
+      router.push(signInHref('/checkout'));
       return;
     }
 
@@ -210,6 +262,11 @@ export default function CheckoutPage() {
       });
 
       dispatch(clearCart());
+      try {
+        localStorage.setItem(LAST_ADDRESS_KEY, JSON.stringify({ userId: user.id, address }));
+      } catch {
+        // storage blocked — they'll type it next time
+      }
 
       toast.success(
         `Order placed! Waiting for ${data.orders.length === 1 ? 'confirmation' : `${data.orders.length} stores`}…`
@@ -423,7 +480,7 @@ export default function CheckoutPage() {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <span className="flex-1">
                       {!store.acceptingOrders
-                        ? `${store.vendorName} isn't taking orders right now.`
+                        ? store.busyMessage || `${store.vendorName} isn't taking orders right now.`
                         : `${store.vendorName} doesn't deliver to PIN ${address.zipCode}.`}
                     </span>
                     <button

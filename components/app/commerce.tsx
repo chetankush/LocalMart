@@ -12,6 +12,7 @@ export function HomeSection({
   subtitle,
   href,
   linkLabel = "See all",
+  action,
   children,
   className = "",
 }: {
@@ -19,6 +20,8 @@ export function HomeSection({
   subtitle?: ReactNode;
   href?: string;
   linkLabel?: string;
+  /** Another button before "See all" (e.g. "Map") */
+  action?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
@@ -29,10 +32,15 @@ export function HomeSection({
           <h2 className="text-[18px] font-bold leading-tight tracking-[-0.01em] text-label sm:text-[22px]">{title}</h2>
           {subtitle && <p className="mt-0.5 text-[13px] text-label-2">{subtitle}</p>}
         </div>
-        {href && (
-          <Link href={href} className="flex shrink-0 items-center gap-0.5 py-1 text-[14px] font-semibold text-link hover:text-link-hover">
-            {linkLabel} <ChevronRight className="h-4 w-4" aria-hidden />
-          </Link>
+        {(href || action) && (
+          <div className="flex shrink-0 items-center gap-3">
+            {action}
+            {href && (
+              <Link href={href} className="flex shrink-0 items-center gap-0.5 py-1 text-[14px] font-semibold text-link hover:text-link-hover">
+                {linkLabel} <ChevronRight className="h-4 w-4" aria-hidden />
+              </Link>
+            )}
+          </div>
         )}
       </div>
       {children}

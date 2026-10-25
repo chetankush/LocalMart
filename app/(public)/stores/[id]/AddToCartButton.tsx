@@ -4,6 +4,7 @@ import { useAppDispatch } from '@/lib/redux/hooks';
 import { addToCart } from '@/lib/redux/slices/cartSlice';
 import type { CartItem } from '@/lib/redux/slices/cartSlice';
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface Product {
   id: string;
@@ -13,6 +14,8 @@ interface Product {
   images: any;
   stockQuantity: number;
   vendorId: string;
+  /** RENT items are booked by date on their page, not added to the cart */
+  listingType?: 'SALE' | 'RENT' | null;
 }
 
 interface AddToCartButtonProps {
@@ -56,6 +59,18 @@ export default function AddToCartButton({
       setIsAdding(false);
     }, 1000);
   };
+
+  if (product.listingType === 'RENT') {
+    return (
+      <Link
+        href={`/products/${product.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className={`block w-full py-3 rounded-full font-semibold text-center text-sm ${className}`}
+      >
+        Rent · किराये पर
+      </Link>
+    );
+  }
 
   if (product.stockQuantity === 0) {
     return (

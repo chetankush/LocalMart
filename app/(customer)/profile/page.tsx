@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 import ProfileClient from "./ProfileClient";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -32,20 +33,20 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect("/sign-in");
+    redirect(signInHref("/profile"));
   }
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/profile"));
   }
 
   const userData = await getUserProfile(session.access_token);
 
   if (!userData) {
-    redirect("/sign-in");
+    redirect(signInHref("/profile"));
   }
 
   return <ProfileClient user={userData} />;

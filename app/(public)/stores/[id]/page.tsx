@@ -7,9 +7,12 @@ import FashionTheme from "./themes/FashionTheme";
 import ClothingTheme from "./themes/ClothingTheme";
 import ShoesTheme from "./themes/ShoesTheme";
 import SareeTheme from "./themes/SareeTheme";
+import ConstructionTheme from "./themes/ConstructionTheme";
 import DefaultTheme from "./themes/DefaultTheme";
+import ShopBusyBanner from "@/components/store/ShopBusyBanner";
 import PlaceholderTheme from "./themes/PlaceholderTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
+import BookVisitCta from "@/components/visits/BookVisitCta";
 import { TrackStoreView } from "@/components/TrackView";
 
 // ISR: Revalidate store pages every 2 minutes
@@ -158,6 +161,8 @@ export default async function StorePage({ params }: StorePageProps) {
         return <ShoesTheme vendor={vendorData} products={products || []} />;
       case "SAREE":
         return <SareeTheme vendor={vendorData} products={products || []} />;
+      case "CONSTRUCTION":
+        return <ConstructionTheme vendor={vendorData} products={products || []} />;
       case "DAIRY":
       case "ELECTRONICS":
       case "MOBILES":
@@ -220,7 +225,12 @@ export default async function StorePage({ params }: StorePageProps) {
           storeLogo: vendorData.storeLogo,
         }}
       />
+      {/* "Busy right now" — checked live */}
+      <ShopBusyBanner storeId={vendorData.id} />
       {renderTheme()}
+
+      {/* "Book a visit" — only shows for shops that take visits */}
+      <BookVisitCta shopId={vendorData.id} shopName={vendorData.businessName} />
 
       {/* Reviews Section - Shared across all themes */}
       <StoreReviewsSection

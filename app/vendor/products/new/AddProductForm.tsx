@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshShopPage } from "@/lib/refreshShopPage";
 import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -23,7 +24,7 @@ import {
 } from "lucide-react";
 import { Button, EmptyState, Notice, Pill, Row, StickyBar, StickyBarSpacer, Thumb, rupees } from "@/components/app/ui";
 import { Field, FormCard, RupeeInput, Segmented, Toggle, inputClass, selectClass, textareaClass } from "@/components/app/form";
-import { IconBox, List } from "@/components/app/seller";
+import { IconBox, List, SectionHeader } from "@/components/app/seller";
 import { Sheet } from "@/components/app/Sheet";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -32,6 +33,8 @@ const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boo
 interface Category {
   id: string;
   name: string;
+  /** Set when the category belongs to this shop only */
+  vendorId?: string | null;
 }
 
 interface ProductTemplate {
@@ -152,10 +155,15 @@ export default function AddProductForm({
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    categoryId: initialCategories && initialCategories.length > 0 ? initialCategories[0]?.id : "",
+    // Pre-pick only when there's no real choice; otherwise the seller picks
+    // (a silent default put sarees in the wrong category)
+    categoryId: initialCategories?.length === 1 ? initialCategories[0].id : "",
     price: "",
     compareAtPrice: "",
     sku: "",
+    // Most small shops don't count stock: an item is just available or not.
+    // Counting is optional, for those who want it.
+    trackStock: false,
     stockQuantity: "",
     lowStockThreshold: "10",
     weight: "",
@@ -235,7 +243,7 @@ export default function AddProductForm({
       suggestedWeight: 10,
       isPopular: true,
       tags: ["atta", "flour", "wheat"],
-      suggestedImage: "https://loremflickr.com/600/600/wheat,flour",
+      suggestedImage: null,
       category: { id: "default", name: "Atta, Rice & Dal" }
     },
     {
@@ -246,7 +254,7 @@ export default function AddProductForm({
       suggestedWeight: 1,
       isPopular: true,
       tags: ["salt", "grocery"],
-      suggestedImage: "https://loremflickr.com/600/600/salt,shaker",
+      suggestedImage: null,
       category: { id: "default", name: "Dry Fruits, Masala & Oil" }
     },
     {
@@ -257,7 +265,7 @@ export default function AddProductForm({
       suggestedWeight: 1,
       isPopular: true,
       tags: ["oil", "cooking oil"],
-      suggestedImage: "https://loremflickr.com/600/600/oil,bottle",
+      suggestedImage: null,
       category: { id: "default", name: "Dry Fruits, Masala & Oil" }
     },
     {
@@ -268,7 +276,7 @@ export default function AddProductForm({
       suggestedWeight: 1,
       isPopular: false,
       tags: ["rice", "basmati"],
-      suggestedImage: "https://loremflickr.com/600/600/rice,bowl",
+      suggestedImage: null,
       category: { id: "default", name: "Atta, Rice & Dal" }
     },
     {
@@ -279,7 +287,7 @@ export default function AddProductForm({
       suggestedWeight: 0.07,
       isPopular: true,
       tags: ["noodles", "snacks"],
-      suggestedImage: "https://loremflickr.com/600/600/noodles,ramen",
+      suggestedImage: null,
       category: { id: "default", name: "Instant & Frozen Food" }
     }
   ];
@@ -294,7 +302,7 @@ export default function AddProductForm({
       suggestedWeight: 0.8,
       isPopular: true,
       tags: ["saree", "silk", "women", "wedding", "traditional", "banarasi"],
-      suggestedImage: "https://loremflickr.com/600/600/banarasi,saree",
+      suggestedImage: null,
       category: { id: "default", name: "Sarees" }
     },
     {
@@ -305,7 +313,7 @@ export default function AddProductForm({
       suggestedWeight: 0.5,
       isPopular: true,
       tags: ["saree", "cotton", "women", "daily", "traditional"],
-      suggestedImage: "https://loremflickr.com/600/600/cotton,saree",
+      suggestedImage: null,
       category: { id: "default", name: "Sarees" }
     },
     {
@@ -316,7 +324,7 @@ export default function AddProductForm({
       suggestedWeight: 2.5,
       isPopular: true,
       tags: ["lehenga", "bridal", "women", "wedding", "traditional", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/bridal,lehenga",
+      suggestedImage: null,
       category: { id: "default", name: "Lehengas" }
     },
     {
@@ -327,7 +335,7 @@ export default function AddProductForm({
       suggestedWeight: 1.2,
       isPopular: true,
       tags: ["anarkali", "suit", "women", "party", "ethnic", "festive"],
-      suggestedImage: "https://loremflickr.com/600/600/anarkali,dress",
+      suggestedImage: null,
       category: { id: "default", name: "Salwar Suits" }
     },
     {
@@ -338,7 +346,7 @@ export default function AddProductForm({
       suggestedWeight: 0.3,
       isPopular: true,
       tags: ["kurti", "cotton", "women", "daily", "casual", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/kurti,indian",
+      suggestedImage: null,
       category: { id: "default", name: "Kurtis" }
     },
     {
@@ -349,7 +357,7 @@ export default function AddProductForm({
       suggestedWeight: 0.6,
       isPopular: true,
       tags: ["kurti", "palazzo", "women", "office", "casual", "indo-western"],
-      suggestedImage: "https://loremflickr.com/600/600/palazzo,kurti",
+      suggestedImage: null,
       category: { id: "default", name: "Kurti Sets" }
     },
     // Men's Traditional/Ethnic
@@ -361,7 +369,7 @@ export default function AddProductForm({
       suggestedWeight: 0.7,
       isPopular: true,
       tags: ["kurta", "pajama", "men", "festive", "traditional", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/kurta,pajama",
+      suggestedImage: null,
       category: { id: "default", name: "Men's Ethnic" }
     },
     {
@@ -372,7 +380,7 @@ export default function AddProductForm({
       suggestedWeight: 1.5,
       isPopular: true,
       tags: ["sherwani", "men", "wedding", "traditional", "groom"],
-      suggestedImage: "https://loremflickr.com/600/600/sherwani,indian",
+      suggestedImage: null,
       category: { id: "default", name: "Sherwanis" }
     },
     {
@@ -383,7 +391,7 @@ export default function AddProductForm({
       suggestedWeight: 0.4,
       isPopular: true,
       tags: ["jacket", "nehru", "men", "festive", "formal", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/nehru,jacket",
+      suggestedImage: null,
       category: { id: "default", name: "Jackets" }
     },
     // Men's Western/Formal
@@ -395,7 +403,7 @@ export default function AddProductForm({
       suggestedWeight: 0.3,
       isPopular: true,
       tags: ["shirt", "formal", "men", "office", "western"],
-      suggestedImage: "https://loremflickr.com/600/600/formal,shirt",
+      suggestedImage: null,
       category: { id: "default", name: "Men's Shirts" }
     },
     {
@@ -406,7 +414,7 @@ export default function AddProductForm({
       suggestedWeight: 0.25,
       isPopular: true,
       tags: ["tshirt", "casual", "men", "daily", "western"],
-      suggestedImage: "https://loremflickr.com/600/600/mens,tshirt",
+      suggestedImage: null,
       category: { id: "default", name: "T-Shirts" }
     },
     {
@@ -417,7 +425,7 @@ export default function AddProductForm({
       suggestedWeight: 0.5,
       isPopular: true,
       tags: ["trousers", "formal", "men", "office", "western"],
-      suggestedImage: "https://loremflickr.com/600/600/formal,trousers",
+      suggestedImage: null,
       category: { id: "default", name: "Men's Trousers" }
     },
     {
@@ -428,7 +436,7 @@ export default function AddProductForm({
       suggestedWeight: 0.6,
       isPopular: true,
       tags: ["jeans", "denim", "men", "casual", "western"],
-      suggestedImage: "https://loremflickr.com/600/600/mens,jeans",
+      suggestedImage: null,
       category: { id: "default", name: "Jeans" }
     },
     // Kids Clothing
@@ -440,7 +448,7 @@ export default function AddProductForm({
       suggestedWeight: 0.5,
       isPopular: true,
       tags: ["lehenga", "girls", "kids", "festive", "traditional"],
-      suggestedImage: "https://loremflickr.com/600/600/kids,lehenga",
+      suggestedImage: null,
       category: { id: "default", name: "Kids Ethnic" }
     },
     {
@@ -451,7 +459,7 @@ export default function AddProductForm({
       suggestedWeight: 0.4,
       isPopular: true,
       tags: ["kurta", "boys", "kids", "festive", "traditional"],
-      suggestedImage: "https://loremflickr.com/600/600/boys,kurta",
+      suggestedImage: null,
       category: { id: "default", name: "Kids Ethnic" }
     },
     {
@@ -462,7 +470,7 @@ export default function AddProductForm({
       suggestedWeight: 0.3,
       isPopular: true,
       tags: ["frock", "dress", "girls", "kids", "casual", "party"],
-      suggestedImage: "https://loremflickr.com/600/600/girls,frock",
+      suggestedImage: null,
       category: { id: "default", name: "Kids Western" }
     },
     // Accessories
@@ -474,7 +482,7 @@ export default function AddProductForm({
       suggestedWeight: 0.2,
       isPopular: true,
       tags: ["dupatta", "silk", "women", "accessories", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/silk,dupatta",
+      suggestedImage: null,
       category: { id: "default", name: "Dupattas" }
     },
     {
@@ -485,7 +493,7 @@ export default function AddProductForm({
       suggestedWeight: 0.2,
       isPopular: false,
       tags: ["belt", "leather", "men", "accessories"],
-      suggestedImage: "https://loremflickr.com/600/600/leather,belt",
+      suggestedImage: null,
       category: { id: "default", name: "Accessories" }
     },
     // Footwear
@@ -497,7 +505,7 @@ export default function AddProductForm({
       suggestedWeight: 0.4,
       isPopular: true,
       tags: ["chappal", "kolhapuri", "women", "footwear", "traditional"],
-      suggestedImage: "https://loremflickr.com/600/600/kolhapuri,chappal",
+      suggestedImage: null,
       category: { id: "default", name: "Footwear" }
     },
     {
@@ -508,7 +516,7 @@ export default function AddProductForm({
       suggestedWeight: 0.4,
       isPopular: true,
       tags: ["mojari", "jutti", "men", "footwear", "traditional", "ethnic"],
-      suggestedImage: "https://loremflickr.com/600/600/mojari,indian",
+      suggestedImage: null,
       category: { id: "default", name: "Footwear" }
     },
   ];
@@ -522,7 +530,7 @@ export default function AddProductForm({
       suggestedWeight: 0.05,
       isPopular: true,
       tags: ["earbuds", "wireless", "bluetooth"],
-      suggestedImage: "https://loremflickr.com/600/600/earbuds,wireless",
+      suggestedImage: null,
       category: { id: "default", name: "Audio" }
     },
     {
@@ -533,7 +541,7 @@ export default function AddProductForm({
       suggestedWeight: 0.1,
       isPopular: true,
       tags: ["charger", "usb", "phone"],
-      suggestedImage: "https://loremflickr.com/600/600/phone,charger",
+      suggestedImage: null,
       category: { id: "default", name: "Mobile Accessories" }
     },
     {
@@ -544,7 +552,7 @@ export default function AddProductForm({
       suggestedWeight: 0.08,
       isPopular: true,
       tags: ["led", "bulb", "lighting"],
-      suggestedImage: "https://loremflickr.com/600/600/led,bulb",
+      suggestedImage: null,
       category: { id: "default", name: "Lighting" }
     }
   ];
@@ -992,8 +1000,8 @@ export default function AddProductForm({
     const priceNum = parseFloat(formData.price);
     if (!formData.price) next.price = "Add a price — customers need it to order";
     else if (isNaN(priceNum) || priceNum < 0) next.price = "Type the price in rupees, like 120 or 99.50";
-    if (formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
-    else if (parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
+    if (formData.trackStock && formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
+    else if (formData.trackStock && parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
     if (!hasExistingCategory && !hasNewCategoryName) next.category = "Choose a category so customers can find it";
     if (!formData.description.trim()) next.description = "Add a short description — size, colour or brand";
 
@@ -1040,7 +1048,9 @@ export default function AddProductForm({
           ? parseFloat(formData.compareAtPrice)
           : null,
         sku: formData.sku ? formData.sku : null,
-        stockQuantity: parseInt(formData.stockQuantity) || 0,
+        trackStock: formData.trackStock,
+        isAvailable: true,
+        stockQuantity: formData.trackStock ? parseInt(formData.stockQuantity) || 0 : 0,
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
         // Add fashion metadata as tags
@@ -1082,6 +1092,7 @@ export default function AddProductForm({
       if (data.success) {
         console.log("Step 10: SUCCESS - Product created!");
         toast.success("Product added to your shop");
+        void refreshShopPage(vendorId);
         router.push("/vendor/products");
         router.refresh();
         // Keep the button busy while we leave the page (no double save)
@@ -1146,7 +1157,7 @@ export default function AddProductForm({
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-label">Pick from popular products</span>
             <span className="mt-0.5 block text-[14px] leading-snug text-label-2">
-              We fill in the name, price and photo · तैयार लिस्ट से चुनें
+              We fill in the name and price — you add your photo · तैयार लिस्ट से चुनें
             </span>
           </span>
           <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
@@ -1216,29 +1227,46 @@ export default function AddProductForm({
             </Field>
           </div>
 
-          <Field
-            label="How many do you have?"
-            htmlFor="p-stock"
-            hint="Pieces or packets in your shop right now"
-            error={errors.stockQuantity}
-          >
-            <StockStepper
-              id="p-stock"
-              value={formData.stockQuantity}
-              invalid={!!errors.stockQuantity}
-              onChange={(v) => {
-                setFormData((prev) => ({ ...prev, stockQuantity: v }));
+          <div id="p-stock-choice" className="rounded-2xl bg-fill px-3.5 py-1">
+            <Toggle
+              checked={formData.trackStock}
+              onChange={(on) => {
+                setFormData((prev) => ({ ...prev, trackStock: on }));
                 clearError("stockQuantity");
               }}
+              label="Count how many I have"
+              description={
+                formData.trackStock
+                  ? "We take one off for every order and stop orders at 0."
+                  : "Off: it's simply available. When it runs out, switch it off in Products — one tap. · गिनती ज़रूरी नहीं"
+              }
             />
-          </Field>
+          </div>
+          {formData.trackStock && (
+            <Field
+              label="How many do you have?"
+              htmlFor="p-stock"
+              hint="Pieces or packets in your shop right now"
+              error={errors.stockQuantity}
+            >
+              <StockStepper
+                id="p-stock"
+                value={formData.stockQuantity}
+                invalid={!!errors.stockQuantity}
+                onChange={(v) => {
+                  setFormData((prev) => ({ ...prev, stockQuantity: v }));
+                  clearError("stockQuantity");
+                }}
+              />
+            </Field>
+          )}
 
           <Field
             label="Category"
             htmlFor="p-category"
             hint={
               isNewCategory
-                ? `New category “${selectedCategoryName}” will be made when you save`
+                ? `New category for your shop — saved with the product`
                 : "Helps customers find it in your shop"
             }
             error={errors.category}
@@ -1840,7 +1868,7 @@ export function CategoryPicker({
       open={open}
       onClose={onClose}
       title="Choose a category"
-      description="Can't find yours? Type its name to add it."
+      description="Can't find yours? Type its name — it's added just for your shop."
       wide
     >
       <div className="sticky top-0 z-10 -mx-4 bg-canvas px-4 pb-3">
@@ -1865,31 +1893,46 @@ export function CategoryPicker({
           <IconBox tone="brand" size={36}>
             {adding ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" strokeWidth={2.5} />}
           </IconBox>
-          <span className="min-w-0 flex-1 text-[16px] leading-snug text-label">
-            Add <span className="font-semibold">“{q}”</span> as a new category
+          <span className="min-w-0 flex-1 leading-snug">
+            <span className="block text-[16px] text-label">
+              Add <span className="font-semibold">“{q}”</span> as a new category
+            </span>
+            <span className="block text-[14px] text-label-2">Just for your shop · अपनी दुकान के लिए</span>
           </span>
         </button>
       )}
 
       {shown.length > 0 ? (
-        <List>
-          {shown.map((category) => {
-            const on = category.id === selectedId;
-            return (
-              <Row
-                key={category.id}
-                onClick={() => onSelect(category)}
-                title={<span className={on ? "font-semibold" : undefined}>{category.name}</span>}
-                trailing={
-                  <span className="flex items-center gap-2">
-                    {isNew?.(category) && <Pill tone="info">New</Pill>}
-                    {on && <Check className="h-5 w-5 text-tint" strokeWidth={2.5} aria-label="Chosen" />}
-                  </span>
-                }
-              />
-            );
-          })}
-        </List>
+        <>
+          {[
+            { title: "Your shop's categories", items: shown.filter((c) => c.vendorId || isNew?.(c)) },
+            { title: "LocalMart categories", items: shown.filter((c) => !c.vendorId && !isNew?.(c)) },
+          ]
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <section key={group.title} className="mb-4">
+                <SectionHeader title={group.title} />
+                <List>
+                  {group.items.map((category) => {
+                    const on = category.id === selectedId;
+                    return (
+                      <Row
+                        key={category.id}
+                        onClick={() => onSelect(category)}
+                        title={<span className={on ? "font-semibold" : undefined}>{category.name}</span>}
+                        trailing={
+                          <span className="flex items-center gap-2">
+                            {isNew?.(category) && <Pill tone="info">New</Pill>}
+                            {on && <Check className="h-5 w-5 text-tint" strokeWidth={2.5} aria-label="Chosen" />}
+                          </span>
+                        }
+                      />
+                    );
+                  })}
+                </List>
+              </section>
+            ))}
+        </>
       ) : (
         !q && (
           <p className="px-1 py-6 text-center text-[15px] text-label-2">

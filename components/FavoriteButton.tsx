@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useRouter } from "next/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 
 interface FavoriteButtonProps {
   vendorId: string;
@@ -32,7 +33,7 @@ export default function FavoriteButton({
     e.stopPropagation();
 
     if (!user) {
-      router.push("/sign-in");
+      router.push(signInHref(window.location.pathname));
       return;
     }
 

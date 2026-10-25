@@ -30,6 +30,15 @@ import {
 import { Button, LargeTitle, Notice, Page, Pill, Row, StickyBar, StickyBarSpacer } from "@/components/app/ui";
 import { ChoiceCard, Field, inputClass, textareaClass } from "@/components/app/form";
 import { IconBox, List, MessageCard, SectionHeader, shopStatus } from "@/components/app/seller";
+import dynamic from "next/dynamic";
+import { DEFAULT_TOWN, distanceKm, fillFromPin } from "@/lib/geo";
+import type { PickedLocation } from "@/components/map/LocationPinPicker";
+
+// The map loads in the browser only
+const ShopLocationField = dynamic(() => import("@/components/map/ShopLocationField"), {
+  ssr: false,
+  loading: () => <div className="h-[168px] animate-pulse rounded-2xl bg-fill" />,
+});
 
 type VendorStatus = "NOT_STARTED" | "PENDING" | "APPROVED" | "PENDING_APPROVAL" | "ACTIVE" | "REJECTED" | "ADD_STORE";
 
@@ -60,12 +69,17 @@ const EMPTY_FORM = {
   pincode: "",
   address: "",
   description: "",
+  // The pin the owner puts on their shop (required)
+  latitude: null as number | null,
+  longitude: null as number | null,
 };
 
 type FormField = keyof typeof EMPTY_FORM;
 type FieldErrors = Partial<Record<FormField, string>>;
 
-const SUPPORT_EMAIL = "support@nearstore.in";
+// Set NEXT_PUBLIC_SUPPORT_EMAIL to LocalMart's real support address; the
+// help line stays hidden until then
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 
 // Business type → icon (categories from the API may carry emojis; we use icons instead)
 const iconMap: { [key: string]: LucideIcon } = {
@@ -177,6 +191,7 @@ function Journey({ steps }: { steps: { title: string; body?: string; state: Jour
 }
 
 function HelpLine() {
+  if (!SUPPORT_EMAIL) return null;
   return (
     <p className="text-[14px] text-label-2">
       Need help? Write to{" "}
@@ -286,13 +301,14 @@ export default function BecomeVendorPage() {
           setVendorData({ status: "NOT_STARTED" });
         }
 
-        // Pre-fill form with user data
+        // Pre-fill from the account — only empty fields, so a background
+        // sign-in refresh never wipes what the owner already typed
         if (user) {
           setFormData(prev => ({
             ...prev,
-            email: user.email || "",
-            phone: tenDigitPhone(user.phone),
-            fullName: user.user_metadata?.full_name || "",
+            email: prev.email || user.email || "",
+            phone: prev.phone || tenDigitPhone(user.phone),
+            fullName: prev.fullName || user.user_metadata?.full_name || "",
           }));
         }
       } catch (err) {
@@ -329,6 +345,8 @@ export default function BecomeVendorPage() {
           description: formData.description,
           state: "Madhya Pradesh",
           contactPhone: formData.phone,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
         };
         const data = await apiClient.createVendorStore(storeRequest);
 
@@ -350,6 +368,8 @@ export default function BecomeVendorPage() {
             pincode: "",
             address: "",
             description: "",
+            latitude: null,
+            longitude: null,
           }));
           toast.success("Sent! LocalMart will check your new shop.");
         } else {
@@ -381,8 +401,37 @@ export default function BecomeVendorPage() {
     const name = e.target.name as FormField;
     setFormData({ ...formData, [name]: e.target.value });
     setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    setFilledFromPin((prev) => prev.filter((f) => f !== name));
     setError("");
   };
+
+  // Pin confirmed on the map: area, PIN and street fill in from it
+  const [filledFromPin, setFilledFromPin] = useState<string[]>([]);
+  const pickLocation = (picked: PickedLocation) => {
+    const before = formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null;
+    const moved = !before || distanceKm(before, picked) > 0.05;
+    const { next, filled } = fillFromPin(
+      { street: formData.address, locality: formData.locality, pincode: formData.pincode },
+      picked.address,
+      moved,
+    );
+    setFormData((prev) => ({
+      ...prev,
+      address: next.street,
+      locality: next.locality,
+      pincode: next.pincode,
+      latitude: picked.lat,
+      longitude: picked.lng,
+    }));
+    setFilledFromPin(filled.map((f) => (f === "street" ? "address" : f)));
+    setFieldErrors((prev) => ({
+      ...prev,
+      latitude: undefined,
+      ...Object.fromEntries(filled.map((f) => [f === "street" ? "address" : f, undefined])),
+    }));
+    setError("");
+  };
+  const pinFilled = (name: FormField) => (filledFromPin.includes(name) ? "ring-2 ring-ok/40 bg-ok-soft/40" : "");
 
   const pickBusinessType = (value: string) => {
     setFormData((prev) => ({ ...prev, businessType: value }));
@@ -398,6 +447,7 @@ export default function BecomeVendorPage() {
       if (!formData.businessType) e.businessType = "Pick what your shop sells";
     }
     if (step === 1) {
+      if (!formData.latitude || !formData.longitude) e.latitude = "Put your shop on the map first — customers use it to find you";
       if (!formData.pincode) e.pincode = "Add your PIN code, like 473001";
       else if (!/^[0-9]{6}$/.test(formData.pincode)) e.pincode = "A PIN code has 6 numbers, like 473001";
       if (!formData.locality.trim()) e.locality = "Add your area, like Civil Lines";
@@ -470,7 +520,10 @@ export default function BecomeVendorPage() {
       pincode: "",
       address: "",
       description: "",
+      latitude: null,
+      longitude: null,
     }));
+    setFilledFromPin([]);
     window.scrollTo({ top: 0 });
   };
 
@@ -638,58 +691,92 @@ export default function BecomeVendorPage() {
 
             {formStep === 1 && (
               <>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="City" htmlFor="bv-city" hint="LocalMart is only in Guna, MP for now">
-                    <input id="bv-city" type="text" name="city" value={formData.city} readOnly disabled className={inputClass} />
-                  </Field>
-                  <Field label="PIN code" htmlFor="bv-pincode" error={fieldErrors.pincode}>
-                    <input
-                      id="bv-pincode"
-                      type="text"
-                      inputMode="numeric"
-                      name="pincode"
-                      value={formData.pincode}
-                      onChange={handleChange}
-                      maxLength={6}
-                      aria-invalid={!!fieldErrors.pincode}
-                      autoComplete="postal-code"
-                      className={cx(inputClass, "tabular-nums")}
-                      placeholder="473001"
-                    />
-                  </Field>
+                {/* 1. The pin on the map */}
+                <div>
+                  <p className="mb-2 text-[15px] font-semibold text-label">Where is your shop?</p>
+                  <ShopLocationField
+                    id="bv-latitude"
+                    value={formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null}
+                    onChange={pickLocation}
+                    near={DEFAULT_TOWN.at}
+                    nearLabel={formData.city || DEFAULT_TOWN.label}
+                    addressText={[formData.address, formData.locality, formData.city].filter(Boolean).join(", ")}
+                    error={fieldErrors.latitude}
+                  />
                 </div>
 
-                <Field label="Area" htmlFor="bv-locality" error={fieldErrors.locality}>
-                  <input
-                    id="bv-locality"
-                    type="text"
-                    name="locality"
-                    value={formData.locality}
-                    onChange={handleChange}
-                    aria-invalid={!!fieldErrors.locality}
-                    className={inputClass}
-                    placeholder="e.g. Civil Lines, Station Road"
-                  />
-                </Field>
+                {/* 2. The written address — appears once the pin is set */}
+                {formData.latitude && formData.longitude ? (
+                  <>
+                    {filledFromPin.length > 0 && (
+                      <div role="status" className="flex items-start gap-2.5 rounded-xl bg-ok-soft px-3.5 py-3 text-[14px] leading-snug text-label">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={3} aria-hidden />
+                        <p>
+                          <span className="font-semibold">Filled from your pin.</span> Add your shop number and check it once.
+                          <span className="block text-label-2">पता पिन से भरा गया — दुकान नंबर जोड़ें और जाँच लें।</span>
+                        </p>
+                      </div>
+                    )}
 
-                <Field
-                  label="Full shop address"
-                  htmlFor="bv-address"
-                  hint="Add a landmark so customers can find you"
-                  error={fieldErrors.address}
-                >
-                  <textarea
-                    id="bv-address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    rows={2}
-                    aria-invalid={!!fieldErrors.address}
-                    autoComplete="street-address"
-                    className={textareaClass}
-                    placeholder="Shop no., building, street, landmark"
-                  />
-                </Field>
+                    <Field
+                      label="Shop no., building, street"
+                      htmlFor="bv-address"
+                      hint="Add a landmark so customers can find you"
+                      error={fieldErrors.address}
+                    >
+                      <textarea
+                        id="bv-address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        rows={2}
+                        aria-invalid={!!fieldErrors.address}
+                        autoComplete="street-address"
+                        className={cx(textareaClass, pinFilled("address"))}
+                        placeholder="e.g. Shop 4, Main Road, near Railway Gate"
+                      />
+                    </Field>
+
+                    <Field label="Area" htmlFor="bv-locality" error={fieldErrors.locality}>
+                      <input
+                        id="bv-locality"
+                        type="text"
+                        name="locality"
+                        value={formData.locality}
+                        onChange={handleChange}
+                        aria-invalid={!!fieldErrors.locality}
+                        className={cx(inputClass, pinFilled("locality"))}
+                        placeholder="e.g. Civil Lines, Station Road"
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-2 gap-3 sm:gap-5">
+                      <Field label="PIN code" htmlFor="bv-pincode" error={fieldErrors.pincode}>
+                        <input
+                          id="bv-pincode"
+                          type="text"
+                          inputMode="numeric"
+                          name="pincode"
+                          value={formData.pincode}
+                          onChange={handleChange}
+                          maxLength={6}
+                          aria-invalid={!!fieldErrors.pincode}
+                          autoComplete="postal-code"
+                          className={cx(inputClass, "tabular-nums", pinFilled("pincode"))}
+                          placeholder="473001"
+                        />
+                      </Field>
+                      <Field label="City" htmlFor="bv-city">
+                        <input id="bv-city" type="text" name="city" value={formData.city} readOnly disabled className={inputClass} />
+                      </Field>
+                    </div>
+                    <p className="-mt-2 text-[13px] text-label-2">LocalMart is only in Guna, MP for now.</p>
+                  </>
+                ) : (
+                  <p className="text-[14px] leading-snug text-label-2">
+                    After the pin, you&apos;ll check the written address (shop number, area, PIN code).
+                  </p>
+                )}
               </>
             )}
 
@@ -779,7 +866,16 @@ export default function BecomeVendorPage() {
                       </IconBox>
                     }
                     title={<span className="line-clamp-2">{formData.address}</span>}
-                    subtitle={[formData.locality, formData.city, formData.pincode].filter(Boolean).join(", ")}
+                    subtitle={
+                      <>
+                        {[formData.locality, formData.city, formData.pincode].filter(Boolean).join(", ")}
+                        {formData.latitude && (
+                          <span className="mt-0.5 flex items-center gap-1 font-medium text-ok">
+                            <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> Pin set on the map
+                          </span>
+                        )}
+                      </>
+                    }
                     trailing={<span className="text-[15px] font-medium text-tint">Change</span>}
                   />
                 </List>

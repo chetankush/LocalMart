@@ -13,13 +13,13 @@ import { useApprovals } from './ApprovalsPollerContext';
  */
 const TABS = [
   { href: '/vendor/dashboard', label: 'Home', icon: Home, match: ['/vendor/dashboard'] },
-  { href: '/vendor/orders', label: 'Orders', icon: ReceiptText, match: ['/vendor/orders', '/vendor/approvals'], badge: true },
+  { href: '/vendor/orders', label: 'Orders', icon: ReceiptText, match: ['/vendor/orders', '/vendor/approvals', '/vendor/visits'], badge: true },
   { href: '/vendor/products', label: 'Products', icon: Package, match: ['/vendor/products'] },
   {
     href: '/vendor/settings',
     label: 'My shop',
     icon: Store,
-    match: ['/vendor/settings', '/vendor/stores', '/vendor/broadcast', '/vendor/telegram'],
+    match: ['/vendor/settings', '/vendor/shop-page', '/vendor/stores', '/vendor/broadcast', '/vendor/telegram', '/vendor/ads'],
   },
 ];
 

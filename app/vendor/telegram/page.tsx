@@ -163,7 +163,7 @@ export default function VendorTelegramPage() {
               <p className="font-semibold">You&apos;re all set</p>
               <p className="mt-0.5 text-label-2">
                 Every new order comes to Telegram. Tap Accept or Reject right in the message. If you don&apos;t
-                answer in 10 minutes, the order becomes a pre-order.
+                answer in 5 minutes, the order is cancelled and the customer is told.
               </p>
             </Notice>
           </div>
@@ -222,7 +222,7 @@ export default function VendorTelegramPage() {
             </Step>
           </ol>
           <p className="px-1 pt-2 text-[13px] leading-snug text-label-2">
-            If you don&apos;t answer an order in 10 minutes, it becomes a pre-order.
+            If you don&apos;t answer an order in 5 minutes, it&apos;s cancelled. Miss 2 in a row and your shop pauses until you tap &ldquo;I&apos;m back&rdquo;.
           </p>
         </section>
       )}

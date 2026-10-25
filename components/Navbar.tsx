@@ -11,16 +11,20 @@ import LocationSelectorModal from "@/components/LocationSelectorModal";
 import NotificationBell from "@/components/NotificationBell";
 import SearchOverlay from "@/components/search/SearchOverlay";
 import { preloadCriticalRoutes } from "@/lib/utils/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 import {
   Bell,
+  CalendarClock,
   ChevronDown,
   ChevronRight,
   Clock,
+  CalendarCheck,
   Heart,
   HelpCircle,
   Home,
   Lock,
   LogOut,
+  Map as MapIcon,
   MapPin,
   Mic,
   Package,
@@ -36,6 +40,7 @@ const FOCUSED = ["/checkout", "/orders/waiting"];
 
 // Desktop category strip → shop list filtered by category
 const CATEGORIES = [
+  { label: "Shops on map", href: "/map" },
   { label: "All shops", href: "/stores" },
   { label: "Sarees & Fashion", href: "/stores?category=clothing" },
   { label: "Groceries", href: "/stores?category=grocery" },
@@ -213,7 +218,9 @@ const Navbar = () => {
   const handleSignOut = async () => {
     setShowAccount(false);
     await signOut();
-    router.push("/");
+    // A full load to home: drops anything private kept in memory, and wins over
+    // a signed-in-only page (like Orders) that would send them to sign-in
+    window.location.assign("/");
   };
 
   // Tapping the logo on the home page takes you back to the top
@@ -274,6 +281,7 @@ const Navbar = () => {
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: pathname === "/" },
     { href: "/stores", label: "Shops", icon: Store, active: pathname.startsWith("/stores") },
+    { href: "/map", label: "Map", icon: MapIcon, active: pathname.startsWith("/map") },
     { href: "/my-orders", label: "Orders", icon: Package, active: pathname.startsWith("/my-orders") || pathname.startsWith("/orders") },
   ];
   const accountActive = ["/profile", "/favorite-stores", "/notifications"].some((p) => pathname.startsWith(p));
@@ -300,7 +308,7 @@ const Navbar = () => {
             <div className="flex shrink-0 items-center">
               {!focused && (
                 <button
-                  onClick={() => (user || loading ? setShowAccount(true) : router.push("/sign-in"))}
+                  onClick={() => (user || loading ? setShowAccount(true) : router.push(signInHref(pathname)))}
                   className="flex h-11 w-11 items-center justify-center rounded-full text-label hover:bg-fill cursor-pointer"
                   aria-label={user ? "Account" : "Sign in"}
                 >
@@ -310,7 +318,21 @@ const Navbar = () => {
               {!sellerArea && !focused && <CartIcon />}
             </div>
           </div>
-          {shopping && <div className={`px-4 pb-3 ${compact ? "pt-2" : ""}`}>{searchTrigger(false)}</div>}
+          {/* The map has its own search box */}
+          {shopping && !pathname.startsWith("/map") && (
+            <div className={`flex gap-2 px-4 pb-3 ${compact ? "pt-2" : ""}`}>
+              <div className="min-w-0 flex-1">{searchTrigger(false)}</div>
+              {/* The shop map, one tap from anywhere */}
+              <Link
+                href="/map"
+                aria-label="Shops on the map"
+                className="flex h-11 shrink-0 flex-col items-center justify-center rounded-xl border border-hairline bg-fill px-2.5 text-label hover:border-label/25 active:bg-fill-strong"
+              >
+                <MapIcon className="h-[18px] w-[18px] text-tint" strokeWidth={2.2} aria-hidden />
+                <span className="text-[11px] font-semibold leading-none">Map</span>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* ── Desktop header ── */}
@@ -325,7 +347,7 @@ const Navbar = () => {
               <span className="h-10 w-24 animate-pulse rounded-lg bg-fill" />
             ) : (
               <button
-                onClick={() => (user ? setShowAccount(true) : router.push("/sign-in"))}
+                onClick={() => (user ? setShowAccount(true) : router.push(signInHref(pathname)))}
                 className="flex h-11 items-center gap-2 rounded-lg px-3 text-[15px] font-medium hover:bg-fill cursor-pointer"
               >
                 <User className="h-5 w-5" aria-hidden />
@@ -368,7 +390,7 @@ const Navbar = () => {
 
       {/* Product pages have their own buy bar */}
       <CartBar
-        visible={shopping && !["/cart", "/products/", "/become-vendor"].some((p) => pathname.startsWith(p))}
+        visible={shopping && !["/cart", "/products/", "/become-vendor", "/map"].some((p) => pathname.startsWith(p))}
         aboveTabBar={showTabBar}
       />
 
@@ -378,7 +400,7 @@ const Navbar = () => {
           aria-label="Main"
           className="fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_8px_rgba(15,17,17,0.06)] lg:hidden"
         >
-          <div className="mx-auto grid h-14 max-w-md grid-cols-4">
+          <div className="mx-auto grid h-14 max-w-md grid-cols-5">
             {tabs.map(({ href, label, icon: Icon, active }) => (
               <Link
                 key={href}
@@ -394,7 +416,7 @@ const Navbar = () => {
               </Link>
             ))}
             <button
-              onClick={() => (user || loading ? setShowAccount(true) : router.push("/sign-in"))}
+              onClick={() => (user || loading ? setShowAccount(true) : router.push(signInHref(pathname)))}
               className={`relative flex flex-col items-center justify-center gap-0.5 text-[12px] cursor-pointer ${
                 accountActive ? "font-bold text-tint" : "font-medium text-label-2"
               }`}
@@ -439,7 +461,7 @@ const Navbar = () => {
           {!user && (
             <div className="mb-5 rounded-xl bg-card p-4">
               <Link
-                href="/sign-in"
+                href={signInHref(pathname)}
                 className="flex h-12 w-full items-center justify-center rounded-full bg-cta text-[16px] font-semibold text-white hover:bg-cta-hover"
               >
                 Sign in or create account
@@ -450,6 +472,8 @@ const Navbar = () => {
           <SheetGroup>
             <SheetRow icon={MapPin} label="Delivery area" value={place ?? "Choose your area"} onClick={() => { setShowAccount(false); setShowLocationModal(true); }} />
             {user && <SheetRow icon={Package} label="Your orders" href="/my-orders" />}
+            {user && <SheetRow icon={CalendarClock} label="My rentals" href="/my-rentals" />}
+            {user && <SheetRow icon={CalendarCheck} label="Your shop visits" href="/my-visits" />}
             {user && <SheetRow icon={Heart} label="Favourite shops" href="/favorite-stores" />}
             {user && <SheetRow icon={Bell} label="Notifications" href="/notifications" />}
             {user && <SheetRow icon={User} label="Your profile" href="/profile" />}

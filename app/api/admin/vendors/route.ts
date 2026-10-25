@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     // Forward query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const query = status ? `?status=${status}` : "";
+    // Admins see every shop, including new ones with no products yet
+    const query = `?includeEmpty=true${status ? `&status=${encodeURIComponent(status)}` : ""}`;
 
     const response = await fetch(`${API_BASE_URL}/vendors${query}`, {
       method: "GET",

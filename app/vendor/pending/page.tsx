@@ -2,7 +2,9 @@ import { Clock } from "lucide-react";
 import { Button } from "@/components/app/ui";
 import { MessageCard } from "@/components/app/seller";
 
-const SUPPORT_EMAIL = "support@nearstore.in";
+// Set NEXT_PUBLIC_SUPPORT_EMAIL to LocalMart's real support address; the
+// help line stays hidden until then
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
 
 const NEXT_STEPS = [
   { title: "LocalMart checks your shop", body: "Usually 2–3 working days" },
@@ -46,12 +48,14 @@ export default function VendorPendingPage() {
       <Button href="/" variant="secondary" full>
         Go to home
       </Button>
+      {SUPPORT_EMAIL && (
       <p className="pt-2 text-[14px] text-label-2">
         Questions? Write to{" "}
         <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-tint">
           {SUPPORT_EMAIL}
         </a>
       </p>
+      )}
     </MessageCard>
   );
 }

@@ -14,8 +14,8 @@ export default function HowItWorksHorizontal(_props: { authenticated?: boolean }
     <HomeSection title="How LocalMart works">
       <ol className="grid gap-3 sm:grid-cols-3">
         {steps.map(({ icon: Icon, title, text }, i) => (
-          <li key={title} className="flex gap-3 rounded-2xl bg-fill p-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-label">
+          <li key={title} className="flex gap-3 rounded-2xl border border-hairline bg-card p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tint-soft text-tint">
               <Icon className="h-5 w-5" aria-hidden />
             </span>
             <span>

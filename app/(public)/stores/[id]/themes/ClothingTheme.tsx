@@ -1,5 +1,6 @@
 "use client";
 
+import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -397,7 +398,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
             )}
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500">
               <Truck className="w-3.5 h-3.5" />
-              <span>Free Delivery</span>
+              <span>Home delivery</span>
             </div>
           </div>
         </div>
@@ -719,36 +720,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
       <section className="bg-gray-50 border-t border-gray-200 py-10 mt-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              {
-                icon: Truck,
-                title: "Free Delivery",
-                desc: "On orders above \u20B9499",
-                color: "text-[#ff3f6c]",
-                bg: "bg-pink-50",
-              },
-              {
-                icon: Package,
-                title: "Easy Returns",
-                desc: "7-day return policy",
-                color: "text-blue-600",
-                bg: "bg-blue-50",
-              },
-              {
-                icon: ShoppingBag,
-                title: "100% Authentic",
-                desc: "Quality guaranteed",
-                color: "text-green-600",
-                bg: "bg-green-50",
-              },
-              {
-                icon: Star,
-                title: "Top Rated",
-                desc: "Trusted by customers",
-                color: "text-amber-500",
-                bg: "bg-amber-50",
-              },
-            ].map((item, idx) => {
+            {shopPromises(vendor).map((p) => ({ icon: p.icon, title: p.title, desc: p.text, color: "text-[#ff3f6c]", bg: "bg-pink-50" })).map((item, idx) => {
               const Icon = item.icon;
               return (
                 <div

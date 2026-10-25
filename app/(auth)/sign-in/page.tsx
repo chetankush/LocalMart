@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
@@ -18,19 +18,36 @@ function SignInForm() {
 
   // Where they were going before we asked them to sign in
   const returnTo = safeReturnPath(params.get("redirect") ?? params.get("next"));
-  const why = /\/write-review/.test(returnTo) ? "Sign in to write your review." : null;
+  // Say why we're asking, in the shopper's terms
+  const why = /\/write-review/.test(returnTo)
+    ? "Sign in to write your review."
+    : returnTo.startsWith("/checkout")
+      ? "Sign in to place your order. Your cart is saved."
+      : returnTo.startsWith("/become-vendor")
+        ? "Sign in to open your shop on LocalMart."
+        : returnTo.startsWith("/my-orders") || returnTo.startsWith("/orders")
+          ? "Sign in to see your orders."
+          : returnTo.startsWith("/favorite-stores")
+            ? "Sign in to see your saved shops."
+            : returnTo.startsWith("/vendor")
+              ? "Sign in to your shop."
+              : null;
 
-  // Already signed in (e.g. came back with the browser's Back button)
+  // Already signed in (e.g. came back with the browser's Back button).
+  // Skipped while this form is signing in — the form decides where to go.
+  const submitting = useRef(false);
   useEffect(() => {
-    if (!authLoading && user) router.replace(returnTo);
+    if (!authLoading && user && !submitting.current) router.replace(returnTo);
   }, [authLoading, user, returnTo, router]);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    submitting.current = true;
     const { error: signInError } = await signInWithEmail(email, password);
     if (signInError) {
+      submitting.current = false;
       setError(
         /invalid/i.test(signInError.message)
           ? "Email or password is wrong. Please check and try again."
@@ -39,8 +56,20 @@ function SignInForm() {
       setLoading(false);
       return;
     }
-    router.replace(returnTo);
+    router.replace(returnTo === "/" ? await homeFor() : returnTo);
     router.refresh();
+  };
+
+  // No page to go back to: shop owners start on their dashboard, shoppers on home
+  const homeFor = async () => {
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      const { data } = await apiClient.checkVendor();
+      if (data?.hasVendor && data.stores?.some((s) => s.status === "ACTIVE")) return "/vendor/dashboard";
+    } catch {
+      // Not a shop owner, or offline — home is fine
+    }
+    return "/";
   };
 
   const handleGoogleSignIn = async () => {

@@ -23,6 +23,7 @@ import {
   trClass,
 } from "@/components/app/admin";
 import { useConfirm } from "@/hooks/useConfirm";
+import { orderRecipient } from "@/lib/orders/recipient";
 
 // "ORD-1792827552401-N8QLJCLWD" → "N8QLJCLWD": the full number is in the sheet
 const shortOrderNo = (n: string) => n.split("-").pop() || n;
@@ -46,12 +47,13 @@ interface Order {
   createdAt: string;
   customer: { id: string; fullName: string; email: string; phone: string };
   vendor: { id: string; businessName: string; city: string };
-  items: { id: string; productName: string; quantity: number; unitPrice: number; totalPrice: number }[];
+  items: { id: string; productName: string; quantity: number; unitPrice: number; totalPrice: number; unavailable?: boolean }[];
   // Also sent by the API (the whole order row comes back)
   subtotal?: number;
   deliveryFee?: number;
   discount?: number;
   statusHistory?: StatusEntry[] | null;
+  deliveryAddress?: unknown;
 }
 
 const FILTER_STATUSES = ["PENDING", "ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "REFUNDED"];
@@ -119,6 +121,8 @@ export default function AdminOrdersPage() {
 
   // Read from the list so the sheet shows fresh data after a change
   const selected = orders.find((o) => o.id === selectedId) ?? null;
+  // Name, phone and address typed for this delivery (falls back to the account)
+  const recipient = selected ? orderRecipient(selected) : null;
 
   useEffect(() => {
     fetchOrders();
@@ -168,7 +172,7 @@ export default function AdminOrdersPage() {
         note: "Updated by admin",
       });
       toast.success(
-        `${order ? `Order #${order.orderNumber}` : "Order"} is now “${statusInfo(newStatus).label}”`,
+        `${order ? `Order #${shortOrderNo(order.orderNumber)}` : "Order"} is now “${statusInfo(newStatus).label}”`,
       );
       await fetchOrders();
     } catch (error: any) {
@@ -379,12 +383,13 @@ export default function AdminOrdersPage() {
                 {selected.items?.map((item) => (
                   <div key={item.id} className="flex items-start justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-[15px] leading-snug text-label">{item.productName}</p>
+                      <p className={`text-[15px] leading-snug ${item.unavailable ? "text-label-3 line-through" : "text-label"}`}>{item.productName}</p>
                       <p className="mt-0.5 text-[13px] tabular-nums text-label-2">
                         {item.quantity} × {rupees(item.unitPrice)}
+                        {item.unavailable && " · removed by shop (not in stock)"}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[15px] tabular-nums text-label">{rupees(item.totalPrice)}</span>
+                    <span className={`shrink-0 text-[15px] tabular-nums ${item.unavailable ? "text-label-3 line-through" : "text-label"}`}>{rupees(item.totalPrice)}</span>
                   </div>
                 ))}
               </List>
@@ -410,15 +415,23 @@ export default function AdminOrdersPage() {
               <SectionHeader title="People" />
               <DetailGrid>
                 <Detail label="Customer">{selected.customer?.fullName}</Detail>
-                <Detail label="Customer phone">
-                  {selected.customer?.phone ? (
-                    <a href={`tel:${selected.customer.phone}`} className="text-tint">
-                      {selected.customer.phone}
+                <Detail label="Phone for this order">
+                  {recipient?.phone ? (
+                    <a href={`tel:${recipient.phone}`} className="text-tint">
+                      {recipient.phone}
                     </a>
                   ) : (
                     <span className="text-label-3">Not given</span>
                   )}
                 </Detail>
+                {recipient && recipient.name !== selected.customer?.fullName && (
+                  <Detail label="Deliver to">{recipient.name}</Detail>
+                )}
+                {recipient?.address && (
+                  <Detail label="Address" wide>
+                    {recipient.address}
+                  </Detail>
+                )}
                 <Detail label="Customer email">
                   {selected.customer?.email || <span className="text-label-3">Not given</span>}
                 </Detail>

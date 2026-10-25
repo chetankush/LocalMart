@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshShopPage } from "@/lib/refreshShopPage";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -20,10 +21,14 @@ import {
 interface Category {
   id: string;
   name: string;
+  /** Set when the category belongs to this shop only */
+  vendorId?: string | null;
 }
 
 interface Product {
   id: string;
+  /** The shop this product belongs to */
+  vendorId: string;
   name: string;
   description: string;
   categoryId: string;
@@ -32,6 +37,8 @@ interface Product {
   compareAtPrice: any;
   sku: string | null;
   stockQuantity: number;
+  /** false = not counted: just available or not */
+  trackStock?: boolean;
   lowStockThreshold: number | null;
   weight: any;
   isActive: boolean;
@@ -73,7 +80,9 @@ export default function EditProductForm({
     price: product.price.toString(),
     compareAtPrice: product.compareAtPrice?.toString() || "",
     sku: product.sku || "",
-    stockQuantity: product.stockQuantity.toString(),
+    trackStock: product.trackStock !== false,
+    // Uncounted items keep a placeholder number — start the box empty if they switch to counting
+    stockQuantity: product.trackStock === false ? "" : product.stockQuantity.toString(),
     lowStockThreshold: product.lowStockThreshold?.toString() || "10",
     weight: product.weight?.toString() || "",
     isActive: product.isActive,
@@ -179,11 +188,12 @@ export default function EditProductForm({
 
     try {
       const { apiClient } = await import("@/lib/api/client");
-      const data = await apiClient.createCategory({ name: name.trim() });
+      // Made just for this product's shop
+      const data = await apiClient.createCategory({ name: name.trim(), storeId: product.vendorId });
 
       if (data.success) {
         // Add the new category to the list and select it (no page reload, so edits are kept)
-        const newCategory = { id: data.data.id, name: data.data.name };
+        const newCategory = { id: data.data.id, name: data.data.name, vendorId: data.data.vendorId };
         setLocalCategories((prev) => (prev.some((c) => c.id === newCategory.id) ? prev : [...prev, newCategory]));
         setFormData((prev) => ({ ...prev, categoryId: newCategory.id }));
         setShowCategoryPicker(false);
@@ -227,8 +237,8 @@ export default function EditProductForm({
     const priceNum = parseFloat(formData.price);
     if (!formData.price) next.price = "Add a price — customers need it to order";
     else if (isNaN(priceNum) || priceNum < 0) next.price = "Type the price in rupees, like 120 or 99.50";
-    if (formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
-    else if (parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
+    if (formData.trackStock && formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
+    else if (formData.trackStock && parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
     if (!formData.categoryId) next.category = "Choose a category so customers can find it";
     if (!formData.description.trim()) next.description = "Add a short description — size, colour or brand";
 
@@ -244,20 +254,27 @@ export default function EditProductForm({
 
     try {
       const { apiClient } = await import("@/lib/api/client");
+      // Send the count only if the seller changed it (or started counting) —
+      // otherwise orders placed while this form was open would be undone
+      const { stockQuantity: typedStock, trackStock, ...rest } = formData;
+      const countChanged =
+        trackStock && (typedStock !== startForm().stockQuantity || product.trackStock === false);
       const data = await apiClient.updateVendorProduct(product.id, {
-        ...formData,
+        ...rest,
         images,
         price: parseFloat(formData.price),
         compareAtPrice: formData.compareAtPrice
           ? parseFloat(formData.compareAtPrice)
           : null,
-        stockQuantity: parseInt(formData.stockQuantity) || 0,
+        ...(trackStock !== (product.trackStock !== false) ? { trackStock } : {}),
+        ...(countChanged ? { stockQuantity: parseInt(typedStock) || 0 } : {}),
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
       });
 
       if (data.success) {
         toast.success("Changes saved");
+        void refreshShopPage(product.vendorId, product.id);
         router.push("/vendor/products");
         router.refresh();
         // Keep the button busy while we leave the page (no double save)
@@ -337,22 +354,39 @@ export default function EditProductForm({
             </Field>
           </div>
 
-          <Field
-            label="How many do you have?"
-            htmlFor="p-stock"
-            hint="Pieces or packets in your shop right now"
-            error={errors.stockQuantity}
-          >
-            <StockStepper
-              id="p-stock"
-              value={formData.stockQuantity}
-              invalid={!!errors.stockQuantity}
-              onChange={(v) => {
-                setFormData((prev) => ({ ...prev, stockQuantity: v }));
+          <div className="rounded-2xl bg-fill px-3.5 py-1">
+            <Toggle
+              checked={formData.trackStock}
+              onChange={(on) => {
+                setFormData((prev) => ({ ...prev, trackStock: on }));
                 clearError("stockQuantity");
               }}
+              label="Count how many I have"
+              description={
+                formData.trackStock
+                  ? "We take one off for every order and stop orders at 0."
+                  : "Off: it's simply available. Switch it off in Products when it runs out. · गिनती ज़रूरी नहीं"
+              }
             />
-          </Field>
+          </div>
+          {formData.trackStock && (
+            <Field
+              label="How many do you have?"
+              htmlFor="p-stock"
+              hint="Pieces or packets in your shop right now"
+              error={errors.stockQuantity}
+            >
+              <StockStepper
+                id="p-stock"
+                value={formData.stockQuantity}
+                invalid={!!errors.stockQuantity}
+                onChange={(v) => {
+                  setFormData((prev) => ({ ...prev, stockQuantity: v }));
+                  clearError("stockQuantity");
+                }}
+              />
+            </Field>
+          )}
 
           <Field label="Category" htmlFor="p-category" hint="Helps customers find it in your shop" error={errors.category}>
             <CategoryButton

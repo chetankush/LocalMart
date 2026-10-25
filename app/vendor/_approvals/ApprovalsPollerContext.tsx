@@ -21,10 +21,14 @@ export interface ApprovalOrder {
   customer: { fullName: string; phone: string | null };
   vendor: { id: string; businessName: string; storeLogo: string | null };
   items: Array<{
+    id: string;
+    productId: string;
+    productImage?: string | null;
     quantity: number;
     productName: string;
     unitPrice: string | number;
     totalPrice: string | number;
+    product?: { trackStock: boolean } | null;
   }>;
 }
 
@@ -33,6 +37,8 @@ export interface ApprovalStore {
   businessName: string;
   storeLogo: string | null;
   approvalSoundMuted: boolean;
+  pausedUntil?: string | null;
+  pauseReason?: 'RUSH' | 'CLOSED_TODAY' | 'MISSED_ORDERS' | null;
 }
 
 export type PollerStatus = 'idle' | 'loading' | 'ok' | 'error' | 'auth-expired';
@@ -41,6 +47,9 @@ interface NewOrderEvent {
   order: ApprovalOrder;
   shouldChime: boolean;
 }
+
+/** A new order must be answered within this long (then it's cancelled) */
+export const ANSWER_WINDOW_MS = 5 * 60 * 1000;
 
 interface ContextValue {
   orders: ApprovalOrder[];
@@ -53,15 +62,25 @@ interface ContextValue {
   removeOrderOptimistic: (orderId: string) => void;
   rollbackRemove: (order: ApprovalOrder) => void;
   setStoreMute: (storeId: string, muted: boolean) => void;
+  /** Shop paused / back — show it right away, before the next check */
+  setStorePause: (storeId: string, pausedUntil: string | null, pauseReason: ApprovalStore['pauseReason']) => void;
   audioUnlocked: boolean;
   unlockAudio: () => void;
   sessionMuted: boolean;
   setSessionMuted: (v: boolean) => void;
+  /** Orders the seller tapped "Stop ringing" on (still waiting for an answer) */
+  silencedIds: Set<string>;
+  silence: (orderId: string) => void;
+  /** Server time minus this phone's time — for correct countdowns */
+  clockOffsetMs: number;
 }
 
 const ApprovalsContext = createContext<ContextValue | null>(null);
 
 const POLL_INTERVAL_OK = 3000;
+// In a background tab browsers slow timers anyway; keep checking so the ring and
+// notification still come
+const POLL_INTERVAL_HIDDEN = 5000;
 const POLL_INTERVAL_BACKOFF = 10_000;
 const FAILURE_THRESHOLD = 5;
 
@@ -78,13 +97,18 @@ export function ApprovalsPollerProvider({
   const [newOrderEvents, setNewOrderEvents] = useState<NewOrderEvent[]>([]);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   const [sessionMuted, setSessionMuted] = useState(false);
+  const [silencedIds, setSilencedIds] = useState<Set<string>>(new Set());
+  const [clockOffsetMs, setClockOffsetMs] = useState(0);
 
   const knownIdsRef = useRef<Set<string>>(new Set());
   const failureCountRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const visibleRef = useRef(true);
   const mountedRef = useRef(true);
   const firstFetchRef = useRef(true);
+  // Latest values for the polling loop (it's created once)
+  const sessionMutedRef = useRef(sessionMuted);
+  sessionMutedRef.current = sessionMuted;
+  const authExpiredRef = useRef(false);
 
   const fetchOnce = useCallback(async () => {
     if (!enabled) return;
@@ -93,27 +117,25 @@ export function ApprovalsPollerProvider({
       if (!res.success) {
         // suppressNetworkError path returns success:false on 401/network
         failureCountRef.current += 1;
-        setStatus(failureCountRef.current >= FAILURE_THRESHOLD ? 'error' : status);
+        if (failureCountRef.current >= FAILURE_THRESHOLD) setStatus('error');
         return;
       }
       failureCountRef.current = 0;
 
-      const nextOrders = res.data.orders;
-      const nextStores = res.data.stores;
+      const nextOrders = res.data.orders as ApprovalOrder[];
+      const nextStores = res.data.stores as ApprovalStore[];
+      if (res.data.serverTime) {
+        setClockOffsetMs(new Date(res.data.serverTime).getTime() - Date.now());
+      }
 
       // Detect new orders since last tick (skip on first fetch — it's the
       // initial load, not a "new arrival" event)
       const newEvents: NewOrderEvent[] = [];
       if (!firstFetchRef.current) {
-        const mutedIds = new Set(
-          nextStores.filter((s) => s.approvalSoundMuted).map((s) => s.id),
-        );
+        const mutedIds = new Set(nextStores.filter((s) => s.approvalSoundMuted).map((s) => s.id));
         for (const o of nextOrders) {
           if (!knownIdsRef.current.has(o.id)) {
-            newEvents.push({
-              order: o,
-              shouldChime: !mutedIds.has(o.vendor.id) && !sessionMuted,
-            });
+            newEvents.push({ order: o, shouldChime: !mutedIds.has(o.vendor.id) && !sessionMutedRef.current });
           }
         }
       }
@@ -124,12 +146,19 @@ export function ApprovalsPollerProvider({
         setOrders(nextOrders);
         setStores(nextStores);
         setStatus('ok');
+        // Forget silenced orders that are gone
+        setSilencedIds((prev) => {
+          if (prev.size === 0) return prev;
+          const next = new Set([...prev].filter((id) => knownIdsRef.current.has(id)));
+          return next.size === prev.size ? prev : next;
+        });
         if (newEvents.length > 0) {
           setNewOrderEvents((prev) => [...prev, ...newEvents]);
         }
       }
     } catch (err: any) {
       if (err?.status === 401 || err?.isAuthError) {
+        authExpiredRef.current = true;
         setStatus('auth-expired');
         return;
       }
@@ -138,50 +167,48 @@ export function ApprovalsPollerProvider({
         setStatus('error');
       }
     }
-  }, [enabled, sessionMuted, status]);
+  }, [enabled]);
 
-  const scheduleNext = useCallback(() => {
-    if (!enabled) return;
-    if (status === 'auth-expired') return;
-    if (!visibleRef.current) return; // paused while hidden
-    const interval =
-      failureCountRef.current >= FAILURE_THRESHOLD
-        ? POLL_INTERVAL_BACKOFF
-        : POLL_INTERVAL_OK;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      await fetchOnce();
-      scheduleNext();
-    }, interval);
-  }, [enabled, fetchOnce, status]);
+  const fetchRef = useRef(fetchOnce);
+  fetchRef.current = fetchOnce;
 
-  // Initial fetch + visibility-aware polling
+  // Polling loop — created once, always uses the latest fetch
   useEffect(() => {
     if (!enabled) return;
     mountedRef.current = true;
     setStatus('loading');
-    fetchOnce().then(() => scheduleNext());
+
+    const schedule = () => {
+      if (authExpiredRef.current) return;
+      const hidden = typeof document !== 'undefined' && document.visibilityState !== 'visible';
+      const interval =
+        failureCountRef.current >= FAILURE_THRESHOLD
+          ? POLL_INTERVAL_BACKOFF
+          : hidden
+            ? POLL_INTERVAL_HIDDEN
+            : POLL_INTERVAL_OK;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        await fetchRef.current();
+        schedule();
+      }, interval);
+    };
+
+    fetchRef.current().then(schedule);
 
     const onVis = () => {
-      visibleRef.current = document.visibilityState === 'visible';
-      if (visibleRef.current) {
-        // Resuming — fetch immediately, then schedule
-        fetchOnce().then(() => scheduleNext());
-      } else if (timerRef.current) {
-        clearTimeout(timerRef.current);
+      if (document.visibilityState === 'visible') {
+        // Back on the page — check right away
+        fetchRef.current().then(schedule);
       }
     };
     document.addEventListener('visibilitychange', onVis);
-    visibleRef.current = document.visibilityState === 'visible';
 
     return () => {
       mountedRef.current = false;
       document.removeEventListener('visibilitychange', onVis);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-    // fetchOnce/scheduleNext are stable enough — re-creating on every status
-    // change would thrash the timer. Intentionally limited deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 
   const consumeNewOrderEvents = useCallback(() => {
@@ -189,8 +216,8 @@ export function ApprovalsPollerProvider({
   }, []);
 
   const refetch = useCallback(async () => {
-    await fetchOnce();
-  }, [fetchOnce]);
+    await fetchRef.current();
+  }, []);
 
   const removeOrderOptimistic = useCallback((orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
@@ -216,24 +243,19 @@ export function ApprovalsPollerProvider({
     );
   }, []);
 
-  const unlockAudio = useCallback(() => {
-    setAudioUnlocked(true);
-    try {
-      sessionStorage.setItem('localmart.audioUnlocked', '1');
-    } catch {
-      /* sessionStorage may be unavailable */
-    }
+  const setStorePause = useCallback(
+    (storeId: string, pausedUntil: string | null, pauseReason: ApprovalStore['pauseReason']) => {
+      setStores((prev) => prev.map((s) => (s.id === storeId ? { ...s, pausedUntil, pauseReason } : s)));
+    },
+    [],
+  );
+
+  const silence = useCallback((orderId: string) => {
+    setSilencedIds((prev) => new Set(prev).add(orderId));
   }, []);
 
-  // Restore audio-unlock state from sessionStorage on mount
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem('localmart.audioUnlocked') === '1') {
-        setAudioUnlocked(true);
-      }
-    } catch {
-      /* noop */
-    }
+  const unlockAudio = useCallback(() => {
+    setAudioUnlocked(true);
   }, []);
 
   const value = useMemo<ContextValue>(
@@ -248,10 +270,14 @@ export function ApprovalsPollerProvider({
       removeOrderOptimistic,
       rollbackRemove,
       setStoreMute,
+      setStorePause,
       audioUnlocked,
       unlockAudio,
       sessionMuted,
       setSessionMuted,
+      silencedIds,
+      silence,
+      clockOffsetMs,
     }),
     [
       orders,
@@ -263,9 +289,13 @@ export function ApprovalsPollerProvider({
       removeOrderOptimistic,
       rollbackRemove,
       setStoreMute,
+      setStorePause,
       audioUnlocked,
       unlockAudio,
       sessionMuted,
+      silencedIds,
+      silence,
+      clockOffsetMs,
     ],
   );
 

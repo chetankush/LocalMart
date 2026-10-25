@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StoreTheme } from "@/src/generated/prisma";
 import {
+  HardHat,
   Store,
   ShoppingCart,
   Shirt,
@@ -47,6 +48,7 @@ const THEME_OPTIONS: {
   { value: "GROCERY" as StoreTheme, label: "किराना और जनरल स्टोर", englishLabel: "Grocery & general", description: "Daily needs and groceries", icon: <ShoppingCart className={iconCls} /> },
   { value: "CLOTHING" as StoreTheme, label: "कपड़े की दुकान", englishLabel: "Clothes shop", description: "Clothes and fashion", icon: <Shirt className={iconCls} /> },
   { value: "SAREE" as StoreTheme, label: "साड़ी की दुकान", englishLabel: "Saree shop", description: "Sarees, silks and ethnic wear", icon: <Gem className={iconCls} /> },
+  { value: "CONSTRUCTION" as StoreTheme, label: "निर्माण और किराया", englishLabel: "Construction & rental", description: "Shuttering, machines on rent, building material", icon: <HardHat className={iconCls} /> },
   { value: "SHOES" as StoreTheme, label: "जूते की दुकान", englishLabel: "Shoe shop", description: "Shoes and chappals", icon: <Footprints className={iconCls} /> },
   { value: "DAIRY" as StoreTheme, label: "दूध और डेयरी", englishLabel: "Milk & dairy", description: "Milk, curd, paneer", icon: <Milk className={iconCls} /> },
   { value: "ELECTRONICS" as StoreTheme, label: "इलेक्ट्रॉनिक्स", englishLabel: "Electronics", description: "TVs, fans and appliances", icon: <Tv className={iconCls} /> },

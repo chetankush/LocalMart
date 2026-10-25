@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
       { hostname: "images.unsplash.com" },
       { hostname: "m.media-amazon.com" },
       { hostname: "loremflickr.com" },
+      // Local development only: photos uploaded to the local test storage
+      ...(process.env.NODE_ENV !== "production"
+        ? [{ protocol: "http" as const, hostname: "127.0.0.1", port: "54321" }]
+        : []),
     ],
     formats: ['image/webp', 'image/avif'], // Modern formats for better compression
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

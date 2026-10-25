@@ -1,14 +1,16 @@
 'use client';
 
+import { shortOrderNo } from "@/components/app/ui";
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter } from 'next/navigation';
-import { Loader2, Package, Phone, RefreshCw } from 'lucide-react';
+import { Loader2, Package, Phone, RefreshCw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/hooks/useConfirm';
 import { UpiPayCard } from '@/components/payments/UpiPayCard';
 import { OrderProgress, orderSteps } from '@/components/app/OrderProgress';
 import { Button, EmptyState, LargeTitle, Page, Pill, Thumb, formatIST, rupees, type Tone } from '@/components/app/ui';
+import { signInHref } from '@/lib/auth/returnTo';
 
 interface OrderItem {
   id: string;
@@ -17,10 +19,13 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  /** The shop didn't have it — taken off the order (not charged) */
+  unavailable?: boolean;
 }
 
 interface Order {
   id: string;
+  vendorId: string;
   orderNumber: string;
   status: string;
   totalAmount: number;
@@ -73,7 +78,9 @@ const paymentText = (o: Order) => {
         ? 'Shop is checking payment'
         : o.paymentStatus === 'REFUNDED'
           ? 'Refunded'
-          : 'Not paid yet';
+          : o.status === 'CANCELLED'
+            ? 'Nothing to pay'
+            : 'Not paid yet';
   return { method, state };
 };
 
@@ -88,7 +95,7 @@ export default function MyOrdersPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/sign-in');
+      router.push(signInHref('/my-orders'));
       return;
     }
     if (user) fetchOrders();
@@ -109,7 +116,7 @@ export default function MyOrdersPage() {
       if (!session) {
         const { data: refreshData } = await supabase.auth.refreshSession();
         if (!refreshData.session) {
-          router.push('/sign-in');
+          router.push(signInHref('/my-orders'));
           return;
         }
       }
@@ -119,7 +126,7 @@ export default function MyOrdersPage() {
       setOrders(data.orders || []);
     } catch (err: unknown) {
       if (err instanceof Error && (err as Error & { isAuthError?: boolean }).isAuthError) {
-        router.push('/sign-in');
+        router.push(signInHref('/my-orders'));
         return;
       }
       setError("Couldn't load your orders. Check your internet and try again.");
@@ -195,10 +202,12 @@ export default function MyOrdersPage() {
       {orders.map((order) => {
         const status = STATUS[order.status] ?? { label: order.status, tone: 'neutral' as Tone };
         const pay = paymentText(order);
-        const itemCount = order.items.reduce((s, i) => s + i.quantity, 0);
+        // Items the shop took off aren't part of the order any more
+        const sent = order.items.some((i) => !i.unavailable) ? order.items.filter((i) => !i.unavailable) : order.items;
+        const itemCount = sent.reduce((s, i) => s + i.quantity, 0);
         const upiDue = order.paymentMethod === 'UPI' && UPI_PAYABLE.includes(order.status);
         const active = !FINISHED.includes(order.status);
-        const first = order.items[0];
+        const first = sent[0];
 
         return (
           <article key={order.id} className="mb-4 overflow-hidden rounded-3xl bg-card">
@@ -218,7 +227,7 @@ export default function MyOrdersPage() {
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-[16px] leading-snug text-label">
                   {first?.productName}
-                  {order.items.length > 1 && <span className="text-label-2"> +{order.items.length - 1} more</span>}
+                  {sent.length > 1 && <span className="text-label-2"> +{sent.length - 1} more</span>}
                 </p>
                 <p className="mt-0.5 text-[15px] text-label-2">
                   <span className="font-semibold text-label">{rupees(Number(order.totalAmount))}</span> · {itemCount} item
@@ -262,6 +271,12 @@ export default function MyOrdersPage() {
                   Call shop
                 </Button>
               )}
+              {order.status === 'DELIVERED' && order.vendorId && (
+                <Button href={`/stores/${order.vendorId}/write-review`} size="md" className="flex-1">
+                  <Star className="h-[18px] w-[18px]" aria-hidden />
+                  Rate shop
+                </Button>
+              )}
               {order.status === 'PENDING' && (
                 <Button
                   variant="danger"
@@ -283,14 +298,26 @@ export default function MyOrdersPage() {
               </summary>
               <div className="space-y-4 px-4 pb-4 text-[15px]">
                 <ul className="space-y-1">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="flex justify-between gap-3 text-label">
-                      <span>
-                        {item.quantity} × {item.productName}
-                      </span>
-                      <span className="tabular-nums">{rupees(Number(item.totalPrice))}</span>
-                    </li>
-                  ))}
+                  {order.items.map((item) =>
+                    item.unavailable ? (
+                      <li key={item.id} className="flex justify-between gap-3 text-label-3">
+                        <span>
+                          <span className="line-through">
+                            {item.quantity} × {item.productName}
+                          </span>
+                          <span className="block text-[13px]">Shop didn&apos;t have it · not charged</span>
+                        </span>
+                        <span className="tabular-nums line-through">{rupees(Number(item.totalPrice))}</span>
+                      </li>
+                    ) : (
+                      <li key={item.id} className="flex justify-between gap-3 text-label">
+                        <span>
+                          {item.quantity} × {item.productName}
+                        </span>
+                        <span className="tabular-nums">{rupees(Number(item.totalPrice))}</span>
+                      </li>
+                    ),
+                  )}
                 </ul>
                 {order.deliveryAddress && (
                   <div className="text-label-2">
@@ -305,7 +332,7 @@ export default function MyOrdersPage() {
                     <p>Phone {order.deliveryAddress.phone}</p>
                   </div>
                 )}
-                <p className="text-[13px] text-label-3">Order #{order.orderNumber}</p>
+                <p className="text-[13px] text-label-3">Order #{shortOrderNo(order.orderNumber)}</p>
               </div>
             </details>
           </article>
