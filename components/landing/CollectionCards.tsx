@@ -44,12 +44,20 @@ export function buildCollections(products: P[]): Collection[] {
 
 const rupees = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
-export default function CollectionCards({ products, title = "Shop by collection" }: { products: P[]; title?: string }) {
+export default function CollectionCards({
+  products,
+  title = "Shop by collection",
+  subtitle = "Picked from what shops near you sell · आपके लिए चुना गया",
+}: {
+  products: P[];
+  title?: string;
+  subtitle?: string;
+}) {
   const collections = buildCollections(products);
   if (collections.length < 2) return null;
 
   return (
-    <HomeSection title={title} subtitle="Picked from what shops near you sell">
+    <HomeSection title={title} subtitle={subtitle}>
       <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4">
         {collections.map((c) => (
           <li key={c.name} className="w-[72%] shrink-0 snap-start sm:w-auto">

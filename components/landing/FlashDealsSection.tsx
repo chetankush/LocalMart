@@ -23,6 +23,7 @@ export default function FlashDealsSection({ products, loading = false }: Props) 
   return (
     <HomeSection
       title={top > 0 ? `Up to ${top}% off` : "Deals"}
+      subtitle="Real discounts by the shops · दुकानों की असली छूट"
       href="/stores"
     >
       <ProductRow>

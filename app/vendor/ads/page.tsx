@@ -41,7 +41,7 @@ function AdCard({ ad }: { ad: AdBookingView }) {
         <img
           src={ad.bannerImage}
           alt=""
-          className="mt-3 aspect-[3/1] w-full rounded-xl bg-fill object-cover"
+          className="mt-3 aspect-square w-40 rounded-xl bg-fill object-cover"
           loading="lazy"
         />
       )}

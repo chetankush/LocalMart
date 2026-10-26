@@ -13,7 +13,6 @@ import { GROUPS, type Tile } from "@/components/landing/CategoryGrid";
 import HeroCarousel, {
   CategorySlide,
   MapBannerSlide,
-  NearbySlide,
   ShopSlide,
   type CarouselSlide,
   type FeaturedShop,
@@ -34,6 +33,8 @@ export interface HeroPromo {
   image: string | null;
   /** Card colour (solid, soft) */
   tone: "rose" | "green" | "amber" | "sky";
+  /** The shop this card is about ("New collection" cards) — not repeated if it already has the ad card */
+  shopId?: string;
 }
 
 const TONES = {
@@ -45,6 +46,8 @@ const TONES = {
 
 type MapShopFull = MapShop &
   Partial<FeaturedShop> & {
+    /** The shop's own photo (no product picture standing in) */
+    shopPhoto?: string | null;
     distanceKm: number | null;
     productCount?: number;
     businessHours?: BusinessHours | null;
@@ -88,15 +91,19 @@ function useIsDesktop() {
   return desktop;
 }
 
-/** Shops worth showing as banners: a real photo and things to buy, best rated first */
-function featuredShops(shops: MapShopFull[], max: number): FeaturedShop[] {
+/**
+ * Shops worth a big banner: their own photo (never a product picture
+ * stretched to fit) and things to buy, best rated first. Shops that
+ * already have a paid card in the hero are left out, so no shop shows twice.
+ */
+function featuredShops(shops: MapShopFull[], max: number, skip: Set<string>): FeaturedShop[] {
   return shops
-    .filter((s) => s.photo && (s.productCount ?? 0) > 0)
+    .filter((s) => s.shopPhoto && (s.productCount ?? 0) > 0 && !skip.has(s.id))
     .map((s) => ({
       id: s.id,
       businessName: s.businessName,
       businessType: s.businessType,
-      photo: s.photo ?? null,
+      photo: s.shopPhoto ?? null,
       storeDescription: s.storeDescription ?? null,
       locality: s.locality ?? null,
       city: s.city ?? "",
@@ -138,7 +145,6 @@ export default function MapHero({
   place,
   promos,
   noLocation = false,
-  onChooseArea,
   shopTypes = [],
   ads = [],
 }: {
@@ -148,9 +154,8 @@ export default function MapHero({
   /** "Guna" — where these shops are */
   place?: string;
   promos: HeroPromo[];
-  /** No area chosen yet: lead with "find the shops nearest to you" and the kinds of shop */
+  /** No area chosen yet: the map, then the kinds of shop open in town */
   noLocation?: boolean;
-  onChooseArea?: () => void;
   /** Kinds of shop open here (businessType), for the category slides */
   shopTypes?: string[];
   /** Paid picture banners for this area — a card beside the carousel (a slide on phones) */
@@ -160,47 +165,55 @@ export default function MapHero({
   const desktop = useIsDesktop();
   const count = shops.length;
 
+  // A shop with a paid card in the hero isn't repeated in it
+  const adShops = useMemo(() => new Set(ads.map((a) => a.vendor.id)), [ads]);
+  const sidePromos = useMemo(() => promos.filter((p) => !p.shopId || !adShops.has(p.shopId)), [promos, adShops]);
+
+  // At most 5 slides — hardly anyone looks past the third. The map comes
+  // first (it's how LocalMart finds the shops nearest to you, with or
+  // without an area chosen — the one "choose your area" ask is above).
   const slides = useMemo<CarouselSlide[]>(() => {
-    const out: CarouselSlide[] = [];
-    if (noLocation && onChooseArea) {
-      out.push({ key: "nearby", label: "Find the shops nearest to you", node: <NearbySlide onChoose={onChooseArea} /> });
-      for (const tile of categoryTiles(shopTypes, 3)) {
-        out.push({ key: `cat-${tile.type}`, label: tile.label, node: <CategorySlide tile={tile} place={place} /> });
-      }
-    } else {
-      out.push({
-        key: "map",
-        label: "Shops on the map",
-        node: (
-          <>
-            <div className="h-full lg:hidden">
-              <MapBannerSlide count={count} place={place} />
-            </div>
-            <div className="hidden h-full lg:block">{desktop && <MapPanel shops={shops} user={user} place={place} />}</div>
-          </>
-        ),
-      });
-    }
-    // Phones: the paid banners and the promo cards become slides
-    if (!desktop) {
-      out.splice(
-        1,
-        0,
-        ...ads.map((ad) => ({ key: `ad-${ad.adId}`, label: ad.banner?.title || ad.vendor.businessName, node: <AdBannerCard ad={ad} /> })),
-      );
-      for (const p of promos) out.push({ key: `promo-${p.href}`, label: p.title, node: <PromoSlide promo={p} /> });
-    }
-    for (const shop of featuredShops(shops, noLocation ? 2 : 4)) {
-      out.push({ key: `shop-${shop.id}`, label: shop.businessName, node: <ShopSlide shop={shop} /> });
-    }
-    return out;
-  }, [noLocation, onChooseArea, shopTypes, place, count, desktop, shops, user, promos, ads]);
+    const map: CarouselSlide = {
+      key: "map",
+      label: "Shops on the map",
+      node: (
+        <>
+          <div className="h-full lg:hidden">
+            <MapBannerSlide count={count} place={place} />
+          </div>
+          <div className="hidden h-full lg:block">{desktop && <MapPanel shops={shops} user={user} place={place} />}</div>
+        </>
+      ),
+    };
+    const shopSlides = featuredShops(shops, 4, adShops).map((shop) => ({
+      key: `shop-${shop.id}`,
+      label: shop.businessName,
+      node: <ShopSlide shop={shop} />,
+    }));
+    const kinds = noLocation
+      ? categoryTiles(shopTypes, 2).map((tile) => ({
+          key: `cat-${tile.type}`,
+          label: tile.label,
+          node: <CategorySlide tile={tile} place={place} />,
+        }))
+      : [];
+    if (desktop) return [map, ...kinds, ...shopSlides].slice(0, 5);
+    // Phones have no cards beside the carousel: the paid banners and the
+    // promo cards take turns here too
+    const adSlides = ads.slice(0, 2).map((ad) => ({
+      key: `ad-${ad.adId}`,
+      label: ad.banner?.title || ad.vendor.businessName,
+      node: <AdBannerCard ad={ad} />,
+    }));
+    const promoSlides = sidePromos.map((p) => ({ key: `promo-${p.href}`, label: p.title, node: <PromoSlide promo={p} /> }));
+    return [map, ...adSlides, ...kinds.slice(0, 1), ...shopSlides.slice(0, 1), ...promoSlides, ...shopSlides.slice(1)].slice(0, 5);
+  }, [noLocation, shopTypes, place, count, desktop, shops, user, ads, adShops, sidePromos]);
 
   // Desktop, beside the carousel: paid banners on top (or the first promo),
   // and a small carousel below — the other promos, kinds of shop open here,
   // and "open your shop"
   const side = useMemo(() => {
-    const cards: HeroPromo[] = [...promos];
+    const cards: HeroPromo[] = [...sidePromos];
     for (const t of categoryTiles(shopTypes, 2)) {
       cards.push({
         href: `/stores?category=${t.slug}`,
@@ -221,7 +234,7 @@ export default function MapHero({
     });
     const top = ads.length ? null : cards.shift() ?? null;
     return { top, rest: cards };
-  }, [promos, shopTypes, place, ads.length]);
+  }, [sidePromos, shopTypes, place, ads.length]);
 
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 pt-3 sm:px-6 lg:px-8 lg:pt-6">

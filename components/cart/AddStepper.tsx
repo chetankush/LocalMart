@@ -21,7 +21,7 @@ interface Props {
 }
 
 /**
- * ADD button that turns into a − 1 + counter once the item is in the cart,
+ * Add button that turns into a − 1 + counter once the item is in the cart,
  * so shoppers never leave the list to change quantities.
  */
 export default function AddStepper({ item, disabled = false, size = "sm", tone = "brand", className = "" }: Props) {
@@ -47,7 +47,7 @@ export default function AddStepper({ item, disabled = false, size = "sm", tone =
           sm ? "border border-tint bg-white px-4 text-tint shadow-sm hover:bg-tint-soft" : "bg-cta px-6 text-white hover:bg-cta-hover"
         } font-bold tracking-wide transition-colors disabled:border-hairline disabled:bg-fill disabled:text-label-3 disabled:shadow-none cursor-pointer disabled:cursor-not-allowed ${className}`}
       >
-        {disabled ? (sm ? "SOLD OUT" : "Out of stock") : sm ? "ADD" : "Add to cart"}
+        {disabled ? (sm ? "Sold out" : "Out of stock") : sm ? "Add" : "Add to cart"}
       </button>
     );
   }

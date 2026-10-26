@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MapPin } from "lucide-react";
+import { ChevronRight, MapPin } from "lucide-react";
 import { RatingBadge } from "@/components/reviews/ReviewsPanel";
 import { SHOP_KIND } from "@/lib/landing/shopImages";
 import ShopCover from "./ShopCover";
@@ -19,12 +19,14 @@ export interface ShopCardShop {
   businessAddress?: { street?: string; coordinates?: { lat: number; lng: number } } | null;
   storeImages?: unknown;
   products?: { images: unknown }[] | null;
+  storeDescription?: string | null;
 }
 
 /**
  * Zomato-style shop card: big picture, distance and open-status on the
- * photo, name with a green rating badge, then kind and area. Fixed lines
- * (truncated) so every card in a row has the same height.
+ * photo, name with a green rating badge, then kind and area. The name gets
+ * two lines (a cut-off shop name is hard to trust); cards in a row still
+ * line up because the row stretches them to the same height.
  */
 export default function ShopCard({
   shop,
@@ -33,6 +35,7 @@ export default function ShopCard({
   action,
   onClick,
   priority = false,
+  wide = false,
 }: {
   shop: ShopCardShop;
   /** Distance from the shopper, if known */
@@ -45,6 +48,8 @@ export default function ShopCard({
   priority?: boolean;
   /** Paid placement (no tag is shown — the owner asked for a clean card) */
   sponsored?: boolean;
+  /** The only shop in its row: picture and details side by side on wider screens, so the row isn't two-thirds empty */
+  wide?: boolean;
 }) {
   const rating = Number(shop.averageRating) || 0;
   const reviews = shop.reviewCount ?? 0;
@@ -53,7 +58,7 @@ export default function ShopCard({
 
   const body = (
     <>
-      <div className="relative">
+      <div className={`relative ${wide ? "sm:w-[45%] sm:shrink-0 lg:w-[34%]" : ""}`}>
         <ShopCover shop={shop} className="aspect-[16/9]" />
         {open !== null && open !== undefined && (
           <span
@@ -71,9 +76,9 @@ export default function ShopCard({
           </span>
         )}
       </div>
-      <div className="p-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate text-[17px] font-bold leading-tight text-label group-hover:underline">
+      <div className={`p-3 ${wide ? "sm:flex sm:min-w-0 sm:flex-1 sm:flex-col sm:justify-center sm:p-6" : ""}`}>
+        <div className="flex items-start justify-between gap-2">
+          <span className={`min-w-0 line-clamp-2 font-bold leading-tight text-label group-hover:underline ${wide ? "text-[17px] sm:text-[22px]" : "text-[17px]"}`}>
             {shop.businessName}
           </span>
           {reviews > 0 && rating > 0 ? (
@@ -88,12 +93,21 @@ export default function ShopCard({
         <p className="mt-1 truncate text-[14px] text-label-2">
           {SHOP_KIND[shop.businessType] ?? "Shop"} · {area}
         </p>
+        {wide && shop.storeDescription && (
+          <p className="mt-2 hidden line-clamp-2 text-[15px] leading-snug text-label-2 sm:block">{shop.storeDescription}</p>
+        )}
+        {wide && (
+          <span className="mt-4 hidden w-fit items-center gap-1 rounded-full bg-label px-4 py-2 text-[14px] font-semibold text-white sm:inline-flex">
+            Visit shop <ChevronRight className="h-4 w-4" aria-hidden />
+          </span>
+        )}
       </div>
     </>
   );
 
-  const cls =
-    "group block w-full overflow-hidden rounded-2xl border border-hairline bg-card text-left transition-shadow hover:shadow-[0_6px_20px_rgba(16,24,40,0.08)] active:scale-[0.99]";
+  const cls = `group block w-full overflow-hidden rounded-2xl border border-hairline bg-card text-left transition-shadow hover:shadow-[0_6px_20px_rgba(16,24,40,0.08)] active:scale-[0.99] ${
+    wide ? "sm:flex sm:items-stretch" : ""
+  }`;
 
   return (
     <div className="relative">

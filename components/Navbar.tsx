@@ -38,16 +38,49 @@ import {
 const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth"];
 const FOCUSED = ["/checkout", "/orders/waiting"];
 
-// Desktop category strip → shop list filtered by category
-const CATEGORIES = [
+// Desktop category strip → shop list filtered by category. A category
+// shows only once a shop of that kind is open (no links to empty pages).
+const CATEGORIES: { label: string; href: string; type?: string }[] = [
   { label: "Shops on map", href: "/map" },
   { label: "All shops", href: "/stores" },
-  { label: "Sarees & Fashion", href: "/stores?category=clothing" },
-  { label: "Groceries", href: "/stores?category=grocery" },
-  { label: "Pharmacy", href: "/stores?category=medical" },
-  { label: "Electronics", href: "/stores?category=electronics" },
-  { label: "Home & Kitchen", href: "/stores?category=home-kitchen" },
+  { label: "Sarees & Fashion", href: "/stores?category=clothing", type: "FASHION" },
+  { label: "Groceries", href: "/stores?category=grocery", type: "GROCERY" },
+  { label: "Pharmacy", href: "/stores?category=medical", type: "PHARMACY" },
+  { label: "Electronics", href: "/stores?category=electronics", type: "ELECTRONICS" },
+  { label: "Home & Kitchen", href: "/stores?category=home-kitchen", type: "HOME_SERVICES" },
 ];
+const OPEN_TYPES_KEY = "lm_open_shop_types";
+
+/** Kinds of shop open on LocalMart (checked once per visit) — null until known */
+function useOpenShopTypes() {
+  const [types, setTypes] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(OPEN_TYPES_KEY);
+      if (cached) {
+        setTypes(new Set(JSON.parse(cached) as string[]));
+        return;
+      }
+    } catch {
+      // storage blocked — just ask
+    }
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/public/map`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        // Shops with something to sell (the same ones shoppers can open)
+        const shops = (res?.data?.shops ?? []) as { businessType: string; productCount?: number }[];
+        const list = [...new Set(shops.filter((x) => (x.productCount ?? 0) > 0).map((x) => x.businessType))];
+        setTypes(new Set(list));
+        try {
+          sessionStorage.setItem(OPEN_TYPES_KEY, JSON.stringify(list));
+        } catch {
+          // fine
+        }
+      })
+      .catch(() => {});
+  }, []);
+  return types;
+}
 
 const SEARCH_HINTS = ["saree", "doodh", "atta", "medicine", "kurti", "mobile cover", "chawal"];
 
@@ -83,6 +116,7 @@ const Navbar = () => {
   const [isApprovedVendor, setIsApprovedVendor] = useState(false);
   const [vendorStatus, setVendorStatus] = useState<string | null>(null);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const openTypes = useOpenShopTypes();
   const [search, setSearch] = useState<{ open: boolean; voice: boolean }>({ open: false, voice: false });
   const [voiceOk, setVoiceOk] = useState(false);
   const { location } = useLocation();
@@ -270,9 +304,9 @@ const Navbar = () => {
       className="flex min-w-0 flex-1 flex-col items-start border-l border-hairline pl-3 text-left cursor-pointer lg:w-full lg:border-l-0 lg:pl-0"
       aria-label={place ? `Delivering to ${place}. Change area` : "Choose your area"}
     >
-      <span className="text-[12px] leading-tight text-label-2">{place ? "Deliver to" : "Shops near you"}</span>
+      <span className="text-[12px] leading-tight text-label-2">Deliver to</span>
       <span className="flex max-w-full items-center gap-0.5 text-[15px] font-bold leading-tight text-label">
-        <span className="truncate">{place ?? "Choose your area"}</span>
+        <span className="truncate">{place ?? "Choose area"}</span>
         <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
       </span>
     </button>
@@ -367,7 +401,7 @@ const Navbar = () => {
         {shopping && !compact && (
           <nav aria-label="Categories" className="hidden border-t border-hairline lg:block">
             <div className="mx-auto flex h-11 max-w-[1400px] items-center gap-1 overflow-x-auto px-6 text-[14px] scrollbar-hide">
-              {CATEGORIES.map((c) => (
+              {CATEGORIES.filter((c) => !c.type || openTypes?.has(c.type)).map((c) => (
                 <Link key={c.href} href={c.href} className="whitespace-nowrap rounded-lg px-3 py-1.5 font-medium text-label-2 hover:bg-fill hover:text-label">
                   {c.label}
                 </Link>

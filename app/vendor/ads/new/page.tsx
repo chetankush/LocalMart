@@ -385,7 +385,7 @@ export default function NewAdPage() {
       {info.needsBanner && (
         <FormCard
           title="Your banner"
-          description="A wide photo works best (about 1200 × 400). Show your best saree or offer."
+          description="A square photo works best (about 1000 × 1000). Keep your saree and faces in the middle. Your headline shows beside the photo, never on it."
         >
           <ImageUploader
             value={bannerImage}
@@ -406,16 +406,24 @@ export default function NewAdPage() {
             />
           </Field>
           {bannerImage && (
-            <div className="relative aspect-[3/1] overflow-hidden rounded-xl bg-fill">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={bannerImage} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <span className="absolute right-2 top-2 rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                Ad
-              </span>
-              <p className="absolute bottom-3 left-3 right-3 truncate text-[17px] font-bold text-white">
-                {bannerTitle.trim() || `Visit ${options.shop.businessName}`}
-              </p>
+            // The same card shoppers see: words beside the photo, nothing on it
+            <div>
+              <p className="mb-2 text-[13px] font-semibold text-label-2">How shoppers will see it · ग्राहकों को ऐसा दिखेगा</p>
+              <div className="flex h-[200px] max-w-[460px] overflow-hidden rounded-3xl bg-[#F6F1EA]">
+                <div className="flex min-w-0 flex-1 flex-col justify-center p-4">
+                  <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-tint">{options.shop.businessName}</p>
+                  <p className="mt-1 line-clamp-3 text-[19px] font-bold leading-tight text-label">
+                    {bannerTitle.trim() || `Visit ${options.shop.businessName}`}
+                  </p>
+                  <span className="mt-3 inline-flex h-9 w-fit items-center rounded-full bg-label px-4 text-[13px] font-semibold text-white">
+                    Visit shop
+                  </span>
+                </div>
+                <div className="relative w-[52%] shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={bannerImage} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+                </div>
+              </div>
             </div>
           )}
         </FormCard>

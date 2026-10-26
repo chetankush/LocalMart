@@ -78,22 +78,23 @@ export default function ProductCard({
               alt={product.name}
               fill
               sizes="(max-width: 640px) 40vw, 200px"
-              className="object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-[1.03]"
+              // Fill the tile (shop photos are full-frame phone pictures): no grey bands
+              className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (
             <span className="flex h-full w-full items-center justify-center text-label-3">
               <ShoppingCart className="h-8 w-8" aria-hidden />
             </span>
           )}
-          {hasDiscount && (
-            <span className="absolute left-0 top-0 rounded-br-lg rounded-tl-xl bg-deal px-2 py-1 text-[11px] font-bold leading-none text-white">
-              {discountPercent}% OFF
+          {hasDiscount && !rental && (
+            <span className="absolute left-2 top-2 rounded-md bg-deal px-1.5 py-[3px] text-[11px] font-bold leading-none text-white">
+              {discountPercent}% off
             </span>
           )}
           {out && <span className="absolute inset-0 bg-white/60" aria-hidden />}
         </Link>
         {rental && (
-          <span className="absolute left-2 top-2 rounded-full bg-card/95 px-2 py-0.5 text-[11px] font-semibold text-tint">
+          <span className="absolute left-2 top-2 rounded-md bg-card/95 px-1.5 py-[3px] text-[11px] font-bold leading-none text-tint">
             On rent
           </span>
         )}
@@ -103,7 +104,7 @@ export default function ProductCard({
               href={`/products/${product.id}`}
               className="flex h-9 items-center rounded-lg border border-tint bg-card px-4 text-[14px] font-bold text-tint shadow-sm"
             >
-              RENT
+              Rent
             </Link>
           ) : (
             <AddStepper

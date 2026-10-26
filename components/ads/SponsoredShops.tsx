@@ -8,7 +8,7 @@ import { useMounted } from "@/hooks/useMounted";
 import { calculateDistanceKm, isStoreOpen } from "@/lib/landing/distance";
 import { trackAd, useAdImpression, useAds, type AdPlacement, type ServedAd } from "@/lib/ads";
 
-function AdCard({ ad, mounted }: { ad: ServedAd; mounted: boolean }) {
+function AdCard({ ad, mounted, wide = false }: { ad: ServedAd; mounted: boolean; wide?: boolean }) {
   const ref = useAdImpression<HTMLLIElement>(ad.adId);
   const { location } = useLocation();
   const c = ad.vendor.businessAddress?.coordinates;
@@ -21,8 +21,8 @@ function AdCard({ ad, mounted }: { ad: ServedAd; mounted: boolean }) {
   const open = mounted && ad.vendor.businessHours ? isStoreOpen(ad.vendor.businessHours) : null;
   return (
     // Capture phase: counted before the card's link opens the shop
-    <li ref={ref} onClickCapture={() => trackAd(ad.adId, "click")} className="w-[80%] shrink-0 snap-start sm:w-auto">
-      <ShopCard shop={ad.vendor} km={km} open={open} sponsored />
+    <li ref={ref} onClickCapture={() => trackAd(ad.adId, "click")} className={wide ? "" : "w-[80%] shrink-0 snap-start sm:w-auto"}>
+      <ShopCard shop={ad.vendor} km={km} open={open} sponsored wide={wide} />
     </li>
   );
 }
@@ -36,6 +36,7 @@ export default function SponsoredShops({
   category,
   keyword,
   title = "Featured shops",
+  subtitle = "Shops worth a visit near you · पास की ख़ास दुकानें",
   variant = "home",
   pincode,
   city,
@@ -48,6 +49,8 @@ export default function SponsoredShops({
   pincode?: string | null;
   city?: string | null;
   title?: string;
+  /** Line under the heading on the home page */
+  subtitle?: string;
   /** home = full-width home section; inline = inside a page that has its own padding */
   variant?: "home" | "inline";
   /** Shop ids shown here, so the page can leave them out of its own list below */
@@ -70,17 +73,25 @@ export default function SponsoredShops({
   }, [ads]);
   if (ads.length === 0) return null;
 
+  // One shop: a wide card fills the row (instead of a third of it)
+  const one = ads.length === 1;
   const list = (
-    <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3">
+    <ul
+      className={
+        one
+          ? "grid grid-cols-1"
+          : "-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-px-4 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3"
+      }
+    >
       {ads.map((ad) => (
-        <AdCard key={ad.adId} ad={ad} mounted={mounted} />
+        <AdCard key={ad.adId} ad={ad} mounted={mounted} wide={one} />
       ))}
     </ul>
   );
 
   if (variant === "home") {
     return (
-      <HomeSection title={title} subtitle="Shops worth a visit near you">
+      <HomeSection title={title} subtitle={subtitle}>
         {list}
       </HomeSection>
     );

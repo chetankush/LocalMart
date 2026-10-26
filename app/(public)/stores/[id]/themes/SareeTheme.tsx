@@ -470,7 +470,7 @@ function SareeCard({
               href={`/products/${product.id}`}
               className="flex h-9 items-center rounded-lg border border-[#6E1423] bg-white px-4 text-[14px] font-bold text-[#6E1423] shadow-sm"
             >
-              RENT
+              Rent
             </Link>
           ) : (
           <AddStepper

@@ -17,6 +17,7 @@ export default function PopularProductsRail({ products, locationLabel, loading =
   return (
     <HomeSection
       title={title ?? (locationLabel ? `Popular in ${locationLabel}` : "Popular near you")}
+      subtitle="Most reviewed by shoppers · सबसे ज़्यादा पसंद किए गए"
       href="/stores"
     >
       <ProductRow>
