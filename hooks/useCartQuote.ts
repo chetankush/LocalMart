@@ -8,6 +8,12 @@ interface QuoteLocation {
   pincode?: string;
   latitude?: number;
   longitude?: number;
+  /** Per shop: home delivery (default), pickup or parcel */
+  fulfilments?: { vendorId: string; mode: "DELIVERY" | "PICKUP" | "PARCEL" }[];
+  /** A shop's discount code */
+  code?: string;
+  /** Ordering from a shop's order link (its items are priced) */
+  orderLink?: string;
 }
 
 /**
@@ -25,8 +31,9 @@ export function useCartQuote(items: CartItem[], location: QuoteLocation) {
   const pincode = location.pincode && /^\d{6}$/.test(location.pincode)
     ? location.pincode
     : undefined;
-  const { latitude, longitude } = location;
-  const cartKey = items.map((i) => `${i.id}:${i.quantity}`).join(",");
+  const { latitude, longitude, fulfilments, code, orderLink } = location;
+  const modesKey = (fulfilments ?? []).map((f) => `${f.vendorId}:${f.mode}`).join(",");
+  const cartKey = items.map((i) => `${i.id}:${i.variantId ?? ""}:${i.quantity}`).join(",");
 
   const fetchQuote = useCallback(async () => {
     if (items.length === 0) {
@@ -38,10 +45,13 @@ export function useCartQuote(items: CartItem[], location: QuoteLocation) {
     setError(null);
     try {
       const res = await apiClient.quoteOrder({
-        items: items.map((i) => ({ id: i.id, quantity: i.quantity })),
+        items: items.map((i) => ({ id: i.id, quantity: i.quantity, ...(i.variantId ? { variantId: i.variantId } : {}) })),
         pincode,
         latitude: pincode ? latitude : undefined,
         longitude: pincode ? longitude : undefined,
+        ...(fulfilments?.length ? { fulfilments } : {}),
+        ...(code ? { code } : {}),
+        ...(orderLink ? { orderLink } : {}),
       });
       if (id === requestId.current) setQuote(res.data);
     } catch (err) {
@@ -52,7 +62,7 @@ export function useCartQuote(items: CartItem[], location: QuoteLocation) {
       if (id === requestId.current) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartKey, pincode, latitude, longitude]);
+  }, [cartKey, pincode, latitude, longitude, modesKey, code, orderLink]);
 
   useEffect(() => {
     const t = setTimeout(fetchQuote, 300);

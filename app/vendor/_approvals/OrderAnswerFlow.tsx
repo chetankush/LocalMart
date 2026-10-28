@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { Sheet } from '@/components/app/Sheet';
 import { apiClient } from '@/lib/api/client';
 import { useApprovals, type ApprovalOrder } from './ApprovalsPollerContext';
+import { offerDiscount } from '@/lib/offers';
 
 export type BackIn = 'TOMORROW' | 'TWO_HOURS' | null;
 
@@ -130,9 +131,7 @@ export function ItemsUnavailableSheet({
   const { accept, reject, busy } = useAnswerOrder(order);
   const [missing, setMissing] = useState<Set<string>>(new Set());
   const [backIn, setBackIn] = useState<BackIn>('TOMORROW');
-  const keptTotal =
-    Number(order.totalAmount) -
-    order.items.filter((i) => missing.has(i.id)).reduce((sum, i) => sum + Number(i.totalPrice), 0);
+  const keptTotal = totalWithout(order, missing);
   const nothingLeft = missing.size === order.items.length;
 
   const toggle = (id: string) =>
@@ -352,4 +351,19 @@ export function DeclineSheet({
       )}
     </Sheet>
   );
+}
+
+/**
+ * The order's total once the ticked items come off — worked out the way the
+ * server will (a percent discount on what's left, a ₹ discount kept), so
+ * the shop sees exactly what the buyer is told.
+ */
+function totalWithout(order: ApprovalOrder, missing: Set<string>) {
+  const removed = order.items.filter((i) => missing.has(i.id)).reduce((sum, i) => sum + Number(i.totalPrice), 0);
+  if (order.subtotal == null) return Number(order.totalAmount) - removed;
+  const items = Number(order.subtotal) - removed;
+  const off = order.offerRule
+    ? offerDiscount(order.offerRule.kind, order.offerRule.value, items, order.offerRule.maxOff)
+    : Math.min(Number(order.discount ?? 0), items);
+  return Math.round((items + Number(order.deliveryFee ?? 0) + Number(order.taxAmount ?? 0) - off) * 100) / 100;
 }

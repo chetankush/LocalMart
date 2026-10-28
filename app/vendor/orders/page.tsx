@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import OrdersList from "./OrdersList";
 import { RefreshCw } from "lucide-react";
 import { EmptyState, LargeTitle, Page } from "@/components/app/ui";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -62,7 +63,7 @@ export default async function VendorOrdersPage() {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/vendor/orders"));
   }
 
   const result = await getVendorOrders(session.access_token);

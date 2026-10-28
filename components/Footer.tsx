@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { useOpenShopTypes } from "@/hooks/useOpenShopTypes";
 import { signInHref } from "@/lib/auth/returnTo";
 import { IndianRupee, Wallet } from "lucide-react";
 
@@ -14,9 +15,9 @@ const NO_FOOTER = ["/checkout", "/orders/waiting", "/cart", "/my-orders", "/vend
 const SHOP_LINKS = [
   { label: "All shops", href: "/stores" },
   { label: "Shops on the map", href: "/map" },
-  { label: "Sarees & fashion", href: "/stores?category=clothing" },
-  { label: "Groceries", href: "/stores?category=grocery" },
-  { label: "Medical stores", href: "/stores?category=medical" },
+  { label: "Sarees & fashion", href: "/stores?category=clothing", type: "FASHION" },
+  { label: "Groceries", href: "/stores?category=grocery", type: "GROCERY" },
+  { label: "Medical stores", href: "/stores?category=medical", type: "PHARMACY" },
 ];
 
 const linkClass = "text-[14px] text-label-2 hover:text-tint transition-colors";
@@ -33,6 +34,7 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 const Footer = () => {
   const { user } = useAuth();
   const pathname = usePathname();
+  const openTypes = useOpenShopTypes();
   if (NO_FOOTER.some((p) => pathname.startsWith(p))) return null;
 
   return (
@@ -61,7 +63,8 @@ const Footer = () => {
           </div>
 
           <Column title="Shop">
-            {SHOP_LINKS.map((l) => (
+            {/* Only kinds of shop that are open (no links to empty pages) */}
+            {SHOP_LINKS.filter((l) => !("type" in l) || openTypes?.has(l.type as string)).map((l) => (
               <li key={l.href}>
                 <Link href={l.href} className={linkClass}>
                   {l.label}

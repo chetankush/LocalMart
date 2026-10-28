@@ -5,6 +5,7 @@ import { addToCart } from '@/lib/redux/slices/cartSlice';
 import type { CartItem } from '@/lib/redux/slices/cartSlice';
 import { useState } from 'react';
 import Link from 'next/link';
+import { allSizesSoldOut, hasSizes, type Size } from '@/lib/sizes';
 
 interface Product {
   id: string;
@@ -16,6 +17,8 @@ interface Product {
   vendorId: string;
   /** RENT items are booked by date on their page, not added to the cart */
   listingType?: 'SALE' | 'RENT' | null;
+  /** Sizes: the size is picked on the item's page */
+  variants?: Size[] | null;
 }
 
 interface AddToCartButtonProps {
@@ -72,7 +75,19 @@ export default function AddToCartButton({
     );
   }
 
-  if (product.stockQuantity === 0) {
+  if (hasSizes(product) && product.stockQuantity > 0 && !allSizesSoldOut(product)) {
+    return (
+      <Link
+        href={`/products/${product.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className={`block w-full py-3 rounded-full font-semibold text-center text-sm ${className}`}
+      >
+        Choose size
+      </Link>
+    );
+  }
+
+  if (product.stockQuantity === 0 || allSizesSoldOut(product)) {
     return (
       <button
         disabled

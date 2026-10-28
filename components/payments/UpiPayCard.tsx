@@ -12,6 +12,8 @@ interface UpiPayCardProps {
   amount: number;
   storeName: string;
   upiId: string | null | undefined;
+  /** Photo of the shop's own UPI QR, if it added one */
+  qrImage?: string | null;
   paymentStatus: string;
   onStatusChange?: (paymentStatus: string) => void;
 }
@@ -36,6 +38,7 @@ export function UpiPayCard({
   amount,
   storeName,
   upiId,
+  qrImage,
   paymentStatus,
   onStatusChange,
 }: UpiPayCardProps) {
@@ -61,7 +64,7 @@ export function UpiPayCard({
     );
   }
 
-  if (!upiId) {
+  if (!upiId && !qrImage) {
     return (
       <Notice tone="warn">
         {storeName} hasn&apos;t added a UPI ID yet. Please pay them in cash or by UPI when your order arrives.
@@ -69,7 +72,7 @@ export function UpiPayCard({
     );
   }
 
-  const link = buildUpiLink(upiId, storeName, amount, orderNumber);
+  const link = upiId ? buildUpiLink(upiId, storeName, amount, orderNumber) : null;
 
   const handlePaid = async () => {
     setSaving(true);
@@ -92,21 +95,63 @@ export function UpiPayCard({
         Goes straight to {storeName} · UPI से भुगतान करें
       </p>
 
-      <Button href={link} full>
-        <Smartphone className="h-5 w-5" aria-hidden />
-        Pay with GPay / PhonePe / Paytm
-      </Button>
+      {link && (
+        <>
+          {/* Best on a phone: opens the UPI app with the amount and order filled in */}
+          <Button href={link} full>
+            <Smartphone className="h-5 w-5" aria-hidden />
+            Pay with GPay / PhonePe / Paytm
+          </Button>
 
-      <div className="mt-4 hidden flex-col items-center gap-2 sm:flex">
-        <p className="text-[14px] text-label-2">Or scan with any UPI app</p>
-        <UpiQr value={link} />
-      </div>
-      <p className="mt-3 break-all text-center text-[13px] text-label-2">UPI ID: {upiId}</p>
+          <div className="mt-4 hidden flex-col items-center gap-2 sm:flex">
+            <p className="text-[14px] text-label-2">Or scan with any UPI app</p>
+            <UpiQr value={link} />
+          </div>
+          <p className="mt-3 break-all text-center text-[13px] text-label-2">UPI ID: {upiId}</p>
+        </>
+      )}
+
+      {qrImage && <ShopQr image={qrImage} storeName={storeName} amount={amount} open={!link} />}
 
       <Button variant="secondary" full onClick={handlePaid} loading={saving} className="mt-3 bg-white hover:bg-white/80">
         {saving ? "Saving…" : "I have paid"}
       </Button>
     </div>
+  );
+}
+
+/**
+ * The shop's own QR (the sticker buyers know). It has no amount in it, so the
+ * buyer types it. On the same phone it can't be scanned with the camera —
+ * save it and pick it from the gallery in the UPI app.
+ */
+function ShopQr({ image, storeName, amount, open }: { image: string; storeName: string; amount: number; open: boolean }) {
+  return (
+    <details open={open} className="group mt-3 rounded-xl bg-white/70 px-3">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between text-[15px] font-semibold text-label">
+        {storeName}&apos;s own QR code
+        <span className="text-[13px] font-normal text-tint group-open:hidden">Show</span>
+      </summary>
+      <div className="flex flex-col items-center gap-2 pb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element -- any storage host; a plain image is enough here */}
+        <img src={image} alt={`${storeName} UPI QR code`} className="w-full max-w-[240px] rounded-xl bg-white object-contain" />
+        <p className="text-center text-[14px] text-label-2">
+          Enter <span className="font-semibold text-label">{rupees(amount)}</span> yourself when you pay.
+        </p>
+        <a
+          href={image}
+          download={`${storeName.replace(/[^a-z0-9]+/gi, "-")}-upi-qr`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[44px] items-center justify-center rounded-full border border-label/20 bg-card px-4 text-[15px] font-semibold text-label"
+        >
+          Save QR image
+        </a>
+        <p className="text-center text-[13px] text-label-3">
+          On this phone: save it, then in GPay / PhonePe tap Scan → choose from gallery.
+        </p>
+      </div>
+    </details>
   );
 }
 

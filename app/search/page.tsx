@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ChevronRight, Map as MapIcon, Search, Star } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useLocation } from "@/context/LocationContext";
+import type { Size } from "@/lib/sizes";
 import ProductCard, { type ProductCardProduct } from "@/components/landing/ProductCard";
 import { SHOP_KIND, shopPictures } from "@/lib/landing/shopImages";
 import SponsoredShops from "@/components/ads/SponsoredShops";
@@ -38,6 +39,7 @@ interface SearchProduct {
   listingType?: "SALE" | "RENT" | null;
   rentUnit?: RentUnit | null;
   rentUnitLabel?: string | null;
+  variants?: Size[] | null;
 }
 
 type SortOption = "relevance" | "price_low" | "price_high" | "rating";
@@ -124,6 +126,7 @@ function SearchResultsContent() {
     listingType: p.listingType,
     rentUnit: p.rentUnit,
     rentUnitLabel: p.rentUnitLabel,
+    variants: p.variants,
   });
 
   const total = stores.length + products.length;

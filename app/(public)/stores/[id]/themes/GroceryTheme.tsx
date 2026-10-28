@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect } from "react";
 import StoreImageCarousel from "./StoreImageCarousel";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
+import { MessageShopButton } from "@/components/contact/MessageShop";
+import { waText, whatsappLinkProps } from "@/lib/contact";
 
 interface Product {
   id: string;
@@ -26,6 +28,7 @@ interface GroceryThemeProps {
 
 export default function GroceryTheme({ vendor, products }: GroceryThemeProps) {
   const { setBranding } = useStoreBranding();
+  const wa = whatsappLinkProps({ number: vendor.whatsappNumber, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
 
   useEffect(() => {
     // Set the store branding when component mounts
@@ -83,11 +86,15 @@ export default function GroceryTheme({ vendor, products }: GroceryThemeProps) {
             </div>
 
             <div className="flex gap-3">
-              {vendor.whatsappNumber && (
+              <MessageShopButton
+                target={{ vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber }, source: "SHOP" }}
+                className="bg-white text-green-800 hover:bg-green-50 px-4 py-2 rounded-lg shadow-lg font-semibold transition-all cursor-pointer"
+              >
+                Message shop
+              </MessageShopButton>
+              {wa && (
                 <a
-                  href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...wa}
                   className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

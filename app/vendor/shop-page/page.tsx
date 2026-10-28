@@ -3,6 +3,7 @@ import { requireRole } from "@/src/shared/utils/auth";
 import { createClient } from "@/lib/supabase/server";
 import { LargeTitle, Page } from "@/components/app/ui";
 import ShopPageEditor from "./ShopPageEditor";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -34,7 +35,7 @@ export default async function ShopPageEditorPage({
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session?.access_token) redirect("/sign-in");
+  if (!session?.access_token) redirect(signInHref("/vendor/shop-page"));
 
   const q = storeId ? `?storeId=${storeId}` : "";
   const [vendor, products] = await Promise.all([

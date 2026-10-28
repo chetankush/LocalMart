@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarDays, ChevronRight, Loader2, MapPin, Minus, Phone, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
+import { CalendarDays, ChevronRight, Loader2, MapPin, MessageCircle, Minus, Plus, ShieldCheck, Store, Truck, Wallet } from "lucide-react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useLocation } from "@/context/LocationContext";
 import { Field, Toggle, inputClass } from "@/components/app/form";
@@ -14,6 +14,9 @@ import { signInHref } from "@/lib/auth/returnTo";
 import { apiError } from "@/components/ads/adLabels";
 import { shopAddress } from "@/app/(public)/products/[id]/ProductInfo";
 import { UNIT, pieces, rateText, rupees, todayIST, unitCount, type RentQuote, type RentUnit } from "@/lib/rentals";
+import { MessageShopButton } from "@/components/contact/MessageShop";
+import { WhatsAppIcon } from "@/components/contact/WhatsAppIcon";
+import { waText, whatsappLinkProps } from "@/lib/contact";
 
 type Numeric = number | string;
 
@@ -32,7 +35,7 @@ interface Props {
     operatorRate?: number | null;
     transportCharge?: number | null;
   };
-  vendor: Parameters<typeof shopAddress>[0] & { contactPhone?: string | null };
+  vendor: Parameters<typeof shopAddress>[0] & { whatsappNumber?: string | null };
 }
 
 const DRAFT_KEY = "lm_rent_draft";
@@ -92,6 +95,13 @@ function Stepper({
  */
 export default function RentInfo({ product, vendor }: Props) {
   const address = shopAddress(vendor);
+  const wa = whatsappLinkProps({
+    number: vendor.whatsappNumber,
+    text: waText.rent(vendor.businessName, product.name),
+    vendorId: vendor.id,
+    source: "RENT",
+    productId: product.id,
+  });
   const router = useRouter();
   const { user } = useAuth();
   const { location } = useLocation();
@@ -426,14 +436,20 @@ export default function RentInfo({ product, vendor }: Props) {
           </span>
           <ChevronRight className="h-5 w-5 shrink-0 text-label-3" aria-hidden />
         </Link>
-        {vendor.contactPhone && (
-          <a
-            href={`tel:${vendor.contactPhone}`}
-            className="mt-3 flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label"
+        {/* Ask before booking: a message to the shop (a lead) or WhatsApp — no bare phone number */}
+        <div className={`mt-3 grid gap-2 ${wa ? "grid-cols-2" : "grid-cols-1"}`}>
+          <MessageShopButton
+            target={{ vendor, product: { id: product.id, name: product.name }, source: "RENT" }}
+            className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label cursor-pointer"
           >
-            <Phone className="h-4 w-4" aria-hidden /> Call shop
-          </a>
-        )}
+            <MessageCircle className="h-4 w-4" aria-hidden /> Ask the shop
+          </MessageShopButton>
+          {wa && (
+            <a {...wa} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label">
+              <WhatsAppIcon /> WhatsApp
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="lg:hidden">

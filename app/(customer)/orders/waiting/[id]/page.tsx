@@ -62,5 +62,6 @@ function toSummary(order: any) {
     paymentMethod: order.paymentMethod,
     paymentStatus: order.paymentStatus,
     upiId: order.vendor?.upiId ?? null,
+    upiQrImage: order.vendor?.upiQrImage ?? null,
   };
 }

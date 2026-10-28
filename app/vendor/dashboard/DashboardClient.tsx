@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarCheck, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock } from "lucide-react";
+import { Bell, CalendarCheck, Link2, TicketPercent, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock, BarChart3, QrCode, BadgeCheck, ClipboardCheck } from "lucide-react";
 import ShareStoreModal from "@/components/ShareStoreModal";
 import { Button, Notice, Pill, Row, Thumb, formatIST, rupees } from "@/components/app/ui";
 import {
@@ -18,6 +18,8 @@ import {
 import { useApprovals } from "../_approvals/ApprovalsPollerContext";
 import { BusyCard } from "../_approvals/ShopBusy";
 import { OrderAlertsCard } from "../_approvals/OrderAlertsSetup";
+import LeadsCard from "./LeadsCard";
+import TodayCard from "./TodayCard";
 
 interface StoreInfo {
   id: string;
@@ -248,6 +250,12 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
             </section>
           )}
 
+          {/* ── Everything waiting for the seller, in one list ── */}
+          <TodayCard storeId={storeId} />
+
+          {/* ── Buyers who messaged / opened WhatsApp ── */}
+          <LeadsCard storeId={storeId} />
+
           {/* ── Numbers ── */}
           <section className="mb-6">
             <SectionHeader title="Your shop at a glance" />
@@ -289,6 +297,12 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 hindi="ऑर्डर देखें"
               />
               <ActionTile
+                href={`/vendor/order-links/new?${q}`}
+                icon={<Link2 className="h-[22px] w-[22px]" />}
+                title="Send order link"
+                hindi="चैट में ऑर्डर भेजें"
+              />
+              <ActionTile
                 href={`/vendor/products/bulk-add?${q}`}
                 icon={<Layers className="h-[22px] w-[22px]" />}
                 title="Add many at once"
@@ -299,6 +313,12 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 icon={<Megaphone className="h-[22px] w-[22px]" />}
                 title="Send an offer"
                 hindi="ग्राहकों को बताएं"
+              />
+              <ActionTile
+                href={`/vendor/discounts?${q}`}
+                icon={<TicketPercent className="h-[22px] w-[22px]" />}
+                title="Discount codes"
+                hindi="ऑफ़र कोड"
               />
               <ActionTile
                 href={`/vendor/visits?${q}`}
@@ -323,6 +343,30 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 icon={<Package className="h-[22px] w-[22px]" />}
                 title="My products"
                 hindi="मेरा सारा सामान"
+              />
+              <ActionTile
+                href={`/vendor/report?${q}`}
+                icon={<BarChart3 className="h-[22px] w-[22px]" />}
+                title="Monthly report"
+                hindi="इस महीने का हिसाब"
+              />
+              <ActionTile
+                href={`/vendor/share-kit?${q}`}
+                icon={<QrCode className="h-[22px] w-[22px]" />}
+                title="Posters & sharing"
+                hindi="QR पोस्टर, स्टेटस"
+              />
+              <ActionTile
+                href={`/vendor/products/check?${q}`}
+                icon={<ClipboardCheck className="h-[22px] w-[22px]" />}
+                title="Check stock"
+                hindi="स्टॉक जांचें"
+              />
+              <ActionTile
+                href={`/vendor/plan?${q}`}
+                icon={<BadgeCheck className="h-[22px] w-[22px]" />}
+                title="My plan"
+                hindi="प्लान"
               />
             </div>
           </section>

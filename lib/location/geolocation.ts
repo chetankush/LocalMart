@@ -182,7 +182,7 @@ async function reverseGeocodeBigDataCloud(
 /**
  * OpenStreetMap Nominatim - Free, detailed
  */
-async function reverseGeocodeOSM(
+export async function reverseGeocodeOSM(
   lat: number,
   lng: number
 ): Promise<LocationResult | null> {
@@ -265,7 +265,7 @@ async function reverseGeocodeLocationIQ(
 /**
  * IP-based location with multiple providers
  */
-async function getLocationByIP(): Promise<LocationResult | null> {
+export async function getLocationByIP(): Promise<LocationResult | null> {
   const providers = [
     fetchIPAPI,
     fetchIPWhoIs,

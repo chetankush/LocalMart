@@ -1,6 +1,7 @@
 "use client";
 
 import { UNIT, type RentUnit } from "@/lib/rentals";
+import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart, Star } from "lucide-react";
@@ -20,6 +21,7 @@ export interface ProductCardProduct {
   category?: { id: string; name: string } | null;
   /** RENT items are booked by date on their page, not added to the cart */
   listingType?: "SALE" | "RENT" | null;
+  variants?: Size[] | null;
   rentUnit?: RentUnit | null;
   rentUnitLabel?: string | null;
   vendor: {
@@ -108,7 +110,8 @@ export default function ProductCard({
             </Link>
           ) : (
             <AddStepper
-              disabled={out}
+              disabled={out || allSizesSoldOut(product)}
+              chooseSizeHref={hasSizes(product) ? `/products/${product.id}` : undefined}
               item={{
                 id: product.id,
                 name: product.name,

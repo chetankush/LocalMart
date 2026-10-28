@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { LargeTitle, Page } from '@/components/app/ui';
 import VendorOnboardingWizard from './VendorOnboardingWizard';
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -31,7 +32,7 @@ export default async function VendorOnboardingPage() {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect('/sign-in');
+    redirect(signInHref("/vendor/onboarding"));
   }
 
   // Check if vendor profile already exists

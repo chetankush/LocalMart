@@ -81,7 +81,7 @@ export default function NotifyMeButton({
         });
       } else {
         // API returned success: false
-        const errorMsg = result?.error || result?.message || "Failed to update subscription";
+        const errorMsg = result?.message || "Failed to update subscription";
         throw new Error(errorMsg);
       }
     } catch (error: any) {

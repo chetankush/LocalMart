@@ -18,6 +18,7 @@ interface OrderSummary {
   paymentMethod?: string | null;
   paymentStatus?: string;
   upiId?: string | null;
+  upiQrImage?: string | null;
 }
 
 const CONFIRMED = ['ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
@@ -42,6 +43,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
   const [removedItems, setRemovedItems] = useState<string[]>([]);
   const [total, setTotal] = useState(order.totalAmount);
   const [noAnswer, setNoAnswer] = useState(false);
+  const [fulfilment, setFulfilment] = useState<'DELIVERY' | 'PICKUP' | 'PARCEL'>('DELIVERY');
   const pollAbort = useRef(false);
   const minutesLeft = useMinutesLeft(order.placedAt);
 
@@ -62,6 +64,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
         if (res.removedItems) setRemovedItems(res.removedItems);
         if (typeof res.totalAmount === 'number') setTotal(res.totalAmount);
         setNoAnswer(!!res.noAnswer);
+        if (res.fulfilment) setFulfilment(res.fulfilment);
         // Stop once the shop has answered
         if (res.status !== 'PENDING') return;
       } catch {
@@ -131,6 +134,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
             amount={total}
             storeName={order.storeName}
             upiId={order.upiId}
+            qrImage={order.upiQrImage}
             paymentStatus={paymentStatus}
           />
         </div>
@@ -138,7 +142,7 @@ export function WaitingCard({ order }: { order: OrderSummary }) {
 
       {!rejected && (
         <div className="border-t border-hairline">
-          <OrderProgress steps={orderSteps(status, order.paymentMethod, paymentStatus)} />
+          <OrderProgress steps={orderSteps(status, order.paymentMethod, paymentStatus, fulfilment)} />
         </div>
       )}
 

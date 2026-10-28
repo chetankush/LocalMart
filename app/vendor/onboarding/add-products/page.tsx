@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/src/shared/utils/auth';
 import { createClient } from '@/lib/supabase/server';
 import { Page } from '@/components/app/ui';
 import ProductOnboardingClient from './ProductOnboardingClient';
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -50,14 +51,14 @@ export default async function AddProductsOnboardingPage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect('/sign-in');
+    redirect(signInHref("/vendor/onboarding/add-products"));
   }
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect('/sign-in');
+    redirect(signInHref("/vendor/onboarding/add-products"));
   }
 
   // Get vendor data

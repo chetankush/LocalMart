@@ -216,7 +216,7 @@ export function useSearch(options: UseSearchOptions = {}) {
 
           setResults(searchResults);
         } else {
-          setError(response.message || "Search failed");
+          setError((response as { message?: string }).message || "Search failed");
         }
       } catch (err: any) {
         if (err.name !== "AbortError") {

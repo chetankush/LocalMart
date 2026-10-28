@@ -63,12 +63,29 @@ export default function ShareStoreModal({
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"share" | "qr">("share");
   const qrRef = useRef<HTMLDivElement>(null);
+  // The shop's short link (localmart.in/radhe-saree), when it has one
+  const [handle, setHandle] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+    import("@/lib/api/client").then(async ({ apiClient }) => {
+      try {
+        const r = await apiClient.get<{ data: { handle: string | null } }>(`/vendor/shop-link?storeId=${encodeURIComponent(storeId)}`);
+        if (alive) setHandle(r.data?.handle ?? null);
+      } catch {
+        // Falls back to the long link
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isOpen, storeId]);
 
   if (!isOpen) return null;
 
-  const storeUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/stores/${storeId}`
-    : `/stores/${storeId}`;
+  const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+  const storeUrl = handle ? `${origin}/${handle}` : `${origin}/stores/${storeId}`;
 
   const shareText = `Check out ${storeName} on LocalMart! Shop local products and get them delivered.`;
   const whatsappText = encodeURIComponent(`${shareText}\n\n${storeUrl}`);

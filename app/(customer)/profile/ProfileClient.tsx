@@ -236,7 +236,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
               {!isEditing && (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  variant="outline"
+                  variant="secondary"
                   className="bg-white/10 border-white/20 text-white hover:bg-white/20"
                 >
                   <Edit2 className="w-4 h-4 mr-2" />
@@ -520,7 +520,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                   </div>
                   <Button
                     onClick={handleClearHistory}
-                    variant="outline"
+                    variant="secondary"
                     disabled={recentlyViewedCount === 0}
                     className="text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -551,7 +551,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                     setPriorityPhone(user.priorityPhone || "");
                     setMessage(null);
                   }}
-                  variant="outline"
+                  variant="secondary"
                   disabled={isSaving}
                 >
                   Cancel

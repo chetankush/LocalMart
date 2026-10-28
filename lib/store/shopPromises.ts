@@ -1,4 +1,4 @@
-import { IndianRupee, PhoneCall, Star, Store, Truck, Wallet, type LucideIcon } from "lucide-react";
+import { IndianRupee, MessageCircle, Star, Store, Truck, Wallet, type LucideIcon } from "lucide-react";
 
 /**
  * The "why buy here" strip on a shop page, built only from what is true for
@@ -13,7 +13,6 @@ type ShopLike = {
   maxDeliveryDistance?: number | null;
   city?: string | null;
   locality?: string | null;
-  contactPhone?: string | null;
   averageRating?: number | string | null;
   reviewCount?: number | null;
 };
@@ -41,7 +40,8 @@ export function shopPromises(shop: ShopLike, max = 4): ShopPromise[] {
       text: `${reviews} review${reviews === 1 ? "" : "s"}`,
     });
   }
-  if (shop.contactPhone) list.push({ key: "call", icon: PhoneCall, title: "Call the shop", text: "Ask before you buy" });
+  // Every shop can be messaged from LocalMart (the number itself stays private)
+  list.push({ key: "message", icon: MessageCircle, title: "Message the shop", text: "Ask before you buy" });
   list.push({ key: "visit", icon: Store, title: "Visit the shop", text: shop.locality || shop.city || "See it in person" });
 
   return list.slice(0, max);

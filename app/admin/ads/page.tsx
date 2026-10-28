@@ -241,7 +241,7 @@ export default function AdminAdsPage() {
                 <th className={thClass}>Dates</th>
                 <th className={thClass}>Paid</th>
                 <th className={thClass}>Status</th>
-                <th className={thClass}>Seen / tapped</th>
+                <th className={thClass}>Seen / tapped / contacted / orders</th>
                 <th className={thClass} />
               </tr>
             </thead>
@@ -268,7 +268,8 @@ export default function AdminAdsPage() {
                       <Pill tone={state.tone}>{state.label}</Pill>
                     </td>
                     <td className={`${tdClass} tabular-nums`}>
-                      {ad.impressions} / {ad.clicks} <span className="text-label-3">({tapRate(ad)})</span>
+                      {ad.impressions} / {ad.clicks} / {(ad.whatsappTaps ?? 0) + (ad.callTaps ?? 0)} / {ad.orders ?? 0}{" "}
+                      <span className="text-label-3">({tapRate(ad)})</span>
                     </td>
                     <td className={`${tdClass} text-right`}>
                       <div className="flex justify-end gap-2">
@@ -315,7 +316,8 @@ export default function AdminAdsPage() {
                     </p>
                     <p className="mt-1 text-[14px] text-label-2">
                       {shortDate(ad.startDate)} – {shortDate(ad.endDate)} · {ad.amount > 0 ? rupee(ad.amount) : "Free"}{" "}
-                      · {ad.impressions} seen · {ad.clicks} tapped
+                      · {ad.impressions} seen · {ad.clicks} tapped · {(ad.whatsappTaps ?? 0) + (ad.callTaps ?? 0)}{" "}
+                      contacted · {ad.orders ?? 0} orders
                     </p>
                     {actionsFor(ad).length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">

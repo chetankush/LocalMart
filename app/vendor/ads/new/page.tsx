@@ -11,6 +11,7 @@ import { SHOP_KIND } from "@/lib/landing/shopImages";
 import { openRazorpay, type RazorpayCheckout } from "@/lib/payments/razorpay";
 import type { AdPlacement } from "@/lib/ads";
 import { apiError, areaLabel, shortDate, targetLabel, type AdBookingView } from "@/components/ads/adLabels";
+import { signInHref } from "@/lib/auth/returnTo";
 
 type AreaType = "PINCODE" | "CITY";
 type Rates = Record<AdPlacement, Record<AreaType, number[]>>;
@@ -110,7 +111,7 @@ export default function NewAdPage() {
         setStartDate(res.data.today);
       } catch (err) {
         if (apiError(err).isAuth) {
-          router.push("/sign-in");
+          router.push(signInHref("/vendor/ads/new"));
           return;
         }
         setLoadError(apiError(err).message || "Couldn't load ad prices. Please try again.");

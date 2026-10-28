@@ -2,6 +2,7 @@
 
 import { refreshShopPage } from "@/lib/refreshShopPage";
 import { useState } from "react";
+import SizesEditor, { type SizeDraft } from "@/components/products/SizesEditor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button, StickyBar, StickyBarSpacer } from "@/components/app/ui";
@@ -43,6 +44,8 @@ interface Product {
   weight: any;
   isActive: boolean;
   category?: { id: string; name: string } | null;
+  /** Sizes, in order */
+  variants?: { id: string; label: string; isAvailable: boolean }[];
 }
 
 interface EditProductFormProps {
@@ -71,6 +74,22 @@ export default function EditProductForm({
   const [uploadingImages, setUploadingImages] = useState(false);
   // Inline messages under fields, keyed by field name ("" = no error)
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const startSizes = (product.variants ?? []).map((v) => ({ id: v.id, label: v.label, isAvailable: v.isAvailable }));
+  const [sizes, setSizes] = useState<SizeDraft[]>(startSizes);
+  // Only the list itself (adding / removing / order) waits for Save — "sold out" is saved at once
+  const sizesChanged = sizes.map((x) => x.label).join("|") !== startSizes.map((x) => x.label).join("|");
+
+  const toggleSoldOut = async (size: SizeDraft) => {
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.patch(`/vendor/products/${product.id}/sizes/${size.id}`, { available: size.isAvailable });
+      toast.success(size.isAvailable ? `Size ${size.label} is back on sale` : `Size ${size.label} marked sold out`);
+      void refreshShopPage(product.vendorId, product.id);
+    } catch {
+      setSizes((list) => list.map((x) => (x.id === size.id ? { ...x, isAvailable: !size.isAvailable } : x)));
+      toast.error("Couldn't change that size. Please try again.");
+    }
+  };
   const [showMore, setShowMore] = useState(false);
 
   const startForm = () => ({
@@ -270,6 +289,7 @@ export default function EditProductForm({
         ...(countChanged ? { stockQuantity: parseInt(typedStock) || 0 } : {}),
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
+        ...(sizesChanged ? { sizes: sizes.map((x) => ({ label: x.label, isAvailable: x.isAvailable })) } : {}),
       });
 
       if (data.success) {
@@ -387,6 +407,8 @@ export default function EditProductForm({
               />
             </Field>
           )}
+
+          <SizesEditor value={sizes} onChange={setSizes} onToggleSoldOut={toggleSoldOut} />
 
           <Field label="Category" htmlFor="p-category" hint="Helps customers find it in your shop" error={errors.category}>
             <CategoryButton

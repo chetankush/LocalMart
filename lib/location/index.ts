@@ -3,7 +3,6 @@
 export {
   detectLocation,
   getCurrentPosition,
-  reverseGeocodeGoogle,
   reverseGeocodeOSM,
   getLocationByIP,
   searchAddresses,

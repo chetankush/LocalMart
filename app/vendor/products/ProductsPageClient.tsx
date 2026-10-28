@@ -19,9 +19,9 @@ interface ProductsPageClientProps {
 }
 
 /** The two ways to add products — one main button, one secondary */
-export default function ProductsPageClient({
-  vendorId,
-}: ProductsPageClientProps) {
+// vendorId stays in the props for callers; this part doesn't need it
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function ProductsPageClient(_props: ProductsPageClientProps) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row">
       <Button href="/vendor/products/new" full className="sm:w-auto">
@@ -237,7 +237,16 @@ function AvailabilitySwitch({ p, onChange }: { p: ProductListItem; onChange: (ne
   );
 }
 
-export function ProductList({ products: initial }: { products: ProductListItem[] }) {
+export function ProductList({
+  products: initial,
+  shopHandle,
+  shopName,
+}: {
+  products: ProductListItem[];
+  /** For each item's own link */
+  shopHandle?: string | null;
+  shopName?: string;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   // Local copy so a switch flips right away
   const [products, setProducts] = useState(initial);
@@ -329,7 +338,7 @@ export function ProductList({ products: initial }: { products: ProductListItem[]
                   </div>
                 </Link>
                 <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
-                  <ProductActions productId={p.id} isActive={p.isActive} productName={p.name} />
+                  <ProductActions productId={p.id} isActive={p.isActive} productName={p.name} shopHandle={shopHandle} shopName={shopName} price={p.price} />
                 </div>
                 {p.isActive && <AvailabilitySwitch p={p} onChange={(next) => update(p.id, next)} />}
               </li>

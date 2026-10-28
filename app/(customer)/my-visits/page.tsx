@@ -4,20 +4,24 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarCheck, CalendarPlus, MessageCircle, Navigation, Phone } from "lucide-react";
-import { Button, EmptyState, LargeTitle, Page, Pill } from "@/components/app/ui";
+import { Button, EmptyState, LargeTitle, Page, Pill, buttonClass } from "@/components/app/ui";
+import { trackContact, waText, whatsappLinkProps } from "@/lib/contact";
 import { SectionHeader } from "@/components/app/seller";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { signInHref } from "@/lib/auth/returnTo";
 import { useConfirm } from "@/hooks/useConfirm";
 import { apiError } from "@/components/ads/adLabels";
-import { calendarUrl, directionsUrl, visitStatus, visitWhen, whatsappUrl, type MyVisit } from "@/lib/visits";
+import { calendarUrl, directionsUrl, visitStatus, visitWhen, type MyVisit } from "@/lib/visits";
 
 function VisitCard({ v, upcoming, onCancel }: { v: MyVisit; upcoming: boolean; onCancel: (v: MyVisit) => void }) {
   const status = visitStatus(v.status);
-  const wa = whatsappUrl(
-    v.shopPhone,
-    `Hi ${v.shopName}, about my visit on ${visitWhen(v.startsAt)} (booked on LocalMart).`,
-  );
+  // Counted taps (source VISIT) with the usual "found you on LocalMart" opener
+  const wa = whatsappLinkProps({
+    number: v.shopPhone,
+    text: `${waText.shop(v.shopName)} Mera visit ${visitWhen(v.startsAt)} ko book hai.`,
+    vendorId: v.shopId,
+    source: "VISIT",
+  });
   const canCancel = upcoming && (v.status === "BOOKED" || v.status === "RESCHEDULE_ASKED");
   const rebook = v.status === "RESCHEDULE_ASKED" || (v.status === "CANCELLED" && v.cancelledBy === "SHOP");
   return (
@@ -59,14 +63,18 @@ function VisitCard({ v, upcoming, onCancel }: { v: MyVisit; upcoming: boolean; o
           </>
         )}
         {upcoming && wa && (
-          <Button size="md" variant="secondary" href={wa}>
+          <a {...wa} className={buttonClass("secondary", "md")}>
             <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
-          </Button>
+          </a>
         )}
         {upcoming && v.shopPhone && (
-          <Button size="md" variant="secondary" href={`tel:${v.shopPhone}`}>
+          <a
+            href={`tel:${v.shopPhone}`}
+            onClick={() => trackContact({ vendorId: v.shopId, kind: "CALL", source: "VISIT" })}
+            className={buttonClass("secondary", "md")}
+          >
             <Phone className="h-4 w-4" aria-hidden /> Call
-          </Button>
+          </a>
         )}
         {canCancel && (
           <Button size="md" variant="danger" onClick={() => onCancel(v)}>

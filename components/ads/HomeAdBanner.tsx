@@ -20,7 +20,7 @@ export function AdBannerCard({ ad, active }: { ad: ServedAd; active?: boolean })
     <Link
       ref={active === undefined ? seen : undefined}
       href={`/stores/${ad.vendor.id}`}
-      onClickCapture={() => trackAd(ad.adId, "click")}
+      onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
       className="group flex h-full overflow-hidden rounded-3xl bg-[#F6F1EA] transition-transform active:scale-[0.99]"
     >
       {/* Words on their own panel, so nothing covers the shop's picture */}
@@ -55,7 +55,7 @@ function Slide({ ad, active }: { ad: ServedAd; active: boolean }) {
   return (
     <Link
       href={`/stores/${ad.vendor.id}`}
-      onClickCapture={() => trackAd(ad.adId, "click")}
+      onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
       aria-hidden={!active}
       tabIndex={active ? 0 : -1}
       className={`absolute inset-0 transition-opacity duration-700 ${active ? "opacity-100" : "pointer-events-none opacity-0"}`}

@@ -6,7 +6,13 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export interface QuoteItem {
+  /** Product id */
   id: string;
+  /** The cart line: product id, or "productId:sizeId" for a size */
+  key: string;
+  variantId: string | null;
+  variantLabel: string | null;
+  /** With the size: "Kurti · M" */
   name: string;
   image: string | null;
   unitPrice: number;
@@ -22,6 +28,18 @@ export interface StoreQuote {
   storeLogo: string | null;
   contactPhone: string;
   acceptingOrders: boolean;
+  /** How this shop's part reaches the buyer */
+  fulfilment: "DELIVERY" | "PICKUP" | "PARCEL";
+  /** What the shop offers, with charges */
+  options: {
+    delivery: { available: boolean; fee: number; freeDeliveryAbove: number | null };
+    pickup: { available: boolean };
+    parcel: { available: boolean; fee: number; days: string | null };
+  };
+  deliveryPromise: string | null;
+  exchangePolicy: { allowed?: boolean; days?: number | null; sizeColourOnly?: boolean; notOnSale?: boolean; note?: string | null } | null;
+  /** Parcels are paid in advance (UPI) */
+  prepaidOnly: boolean;
   /** Shop pressed "Busy": no new orders until then, with words for the shopper */
   busyUntil?: string | null;
   busyMessage?: string | null;
@@ -29,9 +47,71 @@ export interface StoreQuote {
   upiAvailable: boolean;
   items: QuoteItem[];
   subtotal: number;
+  /** Rupees off the items: the shop's discount code or order-link price */
+  discount: number;
+  /** "INSTA10 · 10% off (up to ₹100)" / "Special price · ₹100 off" */
+  offer: { kind: "CODE" | "ORDER_LINK"; code: string; text: string } | null;
   deliveryFee: number;
   freeDeliveryAbove: number | null;
+  /** Items − discount + delivery */
   total: number;
+}
+
+/** An order link a shop sent, as the buyer sees it (/o/<code>) */
+export interface PublicOrderLink {
+  code: string;
+  shop: { id: string; name: string; logo: string | null; handle: string | null; city: string | null };
+  forName: string | null;
+  note: string | null;
+  items: { productId: string; variantId: string | null; name: string; image: string | null; price: number; quantity: number; lineTotal: number; available: boolean }[];
+  itemsTotal: number;
+  discount: number;
+  offerText: string | null;
+  /** Items − discount (delivery is chosen at checkout) */
+  total: number;
+  allAvailable: boolean;
+  state: "OPEN" | "EXPIRED" | "USED" | "CANCELLED";
+  message: string | null;
+  expiresAt: string;
+}
+
+/** A shop's discount code, with how it did */
+export interface ShopDiscountCode {
+  id: string;
+  code: string;
+  kind: "PERCENT" | "FLAT";
+  value: number;
+  maxOff: number | null;
+  minOrder: number | null;
+  endsAt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  oncePerBuyer: boolean;
+  isActive: boolean;
+  state: "ON" | "OFF" | "ENDED" | "USED_UP";
+  /** "10% off (up to ₹100)" */
+  text: string;
+  orders: number;
+  sales: number;
+  createdAt: string;
+}
+
+/** An order link in the shop's list */
+export interface ShopOrderLink {
+  id: string;
+  code: string;
+  forName: string | null;
+  note: string | null;
+  items: { name: string; image: string | null; quantity: number; price: number; lineTotal: number }[];
+  itemsTotal: number;
+  discount: number;
+  offerText: string | null;
+  total: number;
+  forAnyone: boolean;
+  state: "OPEN" | "EXPIRED" | "USED" | "CANCELLED";
+  expiresAt: string;
+  createdAt: string;
+  orders: { id: string; orderNumber: string; status: string; total: number; buyer: string }[];
 }
 
 export interface SearchProductHit {
@@ -75,9 +155,14 @@ export interface SearchResponse {
 
 export interface OrderQuote {
   stores: StoreQuote[];
+  /** Cart lines (keys) that can't be bought any more */
   unavailableItemIds: string[];
   grandTotal: number;
   canOrder: boolean;
+  /** The discount code typed: applied, or why not */
+  code: { code: string; ok: boolean; message: string } | null;
+  /** Ordering from a shop's order link */
+  orderLink: { code: string; vendorId: string | null; state: "OPEN" | "EXPIRED" | "USED" | "CANCELLED" | "NOT_FOUND"; message: string | null } | null;
 }
 
 class ApiClient {
@@ -733,7 +818,7 @@ class ApiClient {
     );
   }
 
-  async updateOrderStatus(orderId: string, data: { status: string; note?: string }) {
+  async updateOrderStatus(orderId: string, data: { status: string; note?: string; courierName?: string; trackingNumber?: string }) {
     return this.request<{ success: boolean; data: any; message: string }>(
       `/orders/${orderId}/status`,
       {
@@ -756,6 +841,7 @@ class ApiClient {
   async getOrderStatus(orderId: string) {
     return this.request<{
       status: string;
+      fulfilment?: "DELIVERY" | "PICKUP" | "PARCEL";
       paymentMethod: string | null;
       paymentStatus: string;
       updatedAt: string;
@@ -770,10 +856,15 @@ class ApiClient {
 
   // Real prices, delivery fees and delivery coverage for the cart
   async quoteOrder(data: {
-    items: { id: string; quantity: number }[];
+    items: { id: string; quantity: number; variantId?: string }[];
+    fulfilments?: { vendorId: string; mode: "DELIVERY" | "PICKUP" | "PARCEL" }[];
     pincode?: string;
     latitude?: number;
     longitude?: number;
+    /** A shop's discount code */
+    code?: string;
+    /** An order link: its items are priced, not `items` */
+    orderLink?: string;
   }) {
     return this.request<{ success: boolean; data: OrderQuote }>("/orders/quote", {
       method: "POST",

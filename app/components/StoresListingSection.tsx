@@ -342,7 +342,7 @@ export default function StoresListingSection({
                   {allStores.length === 0 && (
                     <Button
                       onClick={() => toast.info("We'll notify you when stores are available!")}
-                      variant="outline"
+                      variant="secondary"
                       className="px-6 py-3 rounded-full font-semibold flex items-center gap-2"
                     >
                       <Bell className="w-5 h-5" />

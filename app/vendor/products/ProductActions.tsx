@@ -3,28 +3,41 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Link2, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
 import { Row } from "@/components/app/ui";
 import { IconBox, List } from "@/components/app/seller";
 import { useConfirm } from "@/hooks/useConfirm";
+import { ShareLinkSheet } from "@/components/share/ShareLinkSheet";
+import { itemLink } from "@/lib/shopHandle";
 
 interface ProductActionsProps {
   productId: string;
   isActive: boolean;
   /** Shown as the sheet title so the shop knows which product it's changing */
   productName?: string;
+  /** For the item's own link: localmart.in/<handle>/<name>-<code> */
+  shopHandle?: string | null;
+  shopName?: string;
+  price?: number;
 }
 
 export default function ProductActions({
   productId,
   isActive,
   productName,
+  shopHandle,
+  shopName,
+  price,
 }: ProductActionsProps) {
   const router = useRouter();
   const confirm = useConfirm();
   const [loading, setLoading] = useState<null | "toggle" | "delete">(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const name = productName || "This item";
+  const url = sharing ? itemLink(shopHandle, { id: productId, name }) : "";
+  const priceText = price ? ` — ₹${price.toLocaleString("en-IN")}` : "";
 
   const handleToggleStatus = async () => {
     if (loading) return;
@@ -69,7 +82,8 @@ export default function ProductActions({
       const data = await apiClient.deleteVendorProduct(productId);
 
       if (data.success) {
-        toast.success("Product deleted");
+        // Sold before: hidden instead of deleted, so past orders stay complete
+        toast.success((data as { data?: { hidden?: boolean } }).data?.hidden ? "Hidden from your shop — it was in past orders, so it stays in your records" : "Product deleted");
         router.refresh();
         setShowMenu(false);
       } else {
@@ -77,7 +91,7 @@ export default function ProductActions({
       }
     } catch (error) {
       console.error("Delete error:", error);
-      toast.error("Couldn't delete this product. Check your internet and try again.");
+      toast.error((error instanceof Error && error.message) || "Couldn't delete this product. Check your internet and try again.");
     }
     setLoading(null);
   };
@@ -104,6 +118,22 @@ export default function ProductActions({
         title={<span className="line-clamp-2">{productName || "Product"}</span>}
       >
         <List>
+          {isActive && (
+            <Row
+              onClick={() => {
+                setShowMenu(false);
+                setSharing(true);
+              }}
+              leading={
+                <IconBox tone="brand" size={40}>
+                  <Link2 className="h-5 w-5" />
+                </IconBox>
+              }
+              title={<span className="font-semibold">Share item link</span>}
+              subtitle="For WhatsApp or Instagram — buyers open it and order"
+              chevron
+            />
+          )}
           <Row
             href={`/vendor/products/${productId}/edit`}
             leading={
@@ -145,6 +175,18 @@ export default function ProductActions({
           />
         </List>
       </Sheet>
+
+      {sharing && (
+        <ShareLinkSheet
+          open
+          onClose={() => setSharing(false)}
+          title="Share item link"
+          description={name}
+          url={url}
+          message={`${name}${priceText}\n${shopName ? `${shopName} par ` : ""}dekhiye aur yahin order kariye 👇\n${url}`}
+          instagram={`${name}${priceText}\nOrder karne ke liye link 👇\n${url}`}
+        />
+      )}
     </>
   );
 }

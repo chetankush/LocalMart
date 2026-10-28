@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react";
 import ProductsPageClient, { ProductList, type ProductListItem } from "@/app/vendor/products/ProductsPageClient";
 import EmptyProductsState from "@/app/vendor/products/EmptyProductsState";
 import { EmptyState, LargeTitle } from "@/components/app/ui";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -68,7 +69,7 @@ export default async function VendorProductsPage() {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/vendor/products"));
   }
 
   const [productsResult, vendorInfo] = await Promise.all([
@@ -127,7 +128,7 @@ export default async function VendorProductsPage() {
       ) : (
         <>
           <ProductsPageClient vendorId={vendorId} />
-          <ProductList products={items} />
+          <ProductList products={items} shopHandle={vendorInfo.handle ?? null} shopName={vendorInfo.businessName} />
         </>
       )}
     </div>

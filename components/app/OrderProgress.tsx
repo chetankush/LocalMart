@@ -6,7 +6,14 @@ type Step = { label: string; detail?: string; done: boolean; current: boolean };
  * Where an order is, in plain words: Placed → Shop confirmed → (Paid) →
  * On the way → Delivered. Cancelled / rejected orders don't use this.
  */
-export function orderSteps(status: string, paymentMethod?: string | null, paymentStatus?: string): Step[] {
+export function orderSteps(
+  status: string,
+  paymentMethod?: string | null,
+  paymentStatus?: string,
+  /** How it reaches the buyer: changes "On the way" to "Ready for pickup" / "Parcel sent" */
+  fulfilment: "DELIVERY" | "PICKUP" | "PARCEL" = "DELIVERY",
+  parcel?: { courierName?: string | null; trackingNumber?: string | null },
+): Step[] {
   const confirmed = ["ACCEPTED", "PREPARING", "READY", "OUT_FOR_DELIVERY", "DELIVERED"].includes(status);
   const onTheWay = ["OUT_FOR_DELIVERY", "DELIVERED"].includes(status);
   const delivered = status === "DELIVERED";
@@ -23,8 +30,20 @@ export function orderSteps(status: string, paymentMethod?: string | null, paymen
     ...(upi
       ? [{ label: "Paid by UPI", detail: paymentStatus === "PROCESSING" ? "Shop is checking your payment" : undefined, done: paid }]
       : []),
-    { label: "On the way", done: onTheWay },
-    { label: "Delivered", detail: !upi && delivered ? "Paid in cash" : undefined, done: delivered },
+    fulfilment === "PICKUP"
+      ? { label: "Ready for pickup", detail: status === "READY" ? "Go to the shop to collect it" : undefined, done: ["READY", "DELIVERED"].includes(status) }
+      : fulfilment === "PARCEL"
+        ? {
+            label: "Parcel sent",
+            detail: onTheWay ? [parcel?.courierName, parcel?.trackingNumber].filter(Boolean).join(" · ") || undefined : undefined,
+            done: onTheWay,
+          }
+        : { label: "On the way", done: onTheWay },
+    {
+      label: fulfilment === "PICKUP" ? "Picked up" : "Delivered",
+      detail: !upi && delivered ? (fulfilment === "PICKUP" ? "Paid at the shop" : "Paid in cash") : undefined,
+      done: delivered,
+    },
   ];
   const firstOpen = steps.findIndex((s) => !s.done);
   return steps.map((s, i) => ({ ...s, current: i === firstOpen }));

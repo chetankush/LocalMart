@@ -4,7 +4,11 @@ import { shortOrderNo } from "@/components/app/ui";
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter } from 'next/navigation';
-import { Loader2, Package, Phone, RefreshCw, Star } from 'lucide-react';
+import { Loader2, Package, Phone, RefreshCw, Repeat, Star } from 'lucide-react';
+import { Sheet } from '@/components/app/Sheet';
+import { textareaClass } from '@/components/app/form';
+import { apiError } from '@/components/ads/adLabels';
+import { exchangeOpen, exchangeText, type ExchangePolicy } from '@/lib/fulfilment';
 import { toast } from 'sonner';
 import { useConfirm } from '@/hooks/useConfirm';
 import { UpiPayCard } from '@/components/payments/UpiPayCard';
@@ -29,9 +33,20 @@ interface Order {
   orderNumber: string;
   status: string;
   totalAmount: number;
+  /** Money off from the shop's code or order-link price */
+  discount?: number | string;
+  offerText?: string | null;
   paymentMethod: string;
   paymentStatus: string;
   createdAt: string;
+  fulfilment?: 'DELIVERY' | 'PICKUP' | 'PARCEL';
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  deliveredAt?: string | null;
+  receivedAt?: string | null;
+  receivedOk?: boolean | null;
+  /** Set when the delivery message asked "Did you get it?" */
+  receivedAskedAt?: string | null;
   deliveryAddress: {
     fullName: string;
     phone: string;
@@ -48,6 +63,8 @@ interface Order {
     state: string;
     storeLogo: string | null;
     upiId?: string | null;
+    upiQrImage?: string | null;
+    exchangePolicy?: ExchangePolicy | null;
   };
   items: OrderItem[];
 }
@@ -92,6 +109,12 @@ export default function MyOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const confirm = useConfirm();
+  // From a "Did you get it?" message: which order to ask about
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [exchangeFor, setExchangeFor] = useState<Order | null>(null);
+  useEffect(() => {
+    setConfirmId(new URLSearchParams(window.location.search).get('confirm'));
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -200,7 +223,14 @@ export default function MyOrdersPage() {
       <LargeTitle title="Orders" />
 
       {orders.map((order) => {
-        const status = STATUS[order.status] ?? { label: order.status, tone: 'neutral' as Tone };
+        const status =
+          order.fulfilment === 'PICKUP' && order.status === 'READY'
+            ? { label: 'Ready for pickup', tone: 'ok' as Tone }
+            : order.fulfilment === 'PICKUP' && order.status === 'DELIVERED'
+              ? { label: 'Picked up', tone: 'ok' as Tone }
+              : order.fulfilment === 'PARCEL' && order.status === 'OUT_FOR_DELIVERY'
+                ? { label: 'Parcel sent', tone: 'info' as Tone }
+                : STATUS[order.status] ?? { label: order.status, tone: 'neutral' as Tone };
         const pay = paymentText(order);
         // Items the shop took off aren't part of the order any more
         const sent = order.items.some((i) => !i.unavailable) ? order.items.filter((i) => !i.unavailable) : order.items;
@@ -234,6 +264,12 @@ export default function MyOrdersPage() {
                   {itemCount === 1 ? '' : 's'} · {pay.method} ·{' '}
                   <span className={order.paymentStatus === 'COMPLETED' ? 'font-medium text-ok' : ''}>{pay.state}</span>
                 </p>
+                {Number(order.discount) > 0 && (
+                  <p className="mt-0.5 text-[14px] font-medium text-ok">
+                    You saved {rupees(Number(order.discount))}
+                    {order.offerText ? ` · ${order.offerText}` : ''}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -244,6 +280,7 @@ export default function MyOrdersPage() {
             {upiDue && (
               <div className="px-4 pb-4">
                 <UpiPayCard
+                  qrImage={order.vendor?.upiQrImage}
                   orderId={order.id}
                   orderNumber={order.orderNumber}
                   amount={Number(order.totalAmount)}
@@ -259,16 +296,55 @@ export default function MyOrdersPage() {
 
             {active && (
               <div className="border-t border-hairline">
-                <OrderProgress steps={orderSteps(order.status, order.paymentMethod, order.paymentStatus)} />
+                <OrderProgress
+                  steps={orderSteps(order.status, order.paymentMethod, order.paymentStatus, order.fulfilment, order)}
+                />
               </div>
             )}
 
+            {/* Parcel: the courier's tracking number */}
+            {order.fulfilment === 'PARCEL' && order.trackingNumber && (
+              <div className="flex items-center justify-between gap-3 border-t border-hairline px-4 py-3 text-[15px]">
+                <span className="min-w-0 text-label">
+                  {order.courierName ? `${order.courierName} · ` : 'Tracking · '}
+                  <span className="font-semibold tabular-nums">{order.trackingNumber}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard?.writeText(order.trackingNumber!).then(() => toast.success('Tracking number copied'), () => {})}
+                  className="min-h-[40px] shrink-0 rounded-full px-3 text-[14px] font-semibold text-tint hover:bg-tint-soft cursor-pointer"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+
+            {/* "Did you get it?" after delivery (not for pickup — they collected it) */}
+            {order.status === 'DELIVERED' &&
+              order.fulfilment !== 'PICKUP' &&
+              order.receivedAskedAt &&
+              !order.receivedAt &&
+              Date.now() - new Date(order.receivedAskedAt).getTime() < 14 * 24 * 60 * 60 * 1000 && (
+              <ReceivedQuestion orderId={order.id} highlight={confirmId === order.id} onAnswered={fetchOrders} />
+            )}
+            {order.receivedOk === false && (
+              <p className="border-t border-hairline px-4 py-3 text-[14px] text-warn">
+                You said it didn&apos;t arrive — the shop has been told and will call you.
+              </p>
+            )}
+
             {/* Actions */}
-            <div className="flex gap-3 border-t border-hairline p-4">
+            <div className="flex flex-wrap gap-3 border-t border-hairline p-4">
               {order.vendor?.contactPhone && (
                 <Button href={`tel:${order.vendor.contactPhone}`} variant="secondary" size="md" className="flex-1">
                   <Phone className="h-[18px] w-[18px]" aria-hidden />
                   Call shop
+                </Button>
+              )}
+              {order.status === 'DELIVERED' && exchangeOpen(order.vendor?.exchangePolicy, order.deliveredAt) && (
+                <Button variant="secondary" size="md" className="flex-1" onClick={() => setExchangeFor(order)}>
+                  <Repeat className="h-[18px] w-[18px]" aria-hidden />
+                  Exchange
                 </Button>
               )}
               {order.status === 'DELIVERED' && order.vendorId && (
@@ -338,6 +414,100 @@ export default function MyOrdersPage() {
           </article>
         );
       })}
+      <ExchangeSheet order={exchangeFor} onClose={() => setExchangeFor(null)} />
     </Page>
+  );
+}
+
+/** "Did you get it?" — one tap after delivery; "No" alerts the shop */
+function ReceivedQuestion({ orderId, highlight, onAnswered }: { orderId: string; highlight: boolean; onAnswered: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const answer = async (ok: boolean) => {
+    setBusy(true);
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      await apiClient.post(`/orders/${orderId}/received`, { ok });
+      toast.success(ok ? 'Thanks! Enjoy your order.' : 'Sorry! The shop has been told and will call you.');
+      onAnswered();
+    } catch (err) {
+      toast.error(apiError(err).message || "Couldn't send. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={`border-t border-hairline px-4 py-3 ${highlight ? 'bg-tint-soft' : ''}`}>
+      <p className="text-[15px] font-semibold text-label">Did you get your order? · क्या ऑर्डर मिल गया?</p>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <Button size="md" disabled={busy} onClick={() => answer(true)}>
+          Yes, got it
+        </Button>
+        <Button size="md" variant="secondary" disabled={busy} onClick={() => answer(false)}>
+          No, not yet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const EXCHANGE_REASONS = ['Need a bigger size', 'Need a smaller size', 'Want a different colour'];
+
+/** Clothes: ask the shop to exchange a delivered order (within its exchange days) */
+function ExchangeSheet({ order, onClose }: { order: Order | null; onClose: () => void }) {
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    if (order) setMessage('');
+  }, [order]);
+  const send = async () => {
+    if (!order || !message.trim()) return;
+    setSending(true);
+    try {
+      const { apiClient } = await import('@/lib/api/client');
+      await apiClient.post('/enquiries/exchange', { orderId: order.id, message: message.trim() });
+      toast.success(`Sent to ${order.vendor.businessName} — they'll call or WhatsApp you`);
+      onClose();
+    } catch (err) {
+      toast.error(apiError(err).message || "Couldn't send. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <Sheet
+      open={!!order}
+      onClose={onClose}
+      title="Ask for an exchange"
+      description={order ? `${order.vendor.businessName} · ${exchangeText(order.vendor.exchangePolicy) ?? ''}` : undefined}
+      footer={
+        <Button full loading={sending} disabled={!message.trim()} onClick={send}>
+          Send to the shop
+        </Button>
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {EXCHANGE_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setMessage(r)}
+              className={`min-h-[44px] rounded-full border px-4 text-[15px] cursor-pointer ${message === r ? 'border-tint bg-tint-soft text-tint' : 'border-hairline bg-card text-label'}`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className={textareaClass}
+          maxLength={300}
+          placeholder="e.g. Size M is tight, need L in the same colour"
+          aria-label="What do you want to change?"
+        />
+        <p className="text-[14px] text-label-3">Keep the tags on and the item unused. The shop decides — usually you visit or they pick it up.</p>
+      </div>
+    </Sheet>
   );
 }

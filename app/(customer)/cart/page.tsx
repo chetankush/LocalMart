@@ -10,6 +10,7 @@ import {
   decrementQuantity,
   clearCart,
   syncFromQuote,
+  cartKey,
 } from '@/lib/redux/slices/cartSlice';
 import { AlertTriangle, Minus, Plus, ShoppingBag, Store, Trash2 } from 'lucide-react';
 import { useConfirm } from '@/hooks/useConfirm';
@@ -55,8 +56,8 @@ export default function CartPage() {
 
   // Items the shop no longer sells (deleted or switched off) — never count them
   const unavailableIds = new Set(quote?.unavailableItemIds ?? []);
-  const gone = items.filter((i) => unavailableIds.has(i.id));
-  const buyable = items.filter((i) => !unavailableIds.has(i.id));
+  const gone = items.filter((i) => unavailableIds.has(cartKey(i)));
+  const buyable = items.filter((i) => !unavailableIds.has(cartKey(i)));
 
   const itemsTotal = quote
     ? quote.stores.reduce((sum, s) => sum + s.subtotal, 0)
@@ -135,14 +136,14 @@ export default function CartPage() {
             </p>
             <ul className="mt-2 space-y-1 text-[15px] text-label">
               {gone.map((i) => (
-                <li key={i.id} className="truncate">{i.name}</li>
+                <li key={cartKey(i)} className="truncate">{i.name}</li>
               ))}
             </ul>
             <Button
               variant="secondary"
               size="md"
               className="mt-3"
-              onClick={() => gone.forEach((i) => dispatch(removeFromCart(i.id)))}
+              onClick={() => gone.forEach((i) => dispatch(removeFromCart(cartKey(i))))}
             >
               {gone.length === 1 ? "Remove it" : "Remove them"}
             </Button>
@@ -182,7 +183,7 @@ export default function CartPage() {
               {vendorItems.map((item) => {
                 const lowStock = item.stockQuantity > 0 && item.stockQuantity <= 3;
                 return (
-                  <div key={item.id} className="flex gap-3 p-4">
+                  <div key={cartKey(item)} className="flex gap-3 p-4">
                     <Thumb src={item.image} alt={item.name} size={64} />
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[16px] leading-snug text-label">{item.name}</p>
@@ -197,7 +198,7 @@ export default function CartPage() {
                     <div className="flex h-11 shrink-0 items-center self-end rounded-full bg-fill">
                       <button
                         onClick={() =>
-                          item.quantity > 1 ? dispatch(decrementQuantity(item.id)) : dispatch(removeFromCart(item.id))
+                          item.quantity > 1 ? dispatch(decrementQuantity(cartKey(item))) : dispatch(removeFromCart(cartKey(item)))
                         }
                         className="flex h-11 w-11 items-center justify-center rounded-full text-label active:bg-fill-strong cursor-pointer"
                         aria-label={item.quantity > 1 ? `One less ${item.name}` : `Remove ${item.name}`}
@@ -208,7 +209,7 @@ export default function CartPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => dispatch(incrementQuantity(item.id))}
+                        onClick={() => dispatch(incrementQuantity(cartKey(item)))}
                         disabled={item.quantity >= item.stockQuantity}
                         className="flex h-11 w-11 items-center justify-center rounded-full text-label active:bg-fill-strong disabled:opacity-30 cursor-pointer"
                         aria-label={`One more ${item.name}`}

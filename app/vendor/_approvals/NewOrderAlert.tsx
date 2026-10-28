@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { BellRing, Check, PackageX, Phone, VolumeX, X } from 'lucide-react';
 import { orderRecipient } from '@/lib/orders/recipient';
+import { ORDER_SOURCE } from '@/lib/offers';
 import { ANSWER_WINDOW_MS, useApprovals, type ApprovalOrder } from './ApprovalsPollerContext';
 import { DeclineSheet, ItemsUnavailableSheet, useAnswerOrder } from './OrderAnswerFlow';
 import { ringOnce, unlockRinger } from './orderRing';
@@ -200,6 +201,21 @@ function AlertCard({
             {order.items.length} item{order.items.length === 1 ? '' : 's'} · {payLabel}
             {more > 0 ? ` · ${more} more waiting` : ''}
           </p>
+          {(order.isNewCustomer || (order.source && order.source !== 'LOCALMART') || Number(order.discount) > 0) && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {order.isNewCustomer && (
+                <span className="rounded-full bg-white px-2.5 py-1 text-[13px] font-semibold text-tint">New customer · नया ग्राहक</span>
+              )}
+              {order.source && order.source !== 'LOCALMART' && ORDER_SOURCE[order.source] && (
+                <span className="rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold">From {ORDER_SOURCE[order.source].short.toLowerCase()}</span>
+              )}
+              {Number(order.discount) > 0 && (
+                <span className="rounded-full bg-white/20 px-2.5 py-1 text-[13px] font-semibold">
+                  {rupees(Number(order.discount))} off{order.offerText ? ` · ${order.offerText.split(' · ')[0]}` : ''}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

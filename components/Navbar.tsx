@@ -12,6 +12,7 @@ import NotificationBell from "@/components/NotificationBell";
 import SearchOverlay from "@/components/search/SearchOverlay";
 import { preloadCriticalRoutes } from "@/lib/utils/navigation";
 import { signInHref } from "@/lib/auth/returnTo";
+import { useOpenShopTypes } from "@/hooks/useOpenShopTypes";
 import {
   Bell,
   CalendarClock,
@@ -49,39 +50,6 @@ const CATEGORIES: { label: string; href: string; type?: string }[] = [
   { label: "Electronics", href: "/stores?category=electronics", type: "ELECTRONICS" },
   { label: "Home & Kitchen", href: "/stores?category=home-kitchen", type: "HOME_SERVICES" },
 ];
-const OPEN_TYPES_KEY = "lm_open_shop_types";
-
-/** Kinds of shop open on LocalMart (checked once per visit) — null until known */
-function useOpenShopTypes() {
-  const [types, setTypes] = useState<Set<string> | null>(null);
-  useEffect(() => {
-    try {
-      const cached = sessionStorage.getItem(OPEN_TYPES_KEY);
-      if (cached) {
-        setTypes(new Set(JSON.parse(cached) as string[]));
-        return;
-      }
-    } catch {
-      // storage blocked — just ask
-    }
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/public/map`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((res) => {
-        // Shops with something to sell (the same ones shoppers can open)
-        const shops = (res?.data?.shops ?? []) as { businessType: string; productCount?: number }[];
-        const list = [...new Set(shops.filter((x) => (x.productCount ?? 0) > 0).map((x) => x.businessType))];
-        setTypes(new Set(list));
-        try {
-          sessionStorage.setItem(OPEN_TYPES_KEY, JSON.stringify(list));
-        } catch {
-          // fine
-        }
-      })
-      .catch(() => {});
-  }, []);
-  return types;
-}
-
 const SEARCH_HINTS = ["saree", "doodh", "atta", "medicine", "kurti", "mobile cover", "chawal"];
 
 function placeText(location: { locality?: string; city?: string; pincode?: string } | null) {
@@ -507,6 +475,7 @@ const Navbar = () => {
             <SheetRow icon={MapPin} label="Delivery area" value={place ?? "Choose your area"} onClick={() => { setShowAccount(false); setShowLocationModal(true); }} />
             {user && <SheetRow icon={Package} label="Your orders" href="/my-orders" />}
             {user && <SheetRow icon={CalendarClock} label="My rentals" href="/my-rentals" />}
+            {user && <SheetRow icon={Clock} label="Kept for me" href="/my-holds" />}
             {user && <SheetRow icon={CalendarCheck} label="Your shop visits" href="/my-visits" />}
             {user && <SheetRow icon={Heart} label="Favourite shops" href="/favorite-stores" />}
             {user && <SheetRow icon={Bell} label="Notifications" href="/notifications" />}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleAlert, Eye, Hand, Megaphone, Plus } from "lucide-react";
+import { CircleAlert, Eye, Hand, Megaphone, MessageCircle, Plus, ShoppingBag } from "lucide-react";
 import { Button, EmptyState, LargeTitle, Notice, Page, Pill, Section } from "@/components/app/ui";
 import { SectionHeader } from "@/components/app/seller";
 import {
@@ -14,6 +14,7 @@ import {
   targetLabel,
   type AdBookingView,
 } from "@/components/ads/adLabels";
+import { signInHref } from "@/lib/auth/returnTo";
 
 interface Options {
   shop: { businessName: string; city: string; canAdvertise: boolean };
@@ -66,7 +67,7 @@ function AdCard({ ad }: { ad: AdBookingView }) {
       )}
 
       {showStats && (
-        <dl className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-fill px-3 py-2.5 text-center">
+        <dl className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-fill px-3 py-2.5 text-center sm:grid-cols-4">
           <div>
             <dt className="flex items-center justify-center gap-1 text-[12px] text-label-2">
               <Eye className="h-3.5 w-3.5" aria-hidden /> Seen
@@ -80,10 +81,27 @@ function AdCard({ ad }: { ad: AdBookingView }) {
             <dd className="text-[18px] font-bold tabular-nums text-label">{ad.clicks.toLocaleString("en-IN")}</dd>
           </div>
           <div>
-            <dt className="text-[12px] text-label-2">Tap rate</dt>
-            <dd className="text-[18px] font-bold tabular-nums text-label">{tapRate(ad)}</dd>
+            <dt className="flex items-center justify-center gap-1 text-[12px] text-label-2">
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden /> Contacted
+            </dt>
+            <dd className="text-[18px] font-bold tabular-nums text-ok">
+              {((ad.whatsappTaps ?? 0) + (ad.callTaps ?? 0)).toLocaleString("en-IN")}
+            </dd>
+          </div>
+          <div>
+            <dt className="flex items-center justify-center gap-1 text-[12px] text-label-2">
+              <ShoppingBag className="h-3.5 w-3.5" aria-hidden /> Orders
+            </dt>
+            <dd className="text-[18px] font-bold tabular-nums text-ok">{(ad.orders ?? 0).toLocaleString("en-IN")}</dd>
           </div>
         </dl>
+      )}
+      {showStats && (
+        <p className="mt-2 text-[13px] text-label-2">
+          {tapRate(ad)} of people who saw it tapped · {ad.whatsappTaps ?? 0} WhatsApp · {ad.callTaps ?? 0} calls
+          {ad.orders ? ` · ${ad.orders} orders worth ₹${(ad.orderValue ?? 0).toLocaleString("en-IN")}` : ""} from people
+          who came through this ad
+        </p>
       )}
     </article>
   );
@@ -117,7 +135,7 @@ export default function VendorAdsPage() {
         setAds(list.data ?? []);
       } catch (err) {
         if (apiError(err).isAuth) {
-          router.push("/sign-in");
+          router.push(signInHref("/vendor/ads"));
           return;
         }
         setError(apiError(err).message || "Couldn't load your ads. Please try again.");

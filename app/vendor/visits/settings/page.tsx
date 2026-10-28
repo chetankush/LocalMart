@@ -8,6 +8,7 @@ import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer } from "@/
 import { Field, FormCard, Segmented, Toggle, inputClass, selectClass, textareaClass } from "@/components/app/form";
 import { apiError } from "@/components/ads/adLabels";
 import { dayParts, time12 } from "@/lib/visits";
+import { signInHref } from "@/lib/auth/returnTo";
 
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 interface DayHours {
@@ -66,7 +67,7 @@ export default function VisitSettingsPage() {
         const res = await apiClient.get<{ data: Settings }>(`/vendor/visits/settings${q}`);
         setS(res.data);
       } catch (err) {
-        if (apiError(err).isAuth) router.push("/sign-in");
+        if (apiError(err).isAuth) router.push(signInHref("/vendor/visits/settings"));
         else setError(apiError(err).message || "Couldn't load visit settings.");
       }
     })();

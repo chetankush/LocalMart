@@ -4,6 +4,7 @@ import { LogIn, ShieldAlert, Store } from "lucide-react";
 import { Button } from "@/components/app/ui";
 import { MessageCard } from "@/components/app/seller";
 import DashboardClient from "./DashboardClient";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -40,7 +41,7 @@ export default async function VendorDashboardPage() {
         title="Sign in to see your shop"
         body="Use the same phone number or email you used to open your shop."
       >
-        <Button href="/sign-in" full>
+        <Button href={signInHref("/vendor/dashboard")} full>
           Sign in
         </Button>
       </MessageCard>
@@ -74,7 +75,7 @@ export default async function VendorDashboardPage() {
         title="Please sign in again"
         body="You were signed out to keep your shop safe."
       >
-        <Button href="/sign-in" full>
+        <Button href={signInHref("/vendor/dashboard")} full>
           Sign in
         </Button>
       </MessageCard>

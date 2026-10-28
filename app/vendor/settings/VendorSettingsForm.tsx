@@ -57,6 +57,7 @@ interface VendorSettingsFormProps {
     pincode: string | null;
     whatsappNumber: string | null;
     upiId?: string | null;
+    upiQrImage?: string | null;
     telegramLink: string | null;
     instagramHandle: string | null;
     facebookPage: string | null;
@@ -178,6 +179,7 @@ export default function VendorSettingsForm({
     longitude: roughPin ? 0 : Number(vendor.businessAddress?.coordinates?.lng) || 0,
     whatsappNumber: vendor.whatsappNumber || "",
     upiId: vendor.upiId || "",
+    upiQrImage: vendor.upiQrImage || "",
     telegramLink: vendor.telegramLink || "",
     instagramHandle: vendor.instagramHandle || "",
     facebookPage: vendor.facebookPage || "",
@@ -598,10 +600,17 @@ export default function VendorSettingsForm({
         }
         description="Customers pay you directly on this UPI ID with GPay, PhonePe or Paytm. The money comes straight to your bank."
       >
+        {/* Easiest: a photo of the shop's QR — the UPI ID is read from it */}
+        <UpiQrPicker
+          image={formData.upiQrImage}
+          onRead={(upiId, image) => setFormData((prev) => ({ ...prev, upiId, upiQrImage: image }))}
+          onRemove={() => setFormData((prev) => ({ ...prev, upiQrImage: "" }))}
+        />
+
         <Field
           label="Your UPI ID"
           htmlFor="upiId"
-          hint="Find it in your UPI app under your profile or QR code. A business UPI ID works best for big amounts. Leave empty to take cash only."
+          hint="Filled in from your QR, or type it. Find it in your UPI app under your profile. Leave empty to take cash only."
           optional
         >
           <input
@@ -843,5 +852,96 @@ export default function VendorSettingsForm({
         </Button>
       </StickyBar>
     </form>
+  );
+}
+
+/**
+ * "Upload your UPI QR": the seller picks a photo of their GPay / PhonePe /
+ * Paytm QR; we read the UPI ID from it (on the phone) and keep the photo to
+ * show buyers on the payment page. Saved with the rest of the form.
+ */
+function UpiQrPicker({
+  image,
+  onRead,
+  onRemove,
+}: {
+  image: string;
+  onRead: (upiId: string, image: string) => void;
+  onRemove: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setProblem(null);
+    if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) {
+      setProblem("Pick a photo under 8 MB.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { readUpiQr } = await import("@/lib/upiQr");
+      const read = await readUpiQr(file);
+      if (!read.ok) {
+        setProblem(
+          read.reason === "not-upi"
+            ? "This QR isn't a UPI payment QR. Use the QR from GPay, PhonePe or Paytm (Receive money / My QR)."
+            : "Couldn't read a QR in this photo. Take a clear, close photo of just the QR — or type your UPI ID below.",
+        );
+        return;
+      }
+      const { apiClient } = await import("@/lib/api/client");
+      // Save just the QR (cut from the photo) — bigger and easier to scan for buyers
+      const upload = read.cropped ? new File([read.cropped], "upi-qr.png", { type: "image/png" }) : file;
+      const res = await apiClient.vendorUpload(upload, "stores");
+      if (!res.url) throw new Error("upload failed");
+      onRead(read.upiId, res.url);
+      toast.success(`Found your UPI ID: ${read.upiId} — tap Save changes`);
+    } catch {
+      setProblem("Couldn't save the photo. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-2xl bg-fill p-3">
+      {image ? (
+        <div className="flex items-center gap-3">
+          <Image src={image} alt="Your UPI QR" width={80} height={80} unoptimized className="h-20 w-20 shrink-0 rounded-xl bg-white object-contain" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-label">Your UPI QR is added</p>
+            <p className="text-[13px] text-label-2">Buyers see it on the payment page · QR लगा है</p>
+            <div className="mt-1 flex gap-3">
+              <label className="min-h-[40px] cursor-pointer content-center text-[14px] font-semibold text-tint">
+                Change
+                <input type="file" accept="image/*" className="sr-only" onChange={pick} disabled={busy} />
+              </label>
+              <button type="button" onClick={onRemove} className="min-h-[40px] text-[14px] font-semibold text-label-2 cursor-pointer">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <label className="flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-label/30 bg-card px-4 text-[16px] font-semibold text-label">
+          {busy ? "Reading your QR…" : "Upload your UPI QR photo · QR की फोटो"}
+          <input type="file" accept="image/*" className="sr-only" onChange={pick} disabled={busy} />
+        </label>
+      )}
+      {!image && !problem && (
+        <p className="mt-2 text-[13px] text-label-2">
+          Open GPay / PhonePe / Paytm → “Receive money” or “My QR” → take a screenshot, then upload it here. We read your UPI ID from it.
+        </p>
+      )}
+      {problem && (
+        <p role="alert" className="mt-2 text-[14px] text-bad">
+          {problem}
+        </p>
+      )}
+    </div>
   );
 }

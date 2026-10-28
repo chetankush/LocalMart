@@ -10,12 +10,16 @@ import {
 } from '@/lib/redux/slices/cartSlice';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Check, Loader2, Phone, ShoppingBag, Smartphone, Wallet } from 'lucide-react';
+import { AlertTriangle, Check, Link2, Loader2, Phone, ShoppingBag, Smartphone, Tag, Wallet, X } from 'lucide-react';
+import { FULFILMENT, exchangeText, promiseText, type FulfilmentMode } from '@/lib/fulfilment';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useLocation } from '@/context/LocationContext';
 import { useCartQuote } from '@/hooks/useCartQuote';
 import { useMounted } from '@/hooks/useMounted';
 import { signInHref } from '@/lib/auth/returnTo';
+import { sourcesFor } from '@/lib/orderSource';
+import type { CartItem } from '@/lib/redux/slices/cartSlice';
+import type { PublicOrderLink } from '@/lib/api/client';
 import { INDIAN_STATES } from '@/constants/indianStates';
 import { toast } from 'sonner';
 import {
@@ -65,10 +69,36 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { location } = useLocation();
-  const items = useAppSelector(selectCartItems);
+  const cartItems = useAppSelector(selectCartItems);
   const mounted = useMounted();
 
+  // Ordering from a shop's order link (/checkout?link=ab3k9xyz): its items,
+  // not the cart's — the cart is left as it is
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [link, setLink] = useState<PublicOrderLink | null>(null);
+  const [linkProblem, setLinkProblem] = useState<string | null>(null);
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('link');
+    if (!code || !/^[a-zA-Z0-9]{8}$/.test(code)) return;
+    setLinkCode(code.toLowerCase());
+    import('@/lib/api/client')
+      .then(({ apiClient }) => apiClient.get<{ data: PublicOrderLink }>(`/order-links/${code.toLowerCase()}`))
+      .then((r) => setLink(r.data))
+      .catch(() => setLinkProblem("This order link doesn't exist. Ask the shop to send it again."));
+  }, []);
+  const linkItems: CartItem[] = (link?.items ?? []).map(
+    (i) => ({ id: i.productId, quantity: i.quantity, ...(i.variantId ? { variantId: i.variantId } : {}) }) as CartItem,
+  );
+  const items = linkCode ? linkItems : cartItems;
+
+  // A shop's discount code: typed here, checked by the server with the prices
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeDraft, setCodeDraft] = useState('');
+  const [code, setCode] = useState('');
+
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
+  // Per shop: home delivery, pickup or parcel (the server picks a sensible default)
+  const [modes, setModes] = useState<Record<string, FulfilmentMode>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [address, setAddress] = useState<DeliveryAddress>({
     fullName: '',
@@ -86,9 +116,15 @@ export default function CheckoutPage() {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return;
       sessionStorage.removeItem(DRAFT_KEY);
-      const draft = JSON.parse(raw) as { address?: Partial<DeliveryAddress>; paymentMethod?: PaymentMethod };
+      const draft = JSON.parse(raw) as { address?: Partial<DeliveryAddress>; paymentMethod?: PaymentMethod; modes?: Record<string, FulfilmentMode>; code?: string };
       if (draft.address) setAddress((a) => ({ ...a, ...draft.address }));
       if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+      if (draft.modes) setModes(draft.modes);
+      if (draft.code) {
+        setCode(draft.code);
+        setCodeDraft(draft.code);
+        setCodeOpen(true);
+      }
     } catch {
       // ignore a broken draft
     }
@@ -148,21 +184,29 @@ export default function CheckoutPage() {
     pincode: address.zipCode,
     latitude: coordsMatchAddress ? location?.latitude : undefined,
     longitude: coordsMatchAddress ? location?.longitude : undefined,
+    fulfilments: Object.entries(modes).map(([vendorId, mode]) => ({ vendorId, mode })),
+    code: code || undefined,
+    orderLink: linkCode ?? undefined,
   });
 
-  // Keep cart prices/stock in step with what the server says
+  // Keep cart prices/stock in step with what the server says (not for an order link)
   useEffect(() => {
-    if (quote) dispatch(syncFromQuote(quote.stores.flatMap((s) => s.items)));
-  }, [quote, dispatch]);
+    if (quote && !linkCode) dispatch(syncFromQuote(quote.stores.flatMap((s) => s.items)));
+  }, [quote, dispatch, linkCode]);
 
   const pinComplete = /^\d{6}$/.test(address.zipCode);
   const stores = quote?.stores ?? [];
   const upiAvailableEverywhere = stores.length > 0 && stores.every((s) => s.upiAvailable);
   const shopsWithoutUpi = stores.filter((s) => !s.upiAvailable).map((s) => s.vendorName);
+  // Parcels are paid in advance — UPI only
+  const hasParcel = stores.some((s) => s.fulfilment === 'PARCEL');
+  // Picking everything up at the shop: no street address needed
+  const allPickup = stores.length > 0 && stores.every((s) => s.fulfilment === 'PICKUP');
 
   useEffect(() => {
     if (paymentMethod === 'upi' && quote && !upiAvailableEverywhere) setPaymentMethod('cod');
-  }, [paymentMethod, quote, upiAvailableEverywhere]);
+    if (paymentMethod === 'cod' && hasParcel && upiAvailableEverywhere) setPaymentMethod('upi');
+  }, [paymentMethod, quote, upiAvailableEverywhere, hasParcel]);
 
   if (!mounted) {
     return (
@@ -172,6 +216,27 @@ export default function CheckoutPage() {
           <div className="h-40 animate-pulse rounded-2xl bg-card" />
           <div className="h-24 animate-pulse rounded-2xl bg-card" />
         </div>
+      </Page>
+    );
+  }
+
+  if (linkCode && !link) {
+    return (
+      <Page>
+        <LargeTitle title="Checkout" />
+        {linkProblem ? (
+          <EmptyState
+            icon={<Link2 className="h-8 w-8" aria-hidden />}
+            title="Order link not found"
+            body={linkProblem}
+            action={<Button href="/" full>Go to LocalMart</Button>}
+          />
+        ) : (
+          <div className="space-y-3" aria-busy="true" aria-label="Loading your order">
+            <div className="h-40 animate-pulse rounded-2xl bg-card" />
+            <div className="h-24 animate-pulse rounded-2xl bg-card" />
+          </div>
+        )}
       </Page>
     );
   }
@@ -202,7 +267,7 @@ export default function CheckoutPage() {
 
   const removeStoreItems = (vendorId: string) => {
     const store = stores.find((s) => s.vendorId === vendorId);
-    store?.items.forEach((i) => dispatch(removeFromCart(i.id)));
+    store?.items.forEach((i) => dispatch(removeFromCart(i.key ?? i.id)));
   };
 
   const validateForm = () => {
@@ -212,8 +277,8 @@ export default function CheckoutPage() {
     const digits = address.phone.replace(/\D/g, '');
     if (digits.length < 10)
       e.phone = address.phone ? 'Mobile number has 10 digits' : 'Enter your mobile number — the shop calls before delivery';
-    if (!address.street.trim()) e.street = 'Enter your house number and street';
-    if (!address.city.trim()) e.city = 'Enter your town';
+    if (!allPickup && !address.street.trim()) e.street = 'Enter your house number and street';
+    if (!allPickup && !address.city.trim()) e.city = 'Enter your town';
     setErrors(e);
 
     const first = (['zipCode', 'fullName', 'phone', 'street', 'city'] as FieldKey[]).find((k) => e[k]);
@@ -229,6 +294,22 @@ export default function CheckoutPage() {
   const canPlaceOrder = !!quote && quote.canOrder && pinComplete && !quoteLoading;
   const subtotal = stores.reduce((sum, s) => sum + s.subtotal, 0);
   const delivery = stores.reduce((sum, s) => sum + s.deliveryFee, 0);
+  const discount = stores.reduce((sum, s) => sum + (s.discount ?? 0), 0);
+  const offerNames = [...new Set(stores.filter((s) => s.discount > 0 && s.offer).map((s) => (s.offer!.kind === 'CODE' ? s.offer!.code : 'Special price')))];
+  // The link already carries the shop's price — no code on top
+  const linkHasPrice = stores.some((s) => s.offer?.kind === 'ORDER_LINK');
+  const codeResult = quote?.code ?? null;
+  const backHref = linkCode ? `/o/${linkCode}` : '/cart';
+
+  const applyCode = () => {
+    const c = codeDraft.toUpperCase().replace(/[\s-]+/g, '');
+    if (!c) return;
+    setCode(c);
+  };
+  const removeCode = () => {
+    setCode('');
+    setCodeDraft('');
+  };
 
   const handlePlaceOrder = async () => {
     if (!validateForm() || !quote) return;
@@ -236,12 +317,12 @@ export default function CheckoutPage() {
     if (!user) {
       // Keep what they typed, sign in, and come straight back here
       try {
-        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ address, paymentMethod }));
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ address, paymentMethod, modes, code }));
       } catch {
         // storage blocked — they'll retype
       }
-      toast('Sign in to place your order — your cart and address are saved');
-      router.push(signInHref('/checkout'));
+      toast(linkCode ? 'Sign in to place your order — your address is saved' : 'Sign in to place your order — your cart and address are saved');
+      router.push(signInHref(linkCode ? `/checkout?link=${linkCode}` : '/checkout'));
       return;
     }
 
@@ -250,18 +331,26 @@ export default function CheckoutPage() {
     try {
       const { apiClient } = await import('@/lib/api/client');
       const data = await apiClient.createOrder({
-        items: items.map((i) => ({ id: i.id, quantity: i.quantity })),
+        items: items.map((i) => ({ id: i.id, quantity: i.quantity, ...(i.variantId ? { variantId: i.variantId } : {}) })),
         deliveryAddress: {
           ...address,
+          // Pickup only: the shop needs a name and number, not a street
+          street: address.street.trim() || 'Pick up from the shop',
+          city: address.city.trim() || location?.city || 'Guna',
           latitude: coordsMatchAddress ? location?.latitude : undefined,
           longitude: coordsMatchAddress ? location?.longitude : undefined,
         },
         paymentMethod,
+        fulfilments: stores.map((s) => ({ vendorId: s.vendorId, mode: s.fulfilment })),
         // Server refuses the order if this no longer matches its own total
         totalAmount: quote.grandTotal,
+        ...(code && codeResult?.ok ? { code } : {}),
+        ...(linkCode ? { orderLink: linkCode } : {}),
+        // Where they came from (the shop's link, its alert, an ad) — for the shop's report
+        sources: sourcesFor(stores),
       });
 
-      dispatch(clearCart());
+      if (!linkCode) dispatch(clearCart());
       try {
         localStorage.setItem(LAST_ADDRESS_KEY, JSON.stringify({ userId: user.id, address }));
       } catch {
@@ -290,10 +379,28 @@ export default function CheckoutPage() {
   return (
     <>
       <Page>
-        <LargeTitle title="Checkout" back={{ href: '/cart', label: 'Cart' }} />
+        <LargeTitle title="Checkout" back={{ href: backHref, label: linkCode ? 'Order link' : 'Cart' }} />
+
+        {link && (
+          <div className="mb-5 flex items-start gap-3 rounded-2xl bg-tint-soft p-4">
+            <Link2 className="mt-0.5 h-5 w-5 shrink-0 text-tint" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-[16px] font-semibold text-label">
+                Order from {link.shop.name}
+                {link.forName ? <span className="font-normal text-label-2"> · for {link.forName}</span> : null}
+              </p>
+              <p className="mt-0.5 text-[14px] leading-snug text-label-2">
+                {link.note ? `“${link.note}”` : 'The shop made this order for you. Add your address and place it.'}
+              </p>
+              {quote?.orderLink?.message && (
+                <p role="alert" className="mt-2 text-[14px] font-semibold text-bad">{quote.orderLink.message}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Address ── */}
-        <Section title="Deliver to">
+        <Section title={allPickup ? 'Your details' : 'Deliver to'}>
           <label className={`block px-4 py-3 focus-within:bg-canvas/60 ${errors.zipCode ? "bg-bad-soft" : ""}`}>
             <span className="block text-[13px] font-medium text-label-2">PIN code</span>
             <input
@@ -441,7 +548,7 @@ export default function CheckoutPage() {
               <Notice
                 tone="bad"
                 action={
-                  <button
+                  linkCode ? undefined : <button
                     onClick={() => quote.unavailableItemIds.forEach((id) => dispatch(removeFromCart(id)))}
                     className="font-semibold underline cursor-pointer"
                   >
@@ -450,6 +557,7 @@ export default function CheckoutPage() {
                 }
               >
                 {quote.unavailableItemIds.length} item(s) are no longer sold.
+                {linkCode ? ' Ask the shop to send a new order link.' : ''}
               </Notice>
             </div>
           )}
@@ -483,27 +591,27 @@ export default function CheckoutPage() {
                         ? store.busyMessage || `${store.vendorName} isn't taking orders right now.`
                         : `${store.vendorName} doesn't deliver to PIN ${address.zipCode}.`}
                     </span>
-                    <button
-                      onClick={() => removeStoreItems(store.vendorId)}
-                      className="shrink-0 font-semibold underline cursor-pointer"
-                    >
-                      Remove items
-                    </button>
+                    {!linkCode && (
+                      <button
+                        onClick={() => removeStoreItems(store.vendorId)}
+                        className="shrink-0 font-semibold underline cursor-pointer"
+                      >
+                        Remove items
+                      </button>
+                    )}
                   </div>
                 ) : (
-                  <p className="mt-1 flex items-center gap-1.5 text-[14px] text-label-2">
-                    {store.serviceable && <Check className="h-4 w-4 text-ok" strokeWidth={3} aria-hidden />}
-                    {store.serviceable && <span className="text-ok">Delivers to your PIN</span>}
-                    {store.serviceable && <span aria-hidden>·</span>}
-                    Delivery{' '}
-                    {store.deliveryFee > 0 ? (
-                      <>
-                        {rupees(store.deliveryFee)}
-                        {store.freeDeliveryAbove ? ` (free above ${rupees(store.freeDeliveryAbove)})` : ''}
-                      </>
-                    ) : (
-                      <span className="font-medium text-ok">free</span>
-                    )}
+                  <FulfilmentChoice
+                    store={store}
+                    onChoose={(mode) => setModes((m) => ({ ...m, [store.vendorId]: mode }))}
+                  />
+                )}
+
+                {store.discount > 0 && store.offer && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[14px] font-medium text-ok">
+                    <Tag className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1">{store.offer.text}</span>
+                    <span className="shrink-0 tabular-nums">−{rupees(store.discount)}</span>
                   </p>
                 )}
 
@@ -511,22 +619,23 @@ export default function CheckoutPage() {
                   .filter((i) => i.problem)
                   .map((i) => (
                     <div
-                      key={i.id}
+                      key={i.key ?? i.id}
                       className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-warn-soft p-3 text-[15px] text-warn"
                     >
                       <span>
                         {i.problem === 'OUT_OF_STOCK' ? `"${i.name}" is sold out` : `Only ${i.stockQuantity} of "${i.name}" left`}
+                        {linkCode ? '. Ask the shop for a new order link.' : ''}
                       </span>
-                      <button
+                      {!linkCode && <button
                         className="shrink-0 font-semibold underline cursor-pointer"
                         onClick={() =>
                           i.problem === 'OUT_OF_STOCK'
-                            ? dispatch(removeFromCart(i.id))
-                            : dispatch(updateQuantity({ id: i.id, quantity: i.stockQuantity }))
+                            ? dispatch(removeFromCart(i.key ?? i.id))
+                            : dispatch(updateQuantity({ id: i.key ?? i.id, quantity: i.stockQuantity }))
                         }
                       >
                         {i.problem === 'OUT_OF_STOCK' ? 'Remove' : `Buy ${i.stockQuantity}`}
-                      </button>
+                      </button>}
                     </div>
                   ))}
               </div>
@@ -539,9 +648,16 @@ export default function CheckoutPage() {
           <PaymentRow
             checked={paymentMethod === 'cod'}
             onSelect={() => setPaymentMethod('cod')}
+            disabled={hasParcel}
             icon={<Wallet className="h-5 w-5" aria-hidden />}
-            title="Cash on delivery"
-            subtitle="Pay cash when your order arrives"
+            title={allPickup ? 'Cash at the shop' : 'Cash on delivery'}
+            subtitle={
+              hasParcel
+                ? 'Not for parcels — they are paid in advance by UPI'
+                : allPickup
+                  ? 'Pay cash when you pick it up'
+                  : 'Pay cash when your order arrives'
+            }
           />
           <PaymentRow
             checked={paymentMethod === 'upi'}
@@ -566,9 +682,17 @@ export default function CheckoutPage() {
         >
           <div className={quoteLoading ? 'opacity-50 transition-opacity' : 'transition-opacity'}>
             <Row title="Items" trailing={<span className="tabular-nums text-label">{quote ? rupees(subtotal) : '—'}</span>} />
+            {discount > 0 && (
+              <div className="border-t border-hairline">
+                <Row
+                  title={<span className="text-ok">Discount{offerNames.length ? ` · ${offerNames.join(', ')}` : ''}</span>}
+                  trailing={<span className="font-medium tabular-nums text-ok">−{rupees(discount)}</span>}
+                />
+              </div>
+            )}
             <div className="border-t border-hairline">
               <Row
-                title="Delivery"
+                title={allPickup ? 'Pickup' : 'Delivery'}
                 trailing={
                   !quote ? (
                     '—'
@@ -590,13 +714,27 @@ export default function CheckoutPage() {
             </div>
           </div>
         </Section>
+        {!linkHasPrice && (
+          <CodeBox
+            open={codeOpen || !!code}
+            onOpen={() => setCodeOpen(true)}
+            draft={codeDraft}
+            onDraft={setCodeDraft}
+            onApply={applyCode}
+            onRemove={removeCode}
+            applied={code}
+            result={codeResult && codeResult.code === code ? codeResult : null}
+            saved={discount}
+            checking={quoteLoading && !!code}
+          />
+        )}
         <StickyBarSpacer />
       </Page>
 
       <StickyBar>
         <div className="min-w-0">
           <p className="text-[13px] text-label-2">
-            {paymentMethod === 'upi' ? 'Pay by UPI after confirmation' : 'Pay cash on delivery'}
+            {paymentMethod === 'upi' ? 'Pay by UPI after confirmation' : allPickup ? 'Pay cash at the shop' : 'Pay cash on delivery'}
           </p>
           <p className="text-[20px] font-bold tabular-nums text-label">{quote ? rupees(quote.grandTotal) : '—'}</p>
         </div>
@@ -616,6 +754,95 @@ export default function CheckoutPage() {
         </p>
       )}
     </>
+  );
+}
+
+/** "Have a discount code?" — closed until tapped, so it doesn't distract */
+function CodeBox({
+  open,
+  onOpen,
+  draft,
+  onDraft,
+  onApply,
+  onRemove,
+  applied,
+  result,
+  saved,
+  checking,
+}: {
+  open: boolean;
+  onOpen: () => void;
+  draft: string;
+  onDraft: (v: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
+  applied: string;
+  result: { code: string; ok: boolean; message: string } | null;
+  saved: number;
+  checking: boolean;
+}) {
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="-mt-3 mb-6 flex min-h-[44px] items-center gap-2 px-1 text-[15px] font-medium text-tint cursor-pointer"
+      >
+        <Tag className="h-4 w-4" aria-hidden /> Have a discount code?
+      </button>
+    );
+  }
+  if (applied && result && !checking) {
+    return (
+      <div
+        className={`-mt-3 mb-6 flex items-start gap-3 rounded-2xl p-4 ${result.ok ? 'bg-ok-soft' : 'bg-bad-soft'}`}
+        role={result.ok ? 'status' : 'alert'}
+      >
+        <Tag className={`mt-0.5 h-5 w-5 shrink-0 ${result.ok ? 'text-ok' : 'text-bad'}`} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className={`text-[15px] font-semibold ${result.ok ? 'text-ok' : 'text-bad'}`}>
+            {result.ok ? `${result.message} — you save ${rupees(saved)}` : result.message}
+          </p>
+          {!result.ok && <p className="mt-0.5 text-[14px] text-label-2">Your order is priced without it.</p>}
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove code ${applied}`}
+          className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-label-2 active:bg-fill cursor-pointer"
+        >
+          <X className="h-5 w-5" aria-hidden />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="-mt-3 mb-6 rounded-2xl bg-card p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onApply();
+      }}
+    >
+      <label htmlFor="discount-code" className="block text-[13px] font-medium text-label-2">
+        Discount code from the shop
+      </label>
+      <div className="mt-1.5 flex gap-2">
+        <input
+          id="discount-code"
+          value={draft}
+          onChange={(e) => onDraft(e.target.value.toUpperCase().slice(0, 20))}
+          placeholder="e.g. INSTA10"
+          autoCapitalize="characters"
+          autoComplete="off"
+          spellCheck={false}
+          className="min-h-[48px] min-w-0 flex-1 rounded-xl bg-fill px-3 text-[17px] font-semibold uppercase tracking-wide text-label outline-none placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-label-3 focus:ring-2 focus:ring-tint"
+        />
+        <Button type="submit" variant="secondary" disabled={!draft.trim()} loading={checking}>
+          Apply
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -662,5 +889,88 @@ function PaymentRow({
         {checked && <Check className="h-4 w-4" strokeWidth={3} />}
       </span>
     </label>
+  );
+}
+
+/**
+ * One shop's way to get the order to the buyer: home delivery, pick up from
+ * the shop, or a courier parcel — only the ways the shop offers, with charges,
+ * the shop's promise and its exchange rule.
+ */
+function FulfilmentChoice({
+  store,
+  onChoose,
+}: {
+  store: import('@/lib/api/client').StoreQuote;
+  onChoose: (mode: FulfilmentMode) => void;
+}) {
+  const choices: { mode: FulfilmentMode; price: string; note?: string }[] = [];
+  if (store.options.delivery.available)
+    choices.push({
+      mode: 'DELIVERY',
+      price: store.options.delivery.fee > 0 ? rupees(store.options.delivery.fee) : 'Free',
+      note: store.options.delivery.freeDeliveryAbove ? `free above ${rupees(store.options.delivery.freeDeliveryAbove)}` : undefined,
+    });
+  if (store.options.pickup.available) choices.push({ mode: 'PICKUP', price: 'Free' });
+  if (store.options.parcel.available)
+    choices.push({
+      mode: 'PARCEL',
+      price: store.options.parcel.fee > 0 ? rupees(store.options.parcel.fee) : 'Free',
+      note: [store.options.parcel.days, 'UPI only'].filter(Boolean).join(' · '),
+    });
+  const promise = store.fulfilment === 'DELIVERY' ? promiseText(store.deliveryPromise) : null;
+  const exchange = exchangeText(store.exchangePolicy);
+
+  return (
+    <div className="mt-2 space-y-2">
+      {choices.length > 1 ? (
+        <div className="grid gap-2" role="radiogroup" aria-label={`How to get your order from ${store.vendorName}`}>
+          {choices.map((c) => {
+            const on = store.fulfilment === c.mode;
+            return (
+              <button
+                key={c.mode}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => onChoose(c.mode)}
+                className={`flex min-h-[52px] items-center gap-3 rounded-xl border px-3 text-left cursor-pointer ${
+                  on ? 'border-tint bg-tint-soft' : 'border-hairline bg-card'
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${on ? 'border-tint' : 'border-label-3'}`}
+                  aria-hidden
+                >
+                  {on && <span className="h-2.5 w-2.5 rounded-full bg-tint" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold text-label">{FULFILMENT[c.mode].label}</span>
+                  {c.note && <span className="block text-[13px] text-label-2">{c.note}</span>}
+                </span>
+                <span className={`shrink-0 text-[15px] font-semibold tabular-nums ${c.price === 'Free' ? 'text-ok' : 'text-label'}`}>{c.price}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="flex items-center gap-1.5 text-[14px] text-label-2">
+          <Check className="h-4 w-4 text-ok" strokeWidth={3} aria-hidden />
+          <span className="text-ok">{FULFILMENT[store.fulfilment].label}</span>
+          <span aria-hidden>·</span>
+          {store.deliveryFee > 0 ? (
+            <>
+              {rupees(store.deliveryFee)}
+              {store.freeDeliveryAbove ? ` (free above ${rupees(store.freeDeliveryAbove)})` : ''}
+            </>
+          ) : (
+            <span className="font-medium text-ok">free</span>
+          )}
+        </p>
+      )}
+      {(promise || exchange) && (
+        <p className="text-[13px] text-label-2">{[promise, exchange].filter(Boolean).join(' · ')}</p>
+      )}
+    </div>
   );
 }

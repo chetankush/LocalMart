@@ -5,6 +5,7 @@ import { LogIn, Plus, ShieldAlert, Store } from "lucide-react";
 import VendorStoreCard from "@/components/VendorStoreCard";
 import { Button, LargeTitle } from "@/components/app/ui";
 import { MessageCard } from "@/components/app/seller";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -37,7 +38,7 @@ export default async function VendorStoresPage() {
   if (!user) {
     return (
       <MessageCard icon={<LogIn className="h-8 w-8" aria-hidden />} title="Sign in to see your shops">
-        <Button href="/sign-in" full>
+        <Button href={signInHref("/vendor/stores")} full>
           Sign in
         </Button>
       </MessageCard>
@@ -67,7 +68,7 @@ export default async function VendorStoresPage() {
   if (!session?.access_token) {
     return (
       <MessageCard icon={<LogIn className="h-8 w-8" aria-hidden />} title="Please sign in again">
-        <Button href="/sign-in" full>
+        <Button href={signInHref("/vendor/stores")} full>
           Sign in
         </Button>
       </MessageCard>

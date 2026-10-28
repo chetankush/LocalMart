@@ -36,7 +36,7 @@ export default function VendorOnboardingForm({ userId }: { userId: string }) {
       if (data.success) {
         router.push('/vendor/dashboard');
       } else {
-        alert(data.error || 'Failed to complete onboarding');
+        alert(data.message || 'Failed to complete onboarding');
       }
     } catch (error) {
       console.error('Onboarding error:', error);

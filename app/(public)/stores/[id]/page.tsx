@@ -13,6 +13,7 @@ import ShopBusyBanner from "@/components/store/ShopBusyBanner";
 import PlaceholderTheme from "./themes/PlaceholderTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
 import BookVisitCta from "@/components/visits/BookVisitCta";
+import ShopContactCard from "@/components/contact/ShopContactCard";
 import { TrackStoreView } from "@/components/TrackView";
 
 // ISR: Revalidate store pages every 2 minutes
@@ -181,7 +182,13 @@ export default async function StorePage({ params }: StorePageProps) {
     }
   };
 
-  // Google: the shop as a local business (name, landmark address, map pin, phone)
+  // These designs have no contact buttons of their own: add "Message the shop" under them
+  const needsContactCard = [
+    "KIRANA", "FASHION", "CLOTHING", "SHOES", "DAIRY", "ELECTRONICS", "MOBILES", "BRAND_SPEC",
+    "WHOLESALE", "COSMETICS", "BEAUTY_PARLOUR", "AUTOMOTIVE", "BICYCLE", "MEDICINE",
+  ].includes(vendorData.storeTheme);
+
+  // Google: the shop as a local business (name, landmark address, map pin)
   const addr = vendorData.businessAddress as Addr;
   const localBusiness = {
     "@context": "https://schema.org",
@@ -190,7 +197,6 @@ export default async function StorePage({ params }: StorePageProps) {
     description: vendorData.storeDescription || undefined,
     url: siteUrl(`/stores/${vendorData.id}`),
     image: vendorData.storeLogo || vendorData.storeImages?.[0] || undefined,
-    telephone: vendorData.contactPhone || undefined,
     priceRange: "₹₹",
     address: {
       "@type": "PostalAddress",
@@ -228,6 +234,9 @@ export default async function StorePage({ params }: StorePageProps) {
       {/* "Busy right now" — checked live */}
       <ShopBusyBanner storeId={vendorData.id} />
       {renderTheme()}
+      {needsContactCard && (
+        <ShopContactCard vendor={{ id: vendorData.id, businessName: vendorData.businessName, whatsappNumber: vendorData.whatsappNumber }} />
+      )}
 
       {/* "Book a visit" — only shows for shops that take visits */}
       <BookVisitCta shopId={vendorData.id} shopName={vendorData.businessName} />

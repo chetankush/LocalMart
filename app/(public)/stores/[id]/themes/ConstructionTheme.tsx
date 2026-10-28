@@ -26,7 +26,6 @@ import {
   Minus,
   Navigation,
   Package,
-  Phone,
   Plus,
   Search,
   ShieldCheck,
@@ -42,6 +41,9 @@ import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import { imageList } from "@/lib/shop-page";
 import { UNIT, rupees, todayIST, type RentUnit } from "@/lib/rentals";
+import { MessageShopButton } from "@/components/contact/MessageShop";
+import { waText, whatsappLinkProps } from "@/lib/contact";
+import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 
 const ShopMap = dynamic(() => import("@/components/map/ShopMap"), {
   ssr: false,
@@ -71,6 +73,7 @@ interface Product {
   isFeatured?: boolean;
   category?: { name: string; slug?: string } | string | null;
   listingType?: "SALE" | "RENT" | null;
+  variants?: Size[] | null;
   rentUnit?: RentUnit | null;
   rentUnitLabel?: string | null;
   rentDeposit?: Numeric | null;
@@ -94,7 +97,6 @@ interface Vendor {
   storeDescription?: string | null;
   storeLogo?: string | null;
   storeImages?: unknown;
-  contactPhone?: string | null;
   whatsappNumber?: string | null;
   businessAddress?: Address | string | null;
   city?: string | null;
@@ -142,13 +144,6 @@ function rateParts(p: Product) {
 
 const addDays = (d: string, n: number) =>
   new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
-
-/** Indian mobile number → digits for tel: and wa.me */
-function phoneDigits(raw?: string | null) {
-  const d = (raw || "").replace(/\D/g, "");
-  if (!d) return null;
-  return d.length === 10 ? `91${d}` : d;
-}
 
 function addressOf(v: Vendor): Address {
   return v.businessAddress && typeof v.businessAddress === "object" ? v.businessAddress : {};
@@ -328,7 +323,8 @@ function EquipmentCard({ p, vendorName }: { p: Product; vendorName: string }) {
         ) : (
           <AddStepper
             size="lg"
-            disabled={out}
+            disabled={out || allSizesSoldOut(p)}
+            chooseSizeHref={hasSizes(p) ? `/products/${p.id}` : undefined}
             item={{
               id: p.id,
               name: p.name,
@@ -468,8 +464,9 @@ export default function ConstructionTheme({ vendor, products }: Props) {
   const rentals = useMemo(() => products.filter(isRent), [products]);
   const forSale = useMemo(() => products.filter((p) => !isRent(p)), [products]);
   const photos = useMemo(() => imageList(vendor.storeImages), [vendor.storeImages]);
-  const phone = phoneDigits(vendor.contactPhone);
-  const whatsapp = phoneDigits(vendor.whatsappNumber || vendor.contactPhone);
+  // No phone number on the page: contractors message the shop here (a lead) or on WhatsApp
+  const wa = whatsappLinkProps({ number: vendor.whatsappNumber, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
+  const messageTarget = { vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber }, source: "SHOP" as const };
   const pin = exactPin(vendor);
   const place = addressLine(vendor);
   const landmark = addressOf(vendor).landmark;
@@ -626,19 +623,15 @@ export default function ConstructionTheme({ vendor, products }: Props) {
                 {rentals.length ? "See machines & rates" : "See prices"}
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </a>
-              {phone && (
+              <MessageShopButton
+                target={messageTarget}
+                className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold text-white transition-colors hover:bg-white/10 cursor-pointer"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden /> Message shop
+              </MessageShopButton>
+              {wa && (
                 <a
-                  href={`tel:+${phone}`}
-                  className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold text-white transition-colors hover:bg-white/10"
-                >
-                  <Phone className="h-4 w-4" aria-hidden /> Call shop
-                </a>
-              )}
-              {whatsapp && (
-                <a
-                  href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(`Namaste, I saw ${vendor.businessName} on LocalMart.`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...wa}
                   className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold text-white transition-colors hover:bg-white/10"
                 >
                   <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
@@ -911,19 +904,6 @@ export default function ConstructionTheme({ vendor, products }: Props) {
                   </div>
                 </div>
               )}
-              {phone && (
-                <div className="flex gap-3">
-                  <Phone className="mt-0.5 h-5 w-5 shrink-0 text-[#FFC21A]" aria-hidden />
-                  <div>
-                    <dt className="sr-only">Phone</dt>
-                    <dd>
-                      <a href={`tel:+${phone}`} className="font-semibold tabular-nums underline-offset-4 hover:underline">
-                        {vendor.contactPhone}
-                      </a>
-                    </dd>
-                  </div>
-                </div>
-              )}
             </dl>
 
             <div className="mt-7 flex flex-wrap gap-3">
@@ -936,19 +916,15 @@ export default function ConstructionTheme({ vendor, products }: Props) {
               >
                 <Navigation className="h-4 w-4" aria-hidden /> Get directions
               </a>
-              {phone && (
+              <MessageShopButton
+                target={messageTarget}
+                className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold transition-colors hover:bg-white/10 cursor-pointer"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden /> Message shop
+              </MessageShopButton>
+              {wa && (
                 <a
-                  href={`tel:+${phone}`}
-                  className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold transition-colors hover:bg-white/10"
-                >
-                  <Phone className="h-4 w-4" aria-hidden /> Call
-                </a>
-              )}
-              {whatsapp && (
-                <a
-                  href={`https://wa.me/${whatsapp}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...wa}
                   className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold transition-colors hover:bg-white/10"
                 >
                   <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp

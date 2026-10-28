@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { LargeTitle, Page } from "@/components/app/ui";
 import AddProductForm from "@/app/vendor/products/new/AddProductForm";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -70,7 +71,7 @@ export default async function AddProductPage({
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/vendor/products/new"));
   }
 
   const [stores, categories] = await Promise.all([

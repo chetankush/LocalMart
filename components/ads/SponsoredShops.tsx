@@ -21,7 +21,11 @@ function AdCard({ ad, mounted, wide = false }: { ad: ServedAd; mounted: boolean;
   const open = mounted && ad.vendor.businessHours ? isStoreOpen(ad.vendor.businessHours) : null;
   return (
     // Capture phase: counted before the card's link opens the shop
-    <li ref={ref} onClickCapture={() => trackAd(ad.adId, "click")} className={wide ? "" : "w-[80%] shrink-0 snap-start sm:w-auto"}>
+    <li
+      ref={ref}
+      onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
+      className={wide ? "" : "w-[80%] shrink-0 snap-start sm:w-auto"}
+    >
       <ShopCard shop={ad.vendor} km={km} open={open} sponsored wide={wide} />
     </li>
   );

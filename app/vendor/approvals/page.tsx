@@ -8,6 +8,7 @@ import { useApprovals } from '../_approvals/ApprovalsPollerContext';
 import { ApprovalCard } from './_components/ApprovalCard';
 import { BusyCard } from '../_approvals/ShopBusy';
 import { StoreFilterChips } from './_components/StoreFilterChips';
+import { signInHref } from "@/lib/auth/returnTo";
 
 export default function ApprovalsPage() {
   const { orders, status, refetch } = useApprovals();
@@ -35,7 +36,7 @@ export default function ApprovalsPage() {
         title="Please sign in again"
         body="You were signed out. Sign in to keep getting new orders."
       >
-        <Button href="/sign-in" full>
+        <Button href={signInHref("/vendor/approvals")} full>
           Sign in
         </Button>
       </MessageCard>

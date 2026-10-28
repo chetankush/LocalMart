@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BadgeCheck,
   BarChart3,
   CalendarCheck,
   ChevronRight,
@@ -40,6 +41,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     items: [
       { href: "/admin/revenue", label: "Revenue", icon: IndianRupee },
       { href: "/admin/ads", label: "Ads", icon: Megaphone },
+      { href: "/admin/plans", label: "Pro payments", icon: BadgeCheck },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },

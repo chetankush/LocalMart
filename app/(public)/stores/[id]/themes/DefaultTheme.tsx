@@ -11,7 +11,6 @@ import {
   Clock,
   Truck,
   ShieldCheck,
-  Phone,
   Globe,
   MessageCircle,
   Send,
@@ -26,6 +25,8 @@ import {
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import NotifyMeButton from "@/components/NotifyMeButton";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
+import { MessageShopButton } from "@/components/contact/MessageShop";
+import { waText, whatsappLinkProps } from "@/lib/contact";
 
 interface Product {
   id: string;
@@ -110,7 +111,6 @@ interface DefaultThemeProps {
     instagramHandle?: string;
     facebookPage?: string;
     websiteUrl?: string;
-    contactPhone?: string | null;
     canDeliver?: boolean | null;
     maxDeliveryDistance?: number | null;
     businessHours?: BusinessHours | null;
@@ -189,6 +189,10 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
     return () => window.clearInterval(id);
   }, [totalHeroSlides]);
 
+  // No phone number on the page: buyers message the shop here (a lead) or on WhatsApp
+  const wa = whatsappLinkProps({ number: vendor.whatsappNumber, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
+  const messageTarget = { vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber }, source: "SHOP" as const };
+
   const rating =
     vendor.averageRating != null ? Number(vendor.averageRating) : null;
   const reviewCount = vendor.reviewCount ?? 0;
@@ -202,7 +206,6 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
   );
 
   const productCount = products.length;
-  const inStockCount = products.filter((p) => p.stockQuantity > 0).length;
 
   // Derive categories + per-category counts
   const categories = deriveCategories(products);
@@ -350,17 +353,13 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
           {/* Primary actions */}
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <NotifyMeButton vendorId={vendor.id} size="md" />
-            {vendor.whatsappNumber && (
-              <a
-                href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Message store
-              </a>
-            )}
+            <MessageShopButton
+              target={messageTarget}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Message store
+            </MessageShopButton>
           </div>
 
           {/* Slide indicator dots */}
@@ -538,9 +537,8 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                       {openNow !== null && (
                         <span className={`w-1.5 h-1.5 rounded-full ${openNow ? "bg-accent" : "bg-ink-3"}`} aria-hidden />
                       )}
-                      {openNow === null ? "Call the shop for timings" : openNow ? "Open now" : "Closed now"}
+                      {openNow === null ? "Message the shop for timings" : openNow ? "Open now" : "Closed now"}
                     </dd>
-                    {vendor.contactPhone && <dd className="text-xs text-ink-3 mt-1">{vendor.contactPhone}</dd>}
                   </div>
                 </div>
 
@@ -594,11 +592,9 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                     Connect
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {vendor.whatsappNumber && (
+                    {wa && (
                       <a
-                        href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        {...wa}
                         aria-label="WhatsApp"
                         className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
                       >
@@ -649,15 +645,6 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                         <Globe className="w-4 h-4" strokeWidth={1.5} />
                       </a>
                     )}
-                    {vendor.whatsappNumber && (
-                      <a
-                        href={`tel:${vendor.whatsappNumber}`}
-                        aria-label="Call"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <Phone className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
                   </div>
                 </div>
               )}
@@ -671,17 +658,13 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                   Browse products
                   <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
                 </a>
-                {vendor.whatsappNumber && (
-                  <a
-                    href={`https://wa.me/${vendor.whatsappNumber.replace(/[^0-9]/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-sand text-ink rounded-full text-sm font-semibold hover:border-ink transition-colors"
-                  >
-                    <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
-                    Chat with store
-                  </a>
-                )}
+                <MessageShopButton
+                  target={messageTarget}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-sand text-ink rounded-full text-sm font-semibold hover:border-ink transition-colors cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
+                  Message store
+                </MessageShopButton>
               </div>
             </div>
           </div>

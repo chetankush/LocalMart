@@ -3,12 +3,13 @@
  * Helper functions to convert Prisma Decimal types to numbers for client components
  */
 
-import { Prisma } from "@prisma/client";
+/** Prisma's Decimal (or anything with the same number value) */
+type DecimalLike = { toString(): string } | number | string;
 
 /**
  * Convert Decimal to number safely
  */
-export function decimalToNumber(value: Prisma.Decimal | null | undefined): number | null {
+export function decimalToNumber(value: DecimalLike | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   return Number(value);
 }

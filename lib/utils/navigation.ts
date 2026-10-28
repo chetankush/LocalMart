@@ -4,6 +4,7 @@
  */
 
 import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { PrefetchKind } from 'next/dist/client/components/router-reducer/router-reducer-types';
 
 // Cache for prefetched routes
 const prefetchCache = new Set<string>();
@@ -15,7 +16,7 @@ const prefetchCache = new Set<string>();
 export const prefetchRoute = (router: AppRouterInstance, href: string) => {
   if (!prefetchCache.has(href)) {
     // Force aggressive prefetching
-    router.prefetch(href, { kind: 'auto' });
+    router.prefetch(href, { kind: PrefetchKind.AUTO });
     prefetchCache.add(href);
   }
 };
@@ -24,7 +25,7 @@ export const prefetchRoute = (router: AppRouterInstance, href: string) => {
  * Force immediate prefetch without caching check
  */
 export const forcePrefetch = (router: AppRouterInstance, href: string) => {
-  router.prefetch(href, { kind: 'auto' });
+  router.prefetch(href, { kind: PrefetchKind.AUTO });
 };
 
 /**

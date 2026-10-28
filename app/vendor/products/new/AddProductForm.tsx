@@ -1,6 +1,7 @@
 "use client";
 
 import { refreshShopPage } from "@/lib/refreshShopPage";
+import SizesEditor, { type SizeDraft } from "@/components/products/SizesEditor";
 import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -149,6 +150,7 @@ export default function AddProductForm({
 
   // Normalize business type to uppercase
   const normalizedBusinessType = businessType?.toUpperCase() || "";
+  const [sizes, setSizes] = useState<SizeDraft[]>([]);
   const isFashionStore = normalizedBusinessType === "FASHION";
   const businessLabel = BUSINESS_TYPE_LABELS[normalizedBusinessType]?.label || "";
 
@@ -1050,6 +1052,7 @@ export default function AddProductForm({
         sku: formData.sku ? formData.sku : null,
         trackStock: formData.trackStock,
         isAvailable: true,
+        ...(sizes.length > 0 ? { sizes: sizes.map((x) => x.label) } : {}),
         stockQuantity: formData.trackStock ? parseInt(formData.stockQuantity) || 0 : 0,
         lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
         weight: formData.weight ? parseFloat(formData.weight) : null,
@@ -1260,6 +1263,8 @@ export default function AddProductForm({
               />
             </Field>
           )}
+
+          <SizesEditor value={sizes} onChange={setSizes} />
 
           <Field
             label="Category"

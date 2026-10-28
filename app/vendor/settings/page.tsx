@@ -3,8 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import VendorSettingsForm, { ShopShortcuts } from "@/app/vendor/settings/VendorSettingsForm";
 import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
+import ShopLinkCard from "@/app/vendor/settings/ShopLinkCard";
+import SellingOptionsCard from "@/app/vendor/settings/SellingOptionsCard";
 import { NotificationSoundSettings } from "@/app/vendor/settings/NotificationSoundSettings";
 import { LargeTitle, Page, StickyBarSpacer } from "@/components/app/ui";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -55,7 +58,7 @@ export default async function VendorSettingsPage({
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect("/sign-in");
+    redirect(signInHref("/vendor/settings"));
   }
 
   const vendor = await getVendorSettings(session.access_token, storeId);
@@ -67,6 +70,12 @@ export default async function VendorSettingsPage({
   return (
     <Page>
       <LargeTitle title="My shop" subtitle={vendor.businessName} />
+
+      {/* localmart.in/<handle> — for the Instagram bio and visiting card */}
+      <ShopLinkCard storeId={vendor.id} />
+
+      {/* Home delivery, pickup, parcels and exchanges */}
+      <SellingOptionsCard storeId={vendor.id} />
 
       <ShopShortcuts
         storeId={vendor.id}

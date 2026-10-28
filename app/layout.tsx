@@ -12,6 +12,7 @@ import NextTopLoader from "nextjs-toploader";
 
 import InstantNavigationProvider from "@/components/InstantNavigationProvider";
 import WebVitalsTracker from "@/components/WebVitalsTracker";
+import SourceTracker from "@/components/SourceTracker";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -69,6 +70,7 @@ export default function RootLayout({
                     shadow={false}
                   />
                   <WebVitalsTracker />
+                  <SourceTracker />
                   <Navbar />
                   <main className="min-h-screen pb-tabbar">{children}</main>
                   <Footer />

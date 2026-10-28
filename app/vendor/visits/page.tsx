@@ -18,6 +18,7 @@ import {
   whatsappUrl,
   type ShopVisit,
 } from "@/lib/visits";
+import { signInHref } from "@/lib/auth/returnTo";
 
 type When = "today" | "upcoming" | "past";
 interface Stats {
@@ -69,7 +70,7 @@ export default function VendorVisitsPage() {
         setStats(list.data.stats);
         setEnabled(settings.data.enabled);
       } catch (err) {
-        if (apiError(err).isAuth) router.push("/sign-in");
+        if (apiError(err).isAuth) router.push(signInHref("/vendor/visits"));
         else {
           toast.error(apiError(err).message || "Couldn't load visits.");
           setVisits([]);

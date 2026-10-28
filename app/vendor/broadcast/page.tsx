@@ -7,6 +7,7 @@ import { CircleAlert, CircleCheck, Heart, Megaphone, Send } from "lucide-react";
 import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer } from "@/components/app/ui";
 import { Field, FormCard, inputClass, textareaClass } from "@/components/app/form";
 import { IconBox, SectionHeader } from "@/components/app/seller";
+import { signInHref } from "@/lib/auth/returnTo";
 
 const TITLE_MAX = 100;
 const MESSAGE_MAX = 500;
@@ -14,8 +15,8 @@ const MESSAGE_MAX = 500;
 // Server errors → plain words that say what to do next
 function friendlyError(msg?: string) {
   if (!msg) return "Couldn't send the offer. Please try again.";
-  if (/no subscribers/i.test(msg))
-    return "No customers have added your shop to their Favourite shops yet. Share your shop link first, then send offers.";
+  if (/no subscribers|no buyers to tell/i.test(msg))
+    return "No customers to tell yet. Share your shop link to get followers and orders first, then send offers.";
   return msg;
 }
 
@@ -42,6 +43,8 @@ export default function BroadcastPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [shopName, setShopName] = useState<string | null>(null);
+  // Who it reaches, and when the next one can go (Free: weekly, Pro: daily)
+  const [info, setInfo] = useState<{ reach: number; followers: number; buyers: number; plan: string; canSendNow: boolean; nextAt: string | null; link: string } | null>(null);
 
   // Check if user is authenticated vendor on mount
   useEffect(() => {
@@ -60,11 +63,17 @@ export default function BroadcastPage() {
         const stores = result.data.stores ?? [];
         const shop = stores.find((s) => s.id === storeId) ?? stores[0];
         setShopName(shop?.businessName ?? null);
+        try {
+          const r = await apiClient.get<{ data: NonNullable<typeof info> }>(`/vendor/broadcast/info${shop ? `?storeId=${encodeURIComponent(shop.id)}` : ""}`);
+          setInfo(r.data);
+        } catch {
+          // The send button still works; the server checks again
+        }
 
         setIsLoading(false);
       } catch (err: any) {
         console.error("[BroadcastPage] Auth check error:", err);
-        router.push("/sign-in");
+        router.push(signInHref("/vendor/broadcast"));
       }
     };
 
@@ -147,9 +156,22 @@ export default function BroadcastPage() {
 
       <div className="mb-4">
         <Notice tone="info" icon={<Heart className="h-5 w-5 text-info" aria-hidden />}>
-          Goes to every customer who added your shop to their <b>Favourite shops</b>. They see it in their
-          notifications.
+          {info ? (
+            <>
+              Reaches <b>{info.reach}</b> {info.reach === 1 ? "person" : "people"}: {info.buyers} who bought from you and {info.followers} who saved your shop, plus
+              people who messaged you. They get a phone alert.
+            </>
+          ) : (
+            <>Goes to people who bought from you or saved your shop, as a phone alert.</>
+          )}
         </Notice>
+        {info && !info.canSendNow && info.nextAt && (
+          <p className="mt-2 text-[14px] text-warn">
+            You can send the next one on{" "}
+            {new Date(info.nextAt).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}.
+            {info.plan === "FREE" ? " Pro shops can send one every day." : ""}
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
@@ -209,6 +231,22 @@ export default function BroadcastPage() {
               <span role="status">{success} Taking you home…</span>
             </Notice>
           )}
+
+          {/* The same words on WhatsApp — to your own contacts or status */}
+          {(title.trim() || message.trim()) && (
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `${title.trim()}\n${message.trim()}\n\n${shopName ?? "Our shop"} on LocalMart: ${
+                  (process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "")) + (info?.link ?? "")
+                }`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-[48px] items-center justify-center rounded-full border border-label/20 bg-card text-[16px] font-semibold text-label"
+            >
+              Also share on WhatsApp
+            </a>
+          )}
         </FormCard>
 
         {/* ── Live preview ── */}
@@ -242,7 +280,7 @@ export default function BroadcastPage() {
         </section>
 
         <StickyBar aboveTabBar>
-          <Button type="submit" full loading={isSubmitting} disabled={isSubmitting || Boolean(success)}>
+          <Button type="submit" full loading={isSubmitting} disabled={isSubmitting || Boolean(success) || (info !== null && !info.canSendNow)}>
             {!isSubmitting && <Send className="h-5 w-5" aria-hidden />}
             {isSubmitting ? "Sending…" : "Send offer"}
           </Button>

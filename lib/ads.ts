@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ShopCardShop } from "@/components/landing/ShopCard";
 import type { BusinessHours } from "@/lib/landing/distance";
+import { rememberAdClick } from "@/lib/adAttribution";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -63,8 +64,12 @@ export function useAds(q: AdQuery & { enabled?: boolean }): ServedAd[] {
   return ads;
 }
 
-/** Counts a view (once per visit) or a tap for the shop's report */
-export function trackAd(adId: string, type: "impression" | "click") {
+/**
+ * Counts a view (once per visit) or a tap for the shop's report. On a tap,
+ * also remembers the ad so WhatsApp / Call taps at the shop count for it.
+ */
+export function trackAd(adId: string, type: "impression" | "click", vendorId?: string) {
+  if (type === "click" && vendorId) rememberAdClick(vendorId, adId);
   if (type === "impression") {
     const key = `ad-seen:${adId}`;
     try {

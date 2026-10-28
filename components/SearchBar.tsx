@@ -285,8 +285,8 @@ export function SearchBar({
         (results.stores?.length > 0 ||
           results.products?.length > 0 ||
           results.suggestions?.length > 0 ||
-          results.recentSearches?.length > 0 ||
-          results.popularSearches?.length > 0)));
+          (results.recentSearches?.length ?? 0) > 0 ||
+          (results.popularSearches?.length ?? 0) > 0)));
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>

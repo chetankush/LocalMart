@@ -108,7 +108,7 @@ export default async function StorePage({ params }: StorePageProps) {
 
           {vendor.storeReviews && vendor.storeReviews.length > 0 ? (
             <div className="space-y-4">
-              {vendor.storeReviews.map((review) => (
+              {vendor.storeReviews.map((review: any) => (
                 <div
                   key={review.id}
                   className="border-b border-gray-200 pb-4 last:border-0"

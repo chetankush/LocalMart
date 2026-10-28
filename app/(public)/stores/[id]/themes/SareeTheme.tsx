@@ -8,24 +8,22 @@ import { Cormorant_Garamond } from "next/font/google";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import AddStepper from "@/components/cart/AddStepper";
+import { MessageShopButton } from "@/components/contact/MessageShop";
+import { waText, whatsappLinkProps } from "@/lib/contact";
+import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 import StoreHeroCarousel, { type HeroSlide } from "./StoreHeroCarousel";
 import { SAREE_FABRICS, SAREE_OCCASIONS, fabricSpot, occasionSpot, pageImagesOf } from "@/lib/shop-page";
 import {
   ArrowRight,
   Clock,
-  IndianRupee,
   MapPin,
   MessageCircle,
   Navigation,
   Package,
-  Phone,
-  PhoneCall,
   Search,
   SlidersHorizontal,
   Sparkles,
   Star,
-  Store,
-  Wallet,
   X,
 } from "lucide-react";
 
@@ -52,6 +50,7 @@ interface Product {
   isFeatured?: boolean;
   category?: { name: string; slug: string } | null;
   listingType?: "SALE" | "RENT" | null;
+  variants?: Size[] | null;
 }
 
 interface StoreAddress {
@@ -73,7 +72,6 @@ interface SareeVendor {
   businessAddress?: string | StoreAddress | null;
   businessHours?: BusinessHours | null;
   whatsappNumber?: string | null;
-  contactPhone?: string | null;
   instagramHandle?: string | null;
   averageRating?: Numeric | null;
   reviewCount?: number;
@@ -296,20 +294,15 @@ function SectionHeading({
 
 /**
  * "New collection is here" — shown only when the shop added designs in the
- * last NEW_ARRIVAL_DAYS days. The photos of the newest pieces change by
- * themselves; the button opens the New arrivals list.
+ * last NEW_ARRIVAL_DAYS days. A still picture of the newest pieces (nothing
+ * moves — the banner carousel at the top already does); the button opens
+ * the New arrivals list.
  */
 function NewCollectionBanner({ items, count, onOpen }: { items: Product[]; count: number; onOpen: () => void }) {
   const photos = items
     .map((p) => toImageList(p.images)[0])
     .filter((x): x is string => Boolean(x))
-    .slice(0, 5);
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    if (photos.length < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setShown((n) => (n + 1) % photos.length), 3500);
-    return () => clearInterval(t);
-  }, [photos.length]);
+    .slice(0, 3);
   // Fixed time zone, so the server and the phone print the same date
   const latest = items[0]
     ? new Date(items[0].createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })
@@ -349,26 +342,24 @@ function NewCollectionBanner({ items, count, onOpen }: { items: Product[]; count
             </button>
           </div>
 
-          <div className="relative min-h-[230px] sm:min-h-[320px]">
-            {photos.map((src, k) => (
-              <Image
-                key={src}
-                src={src}
-                alt=""
-                fill
-                sizes="(max-width: 640px) 42vw, 540px"
-                className={`object-cover object-top transition-opacity duration-1000 ${k === shown ? "opacity-100" : "opacity-0"}`}
-              />
-            ))}
+          {/* The newest piece large, the next two beside it (one on phones) */}
+          <div className="relative grid min-h-[230px] grid-cols-1 gap-1 sm:min-h-[320px] sm:grid-cols-[2fr_1fr]">
+            {photos[0] && (
+              <div className="relative">
+                <Image src={photos[0]} alt="" fill sizes="(max-width: 640px) 42vw, 360px" className="object-cover object-top" />
+              </div>
+            )}
+            {photos.length > 1 && (
+              <div className="hidden grid-rows-2 gap-1 sm:grid">
+                {photos.slice(1, 3).map((src) => (
+                  <div key={src} className="relative">
+                    <Image src={src} alt="" fill sizes="180px" className="object-cover object-top" />
+                  </div>
+                ))}
+              </div>
+            )}
             {/* Soft edge into the text side */}
             <span className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#FBEFD2] to-transparent sm:w-16" aria-hidden />
-            {photos.length > 1 && (
-              <span className="absolute bottom-3 right-3 flex gap-1" aria-hidden>
-                {photos.map((src, k) => (
-                  <span key={src} className={`h-1.5 rounded-full transition-all ${k === shown ? "w-4 bg-white" : "w-1.5 bg-white/60"}`} />
-                ))}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -378,11 +369,13 @@ function NewCollectionBanner({ items, count, onOpen }: { items: Product[]; count
 
 function SareeCard({
   product,
+  vendorId,
   vendorName,
   whatsappDigits,
   fabricLabel,
 }: {
   product: Product;
+  vendorId: string;
   vendorName: string;
   whatsappDigits: string | null;
   fabricLabel: string | null;
@@ -394,11 +387,13 @@ function SareeCard({
   const isOutOfStock = product.stockQuantity === 0;
   const isNew = isNewArrival(product.createdAt);
 
-  const whatsappHref = whatsappDigits
-    ? `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(
-        `Hi ${vendorName}, I am interested in "${product.name}" (${formatINR(price)}). Is it available?`
-      )}`
-    : null;
+  const wa = whatsappLinkProps({
+    number: whatsappDigits,
+    text: waText.product(vendorName, product.name, price),
+    vendorId,
+    source: "PRODUCT",
+    productId: product.id,
+  });
 
   return (
     <div className="group flex flex-col h-full bg-white rounded-xl overflow-hidden border border-[#EADBC8] hover:border-[#B8862B]/60 transition-colors">
@@ -474,7 +469,8 @@ function SareeCard({
             </Link>
           ) : (
           <AddStepper
-            disabled={isOutOfStock}
+            disabled={isOutOfStock || allSizesSoldOut(product)}
+            chooseSizeHref={hasSizes(product) ? `/products/${product.id}` : undefined}
             item={{
               id: product.id,
               name: product.name,
@@ -508,11 +504,9 @@ function SareeCard({
           )}
         </div>
 
-        {whatsappHref && (
+        {wa && (
           <a
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
+            {...wa}
             aria-label={`Ask about ${product.name} on WhatsApp`}
             className="mt-auto inline-flex items-center gap-1.5 self-start py-1 text-[13px] font-semibold text-green-700 hover:underline"
           >
@@ -569,7 +563,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const whatsappDigits = vendor.whatsappNumber
     ? vendor.whatsappNumber.replace(/[^0-9]/g, "")
     : null;
-  const phone = vendor.contactPhone || vendor.whatsappNumber || null;
+  // No phone number on the page: buyers message the shop here (a lead) or on WhatsApp
+  const wa = whatsappLinkProps({ number: whatsappDigits, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
+  const messageTarget = { vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber }, source: "SHOP" as const };
   const addressLine = getAddressLine(vendor);
 
 
@@ -846,6 +842,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
   const renderCard = (product: Product) => (
     <SareeCard
       product={product}
+      vendorId={vendor.id}
       vendorName={vendor.businessName}
       whatsappDigits={whatsappDigits}
       fabricLabel={fabricOf(product)}
@@ -1019,12 +1016,13 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
               {ownerNote}
             </p>
           )}
-          <div className={`mt-4 grid gap-2 sm:mt-0 sm:w-[360px] sm:shrink-0 ${[phone, true, whatsappDigits].filter(Boolean).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-            {phone && (
-              <a href={`tel:${phone}`} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-[#6E1423]/30 text-[14px] font-semibold text-[#6E1423] hover:bg-[#6E1423]/5">
-                <Phone className="h-4 w-4" aria-hidden /> Call
-              </a>
-            )}
+          <div className={`mt-4 grid gap-2 sm:mt-0 sm:w-[360px] sm:shrink-0 ${wa ? "grid-cols-3" : "grid-cols-2"}`}>
+            <MessageShopButton
+              target={messageTarget}
+              className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-[#6E1423] text-[14px] font-semibold text-white hover:bg-[#4A0D18] cursor-pointer"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden /> Message
+            </MessageShopButton>
             <a
               href={getDirectionsUrl(vendor)}
               target="_blank"
@@ -1033,11 +1031,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
             >
               <Navigation className="h-4 w-4" aria-hidden /> Directions
             </a>
-            {whatsappDigits && (
+            {wa && (
               <a
-                href={`https://wa.me/${whatsappDigits}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...wa}
                 className="flex h-11 items-center justify-center gap-1.5 rounded-full bg-green-700 text-[14px] font-semibold text-white hover:bg-green-800"
               >
                 <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
@@ -1454,11 +1450,9 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                     Clear all filters
                   </button>
                 ) : (
-                  whatsappDigits && (
+                  wa && (
                     <a
-                      href={`https://wa.me/${whatsappDigits}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      {...wa}
                       className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors"
                     >
                       <MessageCircle className="w-4 h-4" />
@@ -1523,14 +1517,6 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                 <p className="text-sm text-white/85">{todayHours}</p>
               </div>
             )}
-            {phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="w-5 h-5 text-[#E9C979] flex-shrink-0 mt-0.5" />
-                <a href={`tel:${phone}`} className="text-sm text-white/85 hover:text-white">
-                  {phone}
-                </a>
-              </div>
-            )}
             <div className="flex flex-wrap gap-2 pt-2">
               <a
                 href={getDirectionsUrl(vendor)}
@@ -1541,11 +1527,16 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                 <Navigation className="w-4 h-4" />
                 Get directions
               </a>
-              {whatsappDigits && (
+              <MessageShopButton
+                target={messageTarget}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-[#4A0D18] text-sm font-semibold hover:bg-[#FBF6EE] transition-colors cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Message the shop
+              </MessageShopButton>
+              {wa && (
                 <a
-                  href={`https://wa.me/${whatsappDigits}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  {...wa}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />

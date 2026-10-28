@@ -23,6 +23,12 @@ export interface AdBookingView {
   bannerTitle: string | null;
   impressions: number;
   clicks: number;
+  /** WhatsApp / Call taps at the shop by people who came through this ad */
+  whatsappTaps?: number;
+  callTaps?: number;
+  /** Orders placed within a day of tapping this ad (not cancelled) */
+  orders?: number;
+  orderValue?: number;
   paidAt: string | null;
   createdAt: string;
   // admin list only

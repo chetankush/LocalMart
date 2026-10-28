@@ -1,4 +1,20 @@
-import { PrismaClient, StoreTheme } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
+
+// Store looks used below (the website's own Prisma client doesn't list them)
+const StoreTheme = {
+  KIRANA: 'KIRANA',
+  GROCERY: 'GROCERY',
+  DAIRY: 'DAIRY',
+  CLOTHING: 'CLOTHING',
+  FASHION: 'FASHION',
+  SHOES: 'SHOES',
+  ELECTRONICS: 'ELECTRONICS',
+  MOBILES: 'MOBILES',
+  COSMETICS: 'COSMETICS',
+  BEAUTY_PARLOUR: 'BEAUTY_PARLOUR',
+  MEDICINE: 'MEDICINE',
+  PHARMACY: 'PHARMACY',
+} as const;
 
 const prisma = new PrismaClient();
 

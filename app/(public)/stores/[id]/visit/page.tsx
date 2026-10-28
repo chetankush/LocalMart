@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarCheck, CalendarPlus, CircleAlert, CircleCheck, Info, MessageCircle, Navigation } from "lucide-react";
-import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer } from "@/components/app/ui";
+import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer, buttonClass } from "@/components/app/ui";
+import { waText, whatsappLinkProps } from "@/lib/contact";
 import { Field, FormCard, inputClass, selectClass, textareaClass } from "@/components/app/form";
 import { apiError } from "@/components/ads/adLabels";
 import {
@@ -13,7 +14,6 @@ import {
   directionsUrl,
   time12,
   visitWhen,
-  whatsappUrl,
   type MyVisit,
   type VisitShopInfo,
   type VisitSlot,
@@ -202,10 +202,12 @@ export default function BookVisitPage() {
   }
 
   if (done) {
-    const wa = whatsappUrl(
-      done.shopPhone,
-      `Hi ${done.shopName}, I booked a visit on LocalMart for ${visitWhen(done.startsAt)}.`,
-    );
+    const wa = whatsappLinkProps({
+      number: done.shopPhone,
+      text: `${waText.shop(done.shopName)} Maine ${visitWhen(done.startsAt)} ka visit book kiya hai.`,
+      vendorId: done.shopId,
+      source: "VISIT",
+    });
     return (
       <Page>
         <LargeTitle title="Visit booked" back={back} />
@@ -224,9 +226,9 @@ export default function BookVisitPage() {
             <CalendarPlus className="h-5 w-5" aria-hidden /> Add to calendar
           </Button>
           {wa && (
-            <Button href={wa} variant="secondary" full>
+            <a {...wa} className={buttonClass("secondary", "lg", true)}>
               <MessageCircle className="h-5 w-5" aria-hidden /> WhatsApp the shop
-            </Button>
+            </a>
           )}
           <Button href="/my-visits" full>
             <CalendarCheck className="h-5 w-5" aria-hidden /> See my visits
