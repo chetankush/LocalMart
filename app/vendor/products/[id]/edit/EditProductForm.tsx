@@ -481,7 +481,7 @@ export default function EditProductForm({
           </Button>
         </StickyBar>
       </form>
-      <HandloomProofCard productId={product.id} />
+      <HandloomProofCard productId={product.id} vendorId={product.vendorId} />
 
       <CategoryPicker
         open={showCategoryPicker}

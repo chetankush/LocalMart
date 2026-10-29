@@ -11,6 +11,7 @@ import { apiError } from "@/components/ads/adLabels";
 import { useConfirm } from "@/hooks/useConfirm";
 import { signInHref } from "@/lib/auth/returnTo";
 import { siteOrigin } from "@/lib/shopHandle";
+import { refreshShopPage } from "@/lib/refreshShopPage";
 import { saleShareText, type StockSale } from "@/lib/stockSale";
 
 /**
@@ -23,6 +24,7 @@ export default function StockSalesPage() {
   const confirm = useConfirm();
   const [storeQuery, setStoreQuery] = useState("");
   const [shopName, setShopName] = useState("");
+  const [shopId, setShopId] = useState<string | null>(null);
   const [sales, setSales] = useState<StockSale[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sharing, setSharing] = useState<StockSale | null>(null);
@@ -34,8 +36,9 @@ export default function StockSalesPage() {
     setStoreQuery(q);
     try {
       const { apiClient } = await import("@/lib/api/client");
-      const r = await apiClient.get<{ data: { shop: { name: string }; sales: StockSale[] } }>(`/vendor/stock-sales${q}`);
+      const r = await apiClient.get<{ data: { shop: { id: string; name: string }; sales: StockSale[] } }>(`/vendor/stock-sales${q}`);
       setShopName(r.data.shop.name);
+      setShopId(r.data.shop.id);
       setSales(r.data.sales);
       setError(null);
     } catch (err) {
@@ -79,6 +82,7 @@ export default function StockSalesPage() {
       const { apiClient } = await import("@/lib/api/client");
       const r = await apiClient.post<{ data: StockSale }>(`/vendor/stock-sales/${s.id}/end${storeQuery}`);
       replace(r.data);
+      void refreshShopPage(shopId, s.items.map((i) => i.productId));
       toast.success("Sale ended · prices are back");
     } catch (err) {
       toast.error(apiError(err).message || "Couldn't end it. Please try again.");

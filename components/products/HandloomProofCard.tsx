@@ -8,6 +8,7 @@ import { Field, inputClass } from "@/components/app/form";
 import { apiError } from "@/components/ads/adLabels";
 import { useConfirm } from "@/hooks/useConfirm";
 import { HANDLOOM_TYPES, type HandloomProofView, type HandloomType } from "@/lib/handloom";
+import { refreshShopPage } from "@/lib/refreshShopPage";
 
 const MAX_PROOF = 4;
 
@@ -16,7 +17,7 @@ const MAX_PROOF = 4;
  * the proof (Handloom Mark, Silk Mark, GI label, the weaver's bill, the loom)
  * and send it. LocalMart checks; buyers then see "Verified Chanderi handloom".
  */
-export default function HandloomProofCard({ productId }: { productId: string }) {
+export default function HandloomProofCard({ productId, vendorId }: { productId: string; vendorId?: string }) {
   const confirm = useConfirm();
   const [view, setView] = useState<HandloomProofView | null>(null);
   const [editing, setEditing] = useState(false);
@@ -108,6 +109,7 @@ export default function HandloomProofCard({ productId }: { productId: string }) 
       const r = await apiClient.delete<{ data: HandloomProofView }>(`/vendor/products/${productId}/handloom`);
       fill(r.data);
       setEditing(false);
+      void refreshShopPage(vendorId, productId);
     } catch (err) {
       toast.error(apiError(err).message || "Couldn't remove it. Please try again.");
     }
@@ -116,7 +118,8 @@ export default function HandloomProofCard({ productId }: { productId: string }) 
   const showForm = editing || view.status === "NONE";
 
   return (
-    <section id="handloom" className="mt-6 scroll-mt-20 rounded-2xl bg-card p-4 sm:p-5" aria-labelledby="handloom-title">
+    // Bottom margin: clear of the page's sticky Save bar
+    <section id="handloom" className="mb-28 mt-6 scroll-mt-20 rounded-2xl bg-card p-4 sm:p-5" aria-labelledby="handloom-title">
       <h2 id="handloom-title" className="flex items-center gap-2 text-[17px] font-semibold text-label">
         <ShieldCheck className="h-5 w-5 text-ok" aria-hidden /> Real handloom or pure silk?
       </h2>

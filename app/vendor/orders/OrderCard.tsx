@@ -318,7 +318,8 @@ export default function OrderCard({ order }: OrderCardProps) {
           {Number(order.deliveryFee) > 0 && <span> (incl. {rupees(Number(order.deliveryFee))} delivery)</span>}
           {Number(order.discount) > 0 && (
             <span className="block text-[14px] text-ok">
-              After {rupees(Number(order.discount))} off{order.offerText ? ` · ${order.offerText}` : ""}
+              {/* The amount really taken off, and which offer — "QAF800", or "Special price" */}
+              After {rupees(Number(order.discount))} off{order.offerText ? ` · ${order.offerText.split(" · ")[0]}` : ""}
             </span>
           )}
         </span>

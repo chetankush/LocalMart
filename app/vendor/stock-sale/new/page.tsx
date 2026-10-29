@@ -11,6 +11,7 @@ import { ShareLinkBody } from "@/components/share/ShareLinkSheet";
 import { apiError } from "@/components/ads/adLabels";
 import { signInHref } from "@/lib/auth/returnTo";
 import { siteOrigin } from "@/lib/shopHandle";
+import { refreshShopPage } from "@/lib/refreshShopPage";
 import { SALE_PERCENTS, ageText, salePrice, saleShareText, type SaleCandidate, type StockSale } from "@/lib/stockSale";
 
 type Percent = "10" | "20" | "30" | "40" | "OTHER";
@@ -92,11 +93,13 @@ export default function NewStockSalePage() {
     setSaving(true);
     try {
       const { apiClient } = await import("@/lib/api/client");
-      const r = await apiClient.post<{ data: StockSale & { shopName: string } }>(`/vendor/stock-sales${storeQuery}`, {
+      const r = await apiClient.post<{ data: StockSale & { shopId: string; shopName: string } }>(`/vendor/stock-sales${storeQuery}`, {
         productIds: chosen.map((c) => c.id),
         percentOff: pct,
         days: Number(days),
       });
+      // Buyers see the sale prices right away, not when the page cache runs out
+      void refreshShopPage(r.data.shopId, r.data.items.map((i) => i.productId));
       setShopName(r.data.shopName);
       setStarted(r.data);
       window.scrollTo({ top: 0 });

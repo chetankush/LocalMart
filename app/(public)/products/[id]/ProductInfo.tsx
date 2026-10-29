@@ -54,6 +54,10 @@ interface ProductInfoProps {
     whatsappNumber?: string | null;
     averageRating: Numeric | null;
     reviewCount: number;
+    /** The shop takes UPI */
+    upiId?: string | null;
+    /** The shop takes cash only up to this (₹) */
+    codLimit?: number | null;
   };
 }
 
@@ -119,6 +123,14 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
   });
   const sq = quote?.stores[0];
   const area = location?.pincode;
+
+  // How this shop takes payment for this item: cash, UPI, or UPI only above its cash limit
+  const hasUpi = !!vendor.upiId;
+  const overCashLimit = vendor.codLimit != null && price > vendor.codLimit;
+  const payTitle = overCashLimit ? (hasUpi ? "Pay by UPI" : "Ask the shop how to pay") : hasUpi ? "Cash on delivery or UPI" : "Cash on delivery";
+  const payText = overCashLimit
+    ? `${vendor.businessName} takes cash up to ${rupees(vendor.codLimit!)} — pay this one by UPI, straight to the shop`
+    : "Pay the shop directly — no advance needed";
 
   let deliveryTitle = "Delivered by the shop";
   let deliveryText = "Choose your area at the top to see the delivery charge";
@@ -347,8 +359,8 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
         <li className="flex gap-3 p-4">
           <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-label" aria-hidden />
           <span>
-            <span className="block text-[15px] font-semibold text-label">Cash on delivery or UPI</span>
-            <span className="block text-[14px] text-label-2">Pay the shop directly — no advance needed</span>
+            <span className="block text-[15px] font-semibold text-label">{payTitle}</span>
+            <span className="block text-[14px] text-label-2">{payText}</span>
           </span>
         </li>
         {exchange && (

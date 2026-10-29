@@ -10,6 +10,7 @@ import { AdminPage, Chips, EmptyBlock, LoadingBlock, Toolbar } from "@/component
 import { apiError } from "@/components/ads/adLabels";
 import { useConfirm } from "@/hooks/useConfirm";
 import type { HandloomProofView } from "@/lib/handloom";
+import { refreshShopPage } from "@/lib/refreshShopPage";
 
 type Status = "PENDING" | "VERIFIED" | "REJECTED";
 
@@ -86,6 +87,8 @@ export default function AdminHandloomPage() {
     try {
       const { apiClient } = await import("@/lib/api/client");
       await apiClient.post(`/admin/handloom/${r.productId}`, { verdict, ...(why ? { note: why } : {}) });
+      // Buyers see the badge right away, not when the page cache runs out
+      if (verdict === "VERIFIED") void refreshShopPage(r.shop.id, r.productId);
       toast.success(verdict === "VERIFIED" ? `Verified — ${r.shop.businessName} has been told` : `Not verified — ${r.shop.businessName} knows what to fix`);
       setRejecting(null);
     } catch (err) {

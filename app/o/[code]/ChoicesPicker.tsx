@@ -50,7 +50,8 @@ export default function ChoicesPicker({ link }: { link: PublicOrderLink }) {
     setPicks((prev) => {
       const next = { ...prev };
       if (next[id]) delete next[id];
-      else next[id] = { quantity: 1, variantId: item.variantId };
+      // Only one size left: it's the one — no extra tap
+      else next[id] = { quantity: 1, variantId: item.variantId ?? (item.sizes?.length === 1 ? item.sizes[0].id : null) };
       return next;
     });
   };
