@@ -40,6 +40,10 @@ export interface StoreQuote {
   exchangePolicy: { allowed?: boolean; days?: number | null; sizeColourOnly?: boolean; notOnSale?: boolean; note?: string | null } | null;
   /** Parcels are paid in advance (UPI) */
   prepaidOnly: boolean;
+  /** Cash on delivery allowed for this shop's part (not parcels, not above the shop's cash limit) */
+  codAllowed?: boolean;
+  /** The shop takes cash only up to this (₹) */
+  codLimit?: number | null;
   /** Shop pressed "Busy": no new orders until then, with words for the shopper */
   busyUntil?: string | null;
   busyMessage?: string | null;
@@ -60,10 +64,27 @@ export interface StoreQuote {
 /** An order link a shop sent, as the buyer sees it (/o/<code>) */
 export interface PublicOrderLink {
   code: string;
-  shop: { id: string; name: string; logo: string | null; handle: string | null; city: string | null };
+  /** ORDER: a ready order. CHOOSE: options to pick from (e.g. wedding sarees) */
+  mode: "ORDER" | "CHOOSE";
+  shop: { id: string; name: string; logo: string | null; handle: string | null; city: string | null; takesVisits?: boolean };
   forName: string | null;
   note: string | null;
-  items: { productId: string; variantId: string | null; name: string; image: string | null; price: number; quantity: number; lineTotal: number; available: boolean }[];
+  items: {
+    productId: string;
+    variantId: string | null;
+    name: string;
+    image: string | null;
+    price: number;
+    quantity: number;
+    lineTotal: number;
+    available: boolean;
+    /** Choices: sizes the buyer can pick (empty = no sizes, or fixed) */
+    sizes?: { id: string; label: string }[];
+    /** Choices: most a buyer can take */
+    maxQuantity?: number;
+  }[];
+  /** The shop's special price as a rule, to price the buyer's picks */
+  offerRule?: { kind: "PERCENT" | "FLAT"; value: number; maxOff?: number | null } | null;
   itemsTotal: number;
   discount: number;
   offerText: string | null;
@@ -100,6 +121,7 @@ export interface ShopDiscountCode {
 export interface ShopOrderLink {
   id: string;
   code: string;
+  mode?: "ORDER" | "CHOOSE";
   forName: string | null;
   note: string | null;
   items: { name: string; image: string | null; quantity: number; price: number; lineTotal: number }[];
@@ -915,7 +937,8 @@ class ApiClient {
   }
 
   async updateUserProfile(data: any) {
-    return this.request<{ success: boolean; data: any }>("/user/profile", {
+    // Saved on the API's auth controller (there is no PUT /user/profile)
+    return this.request<{ success: boolean; data: any }>("/auth/profile", {
       method: "PUT",
       body: JSON.stringify(data),
     });
@@ -1124,6 +1147,8 @@ class ApiClient {
         suggestions: any[];
         totalStores: number;
         totalProducts: number;
+        /** Matches in shops that don't deliver to the chosen area */
+        outsideArea?: { stores: number; products: number };
       };
     }>;
   }

@@ -86,12 +86,37 @@ export default function CheckoutPage() {
       .then((r) => setLink(r.data))
       .catch(() => setLinkProblem("This order link doesn't exist. Ask the shop to send it again."));
   }, []);
-  const linkItems: CartItem[] = (link?.items ?? []).map(
+  // "Choose from these" links: what the buyer picked on the link page
+  const [picks, setPicks] = useState<{ productId: string; variantId: string | null; quantity: number }[] | null>(null);
+  useEffect(() => {
+    if (link?.mode !== 'CHOOSE') return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(`lm_pick_${link.code}`) || '[]');
+      if (Array.isArray(saved) && saved.length) {
+        setPicks(saved);
+        return;
+      }
+    } catch {
+      // fall through
+    }
+    router.replace(`/o/${link.code}`); // nothing picked yet
+  }, [link, router]);
+  const linkItems: CartItem[] = (link?.mode === 'CHOOSE' ? picks ?? [] : link?.items ?? []).map(
     (i) => ({ id: i.productId, quantity: i.quantity, ...(i.variantId ? { variantId: i.variantId } : {}) }) as CartItem,
   );
   const items = linkCode ? linkItems : cartItems;
 
   // A shop's discount code: typed here, checked by the server with the prices
+  // Cash on delivery: off for a buyer who didn't take 2 cash orders lately
+  const [codBlock, setCodBlock] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    import('@/lib/api/client')
+      .then(({ apiClient }) => apiClient.get<{ data: { upiOnly: boolean; message: string | null } }>('/orders/cod-status'))
+      .then((r) => setCodBlock(r.data.upiOnly ? r.data.message : null))
+      .catch(() => setCodBlock(null)); // the server still checks when the order is placed
+  }, [user]);
+
   const [codeOpen, setCodeOpen] = useState(false);
   const [codeDraft, setCodeDraft] = useState('');
   const [code, setCode] = useState('');
@@ -200,13 +225,16 @@ export default function CheckoutPage() {
   const shopsWithoutUpi = stores.filter((s) => !s.upiAvailable).map((s) => s.vendorName);
   // Parcels are paid in advance — UPI only
   const hasParcel = stores.some((s) => s.fulfilment === 'PARCEL');
+  // Shops that take cash only up to an amount
+  const overCashLimit = stores.filter((s) => s.fulfilment !== 'PARCEL' && s.codAllowed === false && s.codLimit != null);
+  const codOff = hasParcel || overCashLimit.length > 0 || !!codBlock;
   // Picking everything up at the shop: no street address needed
   const allPickup = stores.length > 0 && stores.every((s) => s.fulfilment === 'PICKUP');
 
   useEffect(() => {
     if (paymentMethod === 'upi' && quote && !upiAvailableEverywhere) setPaymentMethod('cod');
-    if (paymentMethod === 'cod' && hasParcel && upiAvailableEverywhere) setPaymentMethod('upi');
-  }, [paymentMethod, quote, upiAvailableEverywhere, hasParcel]);
+    if (paymentMethod === 'cod' && codOff && upiAvailableEverywhere) setPaymentMethod('upi');
+  }, [paymentMethod, quote, upiAvailableEverywhere, codOff]);
 
   if (!mounted) {
     return (
@@ -220,7 +248,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (linkCode && !link) {
+  if (linkCode && (!link || (link.mode === 'CHOOSE' && !picks))) {
     return (
       <Page>
         <LargeTitle title="Checkout" />
@@ -291,7 +319,9 @@ export default function CheckoutPage() {
     return true;
   };
 
-  const canPlaceOrder = !!quote && quote.canOrder && pinComplete && !quoteLoading;
+  // Cash isn't possible here and UPI isn't either — nothing to pay with
+  const noWayToPay = !!quote && codOff && !upiAvailableEverywhere;
+  const canPlaceOrder = !!quote && quote.canOrder && pinComplete && !quoteLoading && !noWayToPay;
   const subtotal = stores.reduce((sum, s) => sum + s.subtotal, 0);
   const delivery = stores.reduce((sum, s) => sum + s.deliveryFee, 0);
   const discount = stores.reduce((sum, s) => sum + (s.discount ?? 0), 0);
@@ -351,6 +381,13 @@ export default function CheckoutPage() {
       });
 
       if (!linkCode) dispatch(clearCart());
+      if (link?.mode === 'CHOOSE') {
+        try {
+          sessionStorage.removeItem(`lm_pick_${link.code}`);
+        } catch {
+          // fine
+        }
+      }
       try {
         localStorage.setItem(LAST_ADDRESS_KEY, JSON.stringify({ userId: user.id, address }));
       } catch {
@@ -379,7 +416,10 @@ export default function CheckoutPage() {
   return (
     <>
       <Page>
-        <LargeTitle title="Checkout" back={{ href: backHref, label: linkCode ? 'Order link' : 'Cart' }} />
+        <LargeTitle
+          title="Checkout"
+          back={{ href: backHref, label: link?.mode === 'CHOOSE' ? 'Change picks' : linkCode ? 'Order link' : 'Cart' }}
+        />
 
         {link && (
           <div className="mb-5 flex items-start gap-3 rounded-2xl bg-tint-soft p-4">
@@ -390,7 +430,11 @@ export default function CheckoutPage() {
                 {link.forName ? <span className="font-normal text-label-2"> · for {link.forName}</span> : null}
               </p>
               <p className="mt-0.5 text-[14px] leading-snug text-label-2">
-                {link.note ? `“${link.note}”` : 'The shop made this order for you. Add your address and place it.'}
+                {link.note
+                  ? `“${link.note}”`
+                  : link.mode === 'CHOOSE'
+                    ? 'Your picks from the options the shop chose for you.'
+                    : 'The shop made this order for you. Add your address and place it.'}
               </p>
               {quote?.orderLink?.message && (
                 <p role="alert" className="mt-2 text-[14px] font-semibold text-bad">{quote.orderLink.message}</p>
@@ -648,15 +692,19 @@ export default function CheckoutPage() {
           <PaymentRow
             checked={paymentMethod === 'cod'}
             onSelect={() => setPaymentMethod('cod')}
-            disabled={hasParcel}
+            disabled={codOff}
             icon={<Wallet className="h-5 w-5" aria-hidden />}
             title={allPickup ? 'Cash at the shop' : 'Cash on delivery'}
             subtitle={
-              hasParcel
-                ? 'Not for parcels — they are paid in advance by UPI'
-                : allPickup
-                  ? 'Pay cash when you pick it up'
-                  : 'Pay cash when your order arrives'
+              codBlock
+                ? codBlock
+                : hasParcel
+                  ? 'Not for parcels — they are paid in advance by UPI'
+                  : overCashLimit.length > 0
+                    ? `${overCashLimit[0].vendorName} takes cash up to ${rupees(overCashLimit[0].codLimit!)} — pay this order by UPI`
+                    : allPickup
+                      ? 'Pay cash when you pick it up'
+                      : 'Pay cash when your order arrives'
             }
           />
           <PaymentRow
@@ -673,6 +721,13 @@ export default function CheckoutPage() {
                   : 'Enter your PIN code first'
             }
           />
+          {noWayToPay && (
+            <div className="px-4 py-3">
+              <Notice tone="bad">
+                {shopsWithoutUpi.join(', ')} doesn&apos;t take UPI yet, and cash on delivery isn&apos;t possible for this order. Message the shop to sort it out.
+              </Notice>
+            </div>
+          )}
         </Section>
 
         {/* ── Summary ── */}

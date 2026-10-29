@@ -11,7 +11,7 @@ import { ShareLinkSheet } from "@/components/share/ShareLinkSheet";
 import { apiError } from "@/components/ads/adLabels";
 import { useConfirm } from "@/hooks/useConfirm";
 import { signInHref } from "@/lib/auth/returnTo";
-import { LINK_STATE, orderLinkMessage } from "@/lib/offers";
+import { LINK_STATE, choicesMessage, orderLinkMessage } from "@/lib/offers";
 import { orderLinkUrl } from "@/lib/shopHandle";
 import type { ShopOrderLink } from "@/lib/api/client";
 
@@ -107,7 +107,11 @@ export default function OrderLinksPage() {
       {links && links.length > 0 && (
         <ul className="space-y-3">
           {links.map((l) => {
-            const st = l.orders.length > 0 && l.state !== "CANCELLED" ? LINK_STATE.USED : LINK_STATE[l.state];
+            // Choices stay open after an order (the family orders more than once)
+            const st =
+              l.orders.length > 0 && l.state !== "CANCELLED" && !(l.mode === "CHOOSE" && l.state === "OPEN")
+                ? LINK_STATE.USED
+                : LINK_STATE[l.state];
             const first = l.items[0];
             return (
               <li key={l.id} className="rounded-2xl bg-card p-4">
@@ -121,8 +125,16 @@ export default function OrderLinksPage() {
                     <p className="mt-0.5 text-[14px] text-label-2">
                       {l.forName ? `For ${l.forName}` : l.forAnyone ? "For anyone" : "For one buyer"}
                       {" · "}
-                      <span className="font-semibold tabular-nums text-label">{rupees(l.total)}</span>
-                      {l.discount > 0 && <span className="text-ok"> (−{rupees(l.discount)})</span>}
+                      {l.mode === "CHOOSE" ? (
+                        <span className="font-semibold text-label">
+                          {l.items.length} options to choose{l.offerText ? ` · ${l.offerText}` : ""}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-semibold tabular-nums text-label">{rupees(l.total)}</span>
+                          {l.discount > 0 && <span className="text-ok"> (−{rupees(l.discount)})</span>}
+                        </>
+                      )}
                     </p>
                   </div>
                   <Pill tone={st.tone}>{st.label}</Pill>
@@ -198,7 +210,11 @@ export default function OrderLinksPage() {
           title="Send the order link"
           description={sharing.forName ? `For ${sharing.forName}` : undefined}
           url={shareUrl}
-          message={orderLinkMessage({ shopName, forName: sharing.forName, items: sharing.items, discount: sharing.discount, offerText: sharing.offerText, total: sharing.total, url: shareUrl })}
+          message={
+            sharing.mode === "CHOOSE"
+              ? choicesMessage({ shopName, forName: sharing.forName, count: sharing.items.length, offerText: sharing.offerText, url: shareUrl })
+              : orderLinkMessage({ shopName, forName: sharing.forName, items: sharing.items, discount: sharing.discount, offerText: sharing.offerText, total: sharing.total, url: shareUrl })
+          }
         />
       )}
     </Page>

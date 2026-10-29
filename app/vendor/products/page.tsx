@@ -111,6 +111,9 @@ export default async function VendorProductsPage() {
     counted: p.trackStock !== false,
     availableAgainAt: p.availableAgainAt ?? null,
     stockBeforeOff: p.stockBeforeOff ?? null,
+    sale: p.saleItems?.[0]
+      ? { percentOff: Number(p.saleItems[0].sale.percentOff), endsAt: String(p.saleItems[0].sale.endsAt), priceBefore: Number(p.saleItems[0].priceBefore) }
+      : null,
   }));
 
   const outOfStock = items.filter((p) => p.stock <= 0).length;

@@ -1,5 +1,6 @@
 "use client";
 
+import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,6 +38,9 @@ interface ProductInfoProps {
     variants?: Size[] | null;
     /** The last pieces are kept aside for another buyer till then */
     keptAsideUntil?: string | null;
+    /** "Verified Chanderi handloom" once LocalMart checked the shop's proof */
+    handloomType?: string | null;
+    handloomStatus?: string | null;
   };
   vendor: {
     id: string;
@@ -238,6 +242,11 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
       </Link>
 
       <h1 className="mt-1 text-[22px] font-bold leading-snug text-label sm:text-[28px]">{product.name}</h1>
+      {product.handloomStatus === "VERIFIED" && (
+        <div className="mt-1.5">
+          <HandloomBadge product={product} />
+        </div>
+      )}
 
       {rating > 0 && product.reviewCount > 0 && (
         <a href="#reviews" className="mt-1 inline-flex items-center gap-1 text-[14px] text-label-2 hover:underline">

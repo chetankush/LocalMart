@@ -6,7 +6,7 @@ import { Sheet } from "@/components/app/Sheet";
 import { Field, inputClass, textareaClass } from "@/components/app/form";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { apiError } from "@/components/ads/adLabels";
-import { trackContact, whatsappHref, type ContactSource } from "@/lib/contact";
+import { rememberContact, savedContact, trackContact, whatsappHref, type ContactSource } from "@/lib/contact";
 
 /**
  * "Message the shop": the buyer's message, name and number go straight to the
@@ -19,7 +19,6 @@ export type MessageShopTarget = {
   source: ContactSource;
 };
 
-const CONTACT_KEY = "lm_contact";
 
 const QUICK: Record<"SHOP" | "PRODUCT" | "RENT", string[]> = {
   SHOP: ["Kya dukaan abhi khuli hai?", "Home delivery milegi?", "Price list bhej dijiye"],
@@ -45,12 +44,7 @@ export function MessageShopSheet({ open, onClose, target }: { open: boolean; onC
   // Fresh form each time it opens; name and number remembered on this phone
   useEffect(() => {
     if (!open) return;
-    let saved: { name?: string; phone?: string } = {};
-    try {
-      saved = JSON.parse(localStorage.getItem(CONTACT_KEY) || "{}");
-    } catch {
-      // nothing saved
-    }
+    const saved = savedContact(user?.id);
     setName(saved.name || (user?.user_metadata?.full_name as string) || "");
     setPhone(saved.phone || "");
     setMessage(firstMessage(target));
@@ -81,11 +75,7 @@ export function MessageShopSheet({ open, onClose, target }: { open: boolean; onC
         message: message.trim(),
         source: target.source === "RENT" ? "RENT" : target.product ? "PRODUCT" : "SHOP",
       });
-      try {
-        localStorage.setItem(CONTACT_KEY, JSON.stringify({ name: name.trim(), phone: digits }));
-      } catch {
-        // private mode
-      }
+      rememberContact(user?.id, { name: name.trim(), phone: digits });
       setSent({ shopName: res?.data?.shopName ?? target.vendor.businessName });
     } catch (err) {
       setErrors({ form: apiError(err).message || "Couldn't send. Check your internet and try again." });

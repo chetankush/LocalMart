@@ -11,6 +11,23 @@ export type UserRole = "CUSTOMER" | "VENDOR" | "ADMIN";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 /**
+ * The signed-in person's access token on the server, or "" for a guest.
+ * Read through Supabase (its cookie is "sb-<project>-auth-token", so
+ * looking for a fixed cookie name misses every signed-in visitor).
+ */
+export async function getServerAccessToken(): Promise<string> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Get current authenticated user from API
  * The backend will sync with Supabase if user doesn't exist
  */

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getServerAccessToken } from "@/src/shared/utils/auth";
 import LandingPageClient from "./LandingPageClient";
 import { jsonLd, siteUrl } from "@/lib/seo";
 import type { Vendor } from "@/components/landing/StoresNearYouSection";
@@ -184,10 +185,8 @@ async function getUserFavorites(authToken: string) {
 
 export default async function Home() {
   const cookieStore = await cookies();
-  const authToken =
-    cookieStore.get("sb-access-token")?.value ||
-    cookieStore.get("sb-auth-token")?.value ||
-    "";
+  // Signed in? (read through Supabase — its cookie name includes the project)
+  const authToken = await getServerAccessToken();
   const loc = parseLocationCookie(cookieStore.get(LOCATION_COOKIE_KEY)?.value);
   const hasLocation =
     !!loc && (!!loc.pincode || (typeof loc.lat === "number" && typeof loc.lng === "number"));

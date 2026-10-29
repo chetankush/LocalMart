@@ -6,7 +6,7 @@
  *    (or taps "Stop ringing")
  *  - a full-screen card with the order and three big answers, on any seller page
  *  - a phone notification when the page is in the background
- * Sound needs one tap on the page first (a browser rule) — a small pill
+ * Sound needs one tap on the page first (a browser rule) — RingerOffBar
  * says so until then.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -97,7 +97,7 @@ function useRinger() {
 
 export function NewOrderAlert() {
   const pathname = usePathname() ?? '';
-  const { orders, stores, silencedIds, silence, audioUnlocked, clockOffsetMs, consumeNewOrderEvents, newOrderEvents } = useApprovals();
+  const { orders, silencedIds, silence, clockOffsetMs, consumeNewOrderEvents, newOrderEvents } = useApprovals();
   useRinger();
 
   // The toast queue isn't used any more — the alert shows the orders
@@ -112,8 +112,6 @@ export function NewOrderAlert() {
 
   return (
     <>
-      {/* Only for a signed-in seller with a shop — not on the sign-in screen */}
-      {!audioUnlocked && stores.length > 0 && <SoundOffBar />}
       {current && !onInbox && (
         <AlertCard
           key={current.id}
@@ -130,18 +128,48 @@ export function NewOrderAlert() {
   );
 }
 
-/** Until the seller touches the page, browsers block sound — say so, plainly */
-function SoundOffBar() {
+// Set-up and waiting screens: no ringer notice (same list as the tab bar)
+const NO_RINGER_BAR = ['/vendor/onboarding', '/vendor/pending', '/vendor/rejected'];
+
+/**
+ * Until the seller touches the page, browsers block sound — say so, plainly.
+ * Phones: a bar at the top of the page, in the page itself, so it never sits
+ * on top of a page's buttons (desktops say it in the tab strip). The first tap
+ * turns the ringer on; the bar then says "on" and goes away on the next page —
+ * never while the finger is down, so nothing under it jumps.
+ */
+export function RingerOffBar() {
+  const pathname = usePathname() ?? '';
+  const { stores, audioUnlocked } = useApprovals();
+  const [shownOn, setShownOn] = useState<string | null>(null);
+  useEffect(() => {
+    if (!audioUnlocked) setShownOn(pathname);
+  }, [audioUnlocked, pathname]);
+
+  // Only for a signed-in seller with a shop — not on the sign-in or set-up screens
+  if (stores.length === 0 || NO_RINGER_BAR.some((p) => pathname.startsWith(p))) return null;
+  if (audioUnlocked && shownOn !== pathname) return null;
+
   return (
-    // Floating pill above the tab bar — never covers the header or the page's buttons
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom,0px))] z-[60] flex justify-center px-4 lg:bottom-6">
-      {/* Not a button: taps go through to the page (any tap turns the ringer on) */}
+    <div className="mx-auto w-full max-w-2xl px-4 pt-3 lg:hidden">
+      {/* Not a button: any tap on the page turns the ringer on */}
       <div
         role="status"
-        className="flex min-h-[44px] items-center gap-2 rounded-full bg-label px-4 py-2 text-[14px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,0.3)]"
+        className={`flex min-h-[44px] items-center gap-2.5 rounded-2xl px-4 py-2 text-[14px] font-semibold leading-snug ${
+          audioUnlocked ? 'bg-ok-soft text-ok' : 'bg-label text-white'
+        }`}
       >
-        <VolumeX className="h-4 w-4 shrink-0" aria-hidden />
-        Order ringer is off — tap anywhere · घंटी चालू करें
+        {audioUnlocked ? (
+          <>
+            <BellRing className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            Order ringer is on · घंटी चालू है
+          </>
+        ) : (
+          <>
+            <VolumeX className="h-[18px] w-[18px] shrink-0" aria-hidden />
+            Order ringer is off — tap anywhere to turn it on · घंटी चालू करने के लिए कहीं भी दबाएँ
+          </>
+        )}
       </div>
     </div>
   );
@@ -215,6 +243,13 @@ function AlertCard({
                 </span>
               )}
             </div>
+          )}
+          {order.buyerRecord && (order.buyerRecord.refused > 0 || order.buyerRecord.delivered > 0) && (
+            <p className={`mt-3 rounded-xl px-3 py-2 text-[14px] font-semibold ${order.buyerRecord.refused > 0 ? 'bg-white text-bad' : 'bg-white/20'}`}>
+              {order.buyerRecord.refused > 0
+                ? `Didn't take ${order.buyerRecord.refused} cash order${order.buyerRecord.refused > 1 ? 's' : ''} recently${method === 'COD' ? ' — ask them to pay by UPI' : ''}`
+                : `Took ${order.buyerRecord.delivered} order${order.buyerRecord.delivered > 1 ? 's' : ''} from you before · पुराने ग्राहक`}
+            </p>
           )}
         </div>
 

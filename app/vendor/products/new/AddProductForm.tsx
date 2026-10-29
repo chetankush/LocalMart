@@ -2,6 +2,8 @@
 
 import { refreshShopPage } from "@/lib/refreshShopPage";
 import SizesEditor, { type SizeDraft } from "@/components/products/SizesEditor";
+import VideoLinkField from "@/components/products/VideoLinkField";
+import { VIDEO_LINK_PROBLEM, parseVideoLink } from "@/lib/videoLink";
 import { useEffect, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -170,6 +172,8 @@ export default function AddProductForm({
     lowStockThreshold: "10",
     weight: "",
     isActive: true,
+    // The shop's Instagram reel of it (optional)
+    videoUrl: "",
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -998,6 +1002,7 @@ export default function AddProductForm({
     // Validate — one plain message under each field that needs fixing
     const next: Record<string, string> = {};
     if (images.length === 0) next.images = "Add at least one photo — customers want to see what they are buying";
+    if (formData.videoUrl.trim() && !parseVideoLink(formData.videoUrl)) next.videoUrl = VIDEO_LINK_PROBLEM;
     if (!formData.name.trim()) next.name = "Add a name — customers search by it";
     const priceNum = parseFloat(formData.price);
     if (!formData.price) next.price = "Add a price — customers need it to order";
@@ -1184,6 +1189,14 @@ export default function AddProductForm({
               This is a sample photo. Your own photo builds more trust with customers — tap <b>Add photo</b>.
             </Notice>
           )}
+          <VideoLinkField
+            value={formData.videoUrl}
+            onChange={(v) => {
+              setFormData((prev) => ({ ...prev, videoUrl: v }));
+              clearError("videoUrl");
+            }}
+            error={errors.videoUrl}
+          />
         </FormCard>
 
         {/* ── The basics: name, price, stock, category ── */}
@@ -1504,9 +1517,10 @@ export default function AddProductForm({
 /* ─── Validation helpers ────────────────────────────────────────── */
 
 // Top-to-bottom order of the fields, so we jump to the first problem
-const FIELD_ORDER = ["images", "name", "price", "stockQuantity", "category", "description"] as const;
+const FIELD_ORDER = ["images", "videoUrl", "name", "price", "stockQuantity", "category", "description"] as const;
 const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
   images: "field-images",
+  videoUrl: "p-video",
   name: "p-name",
   price: "p-price",
   stockQuantity: "p-stock",

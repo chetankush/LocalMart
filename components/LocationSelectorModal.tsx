@@ -41,11 +41,16 @@ export default function LocationSelectorModal({ isOpen, onClose }: LocationSelec
   const [busy, setBusy] = useState<null | "pin" | "gps" | "search">(null);
   const [error, setError] = useState("");
 
-  // From the home page stay on `/` (it re-renders for the new area);
-  // elsewhere show the shops for that area
+  // Pages that follow the chosen area stay put and redraw (a search keeps its
+  // words); the shop list gets the new PIN; anywhere else shows that area's shops
   const goAfterPick = (pin: string) => {
-    if (pathname === "/") router.refresh();
-    else router.push(`/stores?pincode=${pin}`);
+    const stay = ["/", "/search", "/map", "/cart", "/checkout"].includes(pathname) || /^\/(products|stores)\/[^/]+/.test(pathname);
+    if (stay) router.refresh();
+    else if (pathname === "/stores") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pincode", pin);
+      router.push(`/stores?${params.toString()}`);
+    } else router.push(`/stores?pincode=${pin}`);
   };
 
   const reset = () => {

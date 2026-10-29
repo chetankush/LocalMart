@@ -3,6 +3,9 @@
 import { refreshShopPage } from "@/lib/refreshShopPage";
 import { useState } from "react";
 import SizesEditor, { type SizeDraft } from "@/components/products/SizesEditor";
+import VideoLinkField from "@/components/products/VideoLinkField";
+import HandloomProofCard from "@/components/products/HandloomProofCard";
+import { VIDEO_LINK_PROBLEM, parseVideoLink } from "@/lib/videoLink";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button, StickyBar, StickyBarSpacer } from "@/components/app/ui";
@@ -34,6 +37,8 @@ interface Product {
   description: string;
   categoryId: string;
   images: any;
+  /** The shop's Instagram reel of it */
+  videoUrl?: string | null;
   price: any;
   compareAtPrice: any;
   sku: string | null;
@@ -54,9 +59,10 @@ interface EditProductFormProps {
 }
 
 // Top-to-bottom order of the fields, so we jump to the first problem
-const FIELD_ORDER = ["images", "name", "price", "stockQuantity", "category", "description"] as const;
+const FIELD_ORDER = ["images", "videoUrl", "name", "price", "stockQuantity", "category", "description"] as const;
 const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
   images: "field-images",
+  videoUrl: "p-video",
   name: "p-name",
   price: "p-price",
   stockQuantity: "p-stock",
@@ -105,6 +111,7 @@ export default function EditProductForm({
     lowStockThreshold: product.lowStockThreshold?.toString() || "10",
     weight: product.weight?.toString() || "",
     isActive: product.isActive,
+    videoUrl: product.videoUrl || "",
   });
   const startImages = (): string[] => (Array.isArray(product.images) ? product.images : []);
 
@@ -252,6 +259,7 @@ export default function EditProductForm({
     // Validate — one plain message under each field that needs fixing
     const next: Record<string, string> = {};
     if (images.length === 0) next.images = "Add at least one photo — customers want to see what they are buying";
+    if (formData.videoUrl.trim() && !parseVideoLink(formData.videoUrl)) next.videoUrl = VIDEO_LINK_PROBLEM;
     if (!formData.name.trim()) next.name = "Add a name — customers search by it";
     const priceNum = parseFloat(formData.price);
     if (!formData.price) next.price = "Add a price — customers need it to order";
@@ -329,6 +337,14 @@ export default function EditProductForm({
               error={errors.images}
             />
           </div>
+          <VideoLinkField
+            value={formData.videoUrl}
+            onChange={(v) => {
+              setFormData((prev) => ({ ...prev, videoUrl: v }));
+              clearError("videoUrl");
+            }}
+            error={errors.videoUrl}
+          />
         </FormCard>
 
         {/* ── The basics: name, price, stock, category ── */}
@@ -465,6 +481,7 @@ export default function EditProductForm({
           </Button>
         </StickyBar>
       </form>
+      <HandloomProofCard productId={product.id} />
 
       <CategoryPicker
         open={showCategoryPicker}

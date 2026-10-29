@@ -156,6 +156,7 @@ export async function middleware(request: NextRequest) {
   // 🔒 AUTHENTICATED PAGES - No cache (and order links: used up or cancelled any moment)
   if (
     pathname.startsWith('/o/') ||
+    pathname.startsWith('/s/') ||
     pathname.startsWith('/my-orders') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/favorite-stores') ||

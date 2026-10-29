@@ -83,3 +83,36 @@ export function whatsappLinkProps(o: {
     onClick: () => trackContact({ vendorId: o.vendorId, kind: "WHATSAPP", source: o.source, productId: o.productId, adId: o.adId }),
   } as const;
 }
+
+const CONTACT_KEY = "lm_contact";
+
+/**
+ * The name and number a buyer typed (to message a shop or ask it to keep
+ * something), remembered on this phone for the same person only — a shared
+ * phone must never show one person's number to the next.
+ */
+export function savedContact(userId: string | null | undefined): { name?: string; phone?: string } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CONTACT_KEY) || "null") as { userId?: string; name?: string; phone?: string } | null;
+    return saved && saved.userId === (userId ?? "guest") ? { name: saved.name, phone: saved.phone } : {};
+  } catch {
+    return {};
+  }
+}
+
+export function rememberContact(userId: string | null | undefined, contact: { name: string; phone: string }) {
+  try {
+    localStorage.setItem(CONTACT_KEY, JSON.stringify({ userId: userId ?? "guest", ...contact }));
+  } catch {
+    // private mode
+  }
+}
+
+/** Signing out: forget what this person typed on this phone */
+export function forgetContact() {
+  try {
+    localStorage.removeItem(CONTACT_KEY);
+  } catch {
+    // private mode
+  }
+}

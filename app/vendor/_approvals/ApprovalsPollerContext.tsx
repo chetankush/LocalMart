@@ -25,6 +25,8 @@ export interface ApprovalOrder {
   /** Where it came from, and the buyer's first order here */
   source?: string | null;
   isNewCustomer?: boolean | null;
+  /** Orders the buyer took from this shop; cash orders they didn't take anywhere lately */
+  buyerRecord?: { delivered: number; refused: number } | null;
   paymentMethod: string | null;
   deliveryAddress: any;
   placedAt: string;

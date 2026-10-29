@@ -1,5 +1,6 @@
 "use client";
 
+import SaveShopButton from "@/components/contact/SaveShopButton";
 import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
@@ -451,8 +452,12 @@ export default function ShoesTheme({ vendor, products }: ShoesThemeProps) {
             </div>
           </div>
 
-          {/* Right: Rating + Size Guide */}
+          {/* Right: Save + Rating + Size Guide */}
           <div className="flex items-center gap-3">
+            <SaveShopButton
+              vendorId={vendor.id}
+              className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/20"
+            />
             {vendor.averageRating && vendor.reviewCount > 0 && (
               <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">
                 <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />

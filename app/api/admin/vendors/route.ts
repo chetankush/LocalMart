@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     // Admins see every shop, including new ones with no products yet
-    const query = `?includeEmpty=true${status ? `&status=${encodeURIComponent(status)}` : ""}`;
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
 
-    const response = await fetch(`${API_BASE_URL}/vendors${query}`, {
+    const response = await fetch(`${API_BASE_URL}/vendors/all${query}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

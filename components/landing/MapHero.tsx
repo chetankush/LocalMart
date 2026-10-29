@@ -1,5 +1,6 @@
 "use client";
 
+import SafeImg from "@/components/landing/SafeImg";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -286,8 +287,8 @@ function PromoCard({ promo: p }: { promo: HeroPromo }) {
         </span>
       </div>
       {p.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        // A photo that won't load is hidden rather than shown broken
+        <SafeImg
           src={p.image}
           alt=""
           className="absolute right-4 top-1/2 h-[78%] w-[38%] -translate-y-1/2 rounded-2xl object-cover object-top"
@@ -389,8 +390,7 @@ function PromoSlide({ promo }: { promo: HeroPromo }) {
   return (
     <Link href={promo.href} className="group relative block h-full overflow-hidden rounded-3xl bg-[#1F1F1F]">
       {promo.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={promo.image} alt="" className="absolute inset-0 h-full w-full object-cover object-[center_25%]" />
+        <SafeImg src={promo.image} alt="" className="absolute inset-0 h-full w-full object-cover object-[center_25%]" />
       )}
       <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/0" aria-hidden />
       <div className="relative flex h-full flex-col justify-end p-4 pb-5 text-white sm:p-6">

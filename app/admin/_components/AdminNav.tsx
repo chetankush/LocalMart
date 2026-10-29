@@ -20,6 +20,7 @@ import {
   Star,
   Store,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
 import { AdminGate } from "@/components/app/admin";
@@ -42,6 +43,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
       { href: "/admin/revenue", label: "Revenue", icon: IndianRupee },
       { href: "/admin/ads", label: "Ads", icon: Megaphone },
       { href: "/admin/plans", label: "Pro payments", icon: BadgeCheck },
+      { href: "/admin/handloom", label: "Handloom checks", icon: ShieldCheck },
       { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },

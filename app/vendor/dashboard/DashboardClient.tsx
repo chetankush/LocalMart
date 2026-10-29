@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bell, CalendarCheck, Link2, TicketPercent, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock, BarChart3, QrCode, BadgeCheck, ClipboardCheck } from "lucide-react";
+import { Bell, CalendarCheck, Link2, TicketPercent, Tags, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock, BarChart3, QrCode, BadgeCheck, ClipboardCheck } from "lucide-react";
 import ShareStoreModal from "@/components/ShareStoreModal";
 import { Button, Notice, Pill, Row, Thumb, formatIST, rupees } from "@/components/app/ui";
 import {
@@ -313,6 +313,12 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 icon={<Megaphone className="h-[22px] w-[22px]" />}
                 title="Send an offer"
                 hindi="ग्राहकों को बताएं"
+              />
+              <ActionTile
+                href={`/vendor/stock-sale?${q}`}
+                icon={<Tags className="h-[22px] w-[22px]" />}
+                title="Clear old stock"
+                hindi="पुराना स्टॉक निकालें"
               />
               <ActionTile
                 href={`/vendor/discounts?${q}`}

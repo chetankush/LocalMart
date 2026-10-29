@@ -1,5 +1,6 @@
 "use client";
 
+import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
@@ -23,6 +24,9 @@ import {
 // ---------------------------------------------------------------------------
 
 interface Product {
+  /** "Verified Chanderi handloom" (only once LocalMart checked) */
+  handloomType?: string | null;
+  handloomStatus?: string | null;
   id: string;
   name: string;
   description: string;
@@ -663,6 +667,11 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
                       {/* Product info */}
                       <div className="p-3 flex-1 flex flex-col">
                         <Link href={`/products/${product.id}`} className="flex-1">
+                          {product.handloomStatus === "VERIFIED" && (
+                            <div className="mb-1">
+                              <HandloomBadge product={product} size="sm" />
+                            </div>
+                          )}
                           <h3 className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 mb-1.5">
                             {product.name}
                           </h3>

@@ -232,12 +232,14 @@ export default function LandingPageClient({
     newByShop.set(p.vendor.id, shop);
   }
   for (const [id, shop] of [...newByShop].filter(([, sh]) => sh.count >= 2).slice(0, 2)) {
+    // "Collection" and "pieces" are clothes words; other shops just added items
+    const clothes = vendors.find((v) => v.id === id)?.businessType === "FASHION";
     promos.push({
       href: `/stores/${id}?show=new`,
-      eyebrow: "New collection arrived",
+      eyebrow: clothes ? "New collection arrived" : "Just added",
       shopId: id,
       title: shop.name,
-      cta: `See ${shop.count} new pieces`,
+      cta: clothes ? `See ${shop.count} new pieces` : `See ${shop.count} new items`,
       image: shop.image,
       tone: "rose",
     });
@@ -290,7 +292,8 @@ export default function LandingPageClient({
         <MapHero
           shops={mapShops}
           user={heroUser}
-          place={outOfArea ? liveTowns[0] : locationLabel ?? liveTowns[0]}
+          // The map shows every shop in town, so name the town ("Guna"), not the area ("Guna Cantt")
+          place={outOfArea ? liveTowns[0] : location?.city || liveTowns[0]}
           promos={promos}
           noLocation={!locationSet && !outOfArea}
           shopTypes={shopTypesHere}
@@ -317,7 +320,7 @@ export default function LandingPageClient({
         />
 
         {/* Phones: the map sits here, not at the top */}
-        <MapStrip shops={mapShops} user={heroUser} place={outOfArea ? liveTowns[0] : locationLabel ?? liveTowns[0]} />
+        <MapStrip shops={mapShops} user={heroUser} place={outOfArea ? liveTowns[0] : location?.city || liveTowns[0]} />
 
         {hasDeals && (
           <div id="deals" className="scroll-mt-28">

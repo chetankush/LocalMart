@@ -13,6 +13,7 @@ import NextTopLoader from "nextjs-toploader";
 import InstantNavigationProvider from "@/components/InstantNavigationProvider";
 import WebVitalsTracker from "@/components/WebVitalsTracker";
 import SourceTracker from "@/components/SourceTracker";
+import BrokenImageGuard from "@/components/BrokenImageGuard";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -52,6 +53,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="antialiased">
+        {/* A photo that can't load is hidden, not shown broken */}
+        <BrokenImageGuard />
         <StoreProvider>
           <AuthProvider>
             <LocationProvider>

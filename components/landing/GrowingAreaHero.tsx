@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Bell, Check } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { useFinishAreaNotify } from "@/hooks/useFinishAreaNotify";
 
 interface Props {
   pincode: string;
@@ -55,6 +56,8 @@ export default function GrowingAreaHero({
       setSubmitting(false);
     }
   };
+  // Back from signing in after tapping "Notify me": save it now
+  useFinishAreaNotify(pincode, isAuthenticated, handleNotify);
 
   const place = locationLabel || pincode;
 

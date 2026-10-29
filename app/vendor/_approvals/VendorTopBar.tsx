@@ -30,7 +30,7 @@ const NO_NAV = ['/vendor/onboarding', '/vendor/pending', '/vendor/rejected'];
 
 export function VendorTopBar() {
   const pathname = usePathname() ?? '';
-  const { count, sessionMuted, setSessionMuted, audioUnlocked } = useApprovals();
+  const { count, stores, sessionMuted, setSessionMuted, audioUnlocked } = useApprovals();
   const hidden = NO_NAV.some((p) => pathname.startsWith(p));
   const unread = useUnreadMessages(!hidden);
 
@@ -72,6 +72,13 @@ export function VendorTopBar() {
           })}
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Browsers block sound until the first click — not a button, any click turns it on */}
+            {!audioUnlocked && stores.length > 0 && (
+              <span role="status" className="flex h-10 items-center gap-2 rounded-full bg-label px-4 text-[14px] font-semibold text-white">
+                <VolumeX className="h-[18px] w-[18px]" aria-hidden />
+                Order ringer is off — click anywhere
+              </span>
+            )}
             {audioUnlocked && (
               <button
                 type="button"

@@ -469,6 +469,15 @@ export default function SearchOverlay({
                       ? `Found ${results.outsideArea.products + results.outsideArea.stores} in other areas, but none deliver to ${area}.`
                       : "Check the spelling, try another word, or search by voice."}
                   </p>
+                  {results.outsideArea && results.outsideArea.products + results.outsideArea.stores > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => submit(q)}
+                      className="mt-4 h-11 rounded-full bg-label px-5 text-[15px] font-semibold text-white cursor-pointer"
+                    >
+                      Show them
+                    </button>
+                  )}
                 </div>
               )}
             </div>

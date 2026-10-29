@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Check, MapPin, Store } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { useFinishAreaNotify } from "@/hooks/useFinishAreaNotify";
 
 /**
  * Shown when the chosen area has no shops yet. Says so plainly (no fake
@@ -52,6 +53,8 @@ export default function NotInYourArea({
       setSaving(false);
     }
   };
+  // Back from signing in after tapping "Notify me": save it now
+  useFinishAreaNotify(pincode, isAuthenticated, notify);
 
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8">

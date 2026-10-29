@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import ShopCard from "@/components/landing/ShopCard";
+import SaveShopButton from "@/components/contact/SaveShopButton";
+import { Heart } from "lucide-react";
 import { HomeSection } from "@/components/app/commerce";
 import { useLocation } from "@/context/LocationContext";
 import { useMounted } from "@/hooks/useMounted";
@@ -23,10 +25,34 @@ function AdCard({ ad, mounted, wide = false }: { ad: ServedAd; mounted: boolean;
     // Capture phase: counted before the card's link opens the shop
     <li
       ref={ref}
-      onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
+      onClickCapture={(e) => {
+        // Saving the shop isn't a click on the ad
+        if ((e.target as HTMLElement).closest("[data-no-ad-click]")) return;
+        trackAd(ad.adId, "click", ad.vendor.id);
+      }}
       className={wide ? "" : "w-[80%] shrink-0 snap-start sm:w-auto"}
     >
-      <ShopCard shop={ad.vendor} km={km} open={open} sponsored wide={wide} />
+      <ShopCard
+        shop={ad.vendor}
+        km={km}
+        open={open}
+        sponsored
+        wide={wide}
+        action={
+          <SaveShopButton
+            vendorId={ad.vendor.id}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-label shadow-[0_1px_4px_rgba(0,0,0,0.15)] hover:bg-white"
+            savedClassName="flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-tint shadow-[0_1px_4px_rgba(0,0,0,0.15)] hover:bg-white"
+          >
+            {(saved) => (
+              <>
+                <Heart className={`h-5 w-5 ${saved ? "fill-current" : ""}`} aria-hidden />
+                <span className="sr-only">{saved ? "Saved" : "Save shop"}</span>
+              </>
+            )}
+          </SaveShopButton>
+        }
+      />
     </li>
   );
 }

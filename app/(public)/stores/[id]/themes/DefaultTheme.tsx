@@ -1,5 +1,6 @@
 "use client";
 
+import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { UNIT, type RentUnit } from "@/lib/rentals";
 import Image from "next/image";
 import Link from "next/link";
@@ -29,6 +30,9 @@ import { MessageShopButton } from "@/components/contact/MessageShop";
 import { waText, whatsappLinkProps } from "@/lib/contact";
 
 interface Product {
+  /** "Verified Chanderi handloom" (only once LocalMart checked) */
+  handloomType?: string | null;
+  handloomStatus?: string | null;
   id: string;
   name: string;
   description: string;
@@ -966,6 +970,11 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
                             <h3 className="font-heading text-ink text-sm sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-accent-dark transition-colors">
                               {product.name}
                             </h3>
+                            {product.handloomStatus === "VERIFIED" && (
+                              <div className="mt-1">
+                                <HandloomBadge product={product} size="sm" />
+                              </div>
+                            )}
                             {productCategory && (
                               <p className="text-xs text-ink-3 mt-1">
                                 {productCategory}

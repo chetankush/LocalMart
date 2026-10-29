@@ -5,6 +5,7 @@
  * Manages authentication state for client components
  */
 
+import { forgetContact } from "@/lib/contact";
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "./client";
 import type { User } from "@supabase/supabase-js";
@@ -49,6 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // The next person on this phone mustn't see this one's name and number
+    forgetContact();
   };
 
   const signInWithGoogle = async (returnTo?: string) => {

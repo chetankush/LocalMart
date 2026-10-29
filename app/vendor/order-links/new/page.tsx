@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Minus, Plus, Search, X } from "lucide-react";
-import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer, Thumb, buttonClass, rupees } from "@/components/app/ui";
+import { Button, LargeTitle, Notice, Page, StickyBar, StickyBarSpacer, Thumb, buttonClass, formatIST, rupees } from "@/components/app/ui";
 import { Field, FormCard, Segmented, Toggle, inputClass, textareaClass } from "@/components/app/form";
 import { Sheet } from "@/components/app/Sheet";
 import { ShareLinkBody } from "@/components/share/ShareLinkSheet";
 import { apiError } from "@/components/ads/adLabels";
 import { signInHref } from "@/lib/auth/returnTo";
-import { MAX_PERCENT, offerDiscount, orderLinkMessage } from "@/lib/offers";
+import { MAX_PERCENT, choicesMessage, offerDiscount, offerWords, orderLinkMessage } from "@/lib/offers";
 import { orderLinkUrl } from "@/lib/shopHandle";
 import type { ShopOrderLink } from "@/lib/api/client";
 
@@ -20,9 +20,11 @@ interface PickItem {
   name: string;
   price: number;
   image: string | null;
-  /** Pieces that can still be sold (counted items) */
+  /** Pieces that can still be sold (uncounted items: 0 = switched off) */
   left: number;
   counted: boolean;
+  /** Switched off for now: back on sale then */
+  availableAgainAt?: string | null;
   sizes: { id: string; label: string; available: boolean }[];
 }
 
@@ -33,7 +35,10 @@ interface Line {
 }
 
 type DiscountChoice = "NONE" | "FLAT" | "PERCENT";
-type Days = "1" | "3" | "7";
+type Days = "1" | "3" | "7" | "15" | "30";
+/** A ready order the shop made — or options for the buyer to choose from (e.g. sarees for a wedding) */
+type Mode = "ORDER" | "CHOOSE";
+const MAX_LINES: Record<Mode, number> = { ORDER: 20, CHOOSE: 30 };
 
 const lineKey = (l: { item: { id: string }; variantId: string | null }) => `${l.item.id}:${l.variantId ?? ""}`;
 const maxQty = (item: PickItem) => (item.counted ? Math.max(1, Math.min(99, item.left)) : 99);
@@ -52,6 +57,8 @@ export default function NewOrderLinkPage() {
   const [forName, setForName] = useState("");
   const [note, setNote] = useState("");
   const [phone, setPhone] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("ORDER");
+  const choose = mode === "CHOOSE";
   const [days, setDays] = useState<Days>("3");
   const [forAnyone, setForAnyone] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -67,6 +74,10 @@ export default function NewOrderLinkPage() {
     setStoreQuery(q);
     if (p.get("for")) setForName(p.get("for")!.slice(0, 40));
     if (p.get("phone")) setPhone(p.get("phone"));
+    if (p.get("mode") === "choose") {
+      setMode("CHOOSE");
+      setDays("15");
+    }
     const product = p.get("product");
     if (!product) return;
     import("@/lib/api/client").then(async ({ apiClient }) => {
@@ -81,12 +92,16 @@ export default function NewOrderLinkPage() {
   }, [router]);
 
   const itemsTotal = lines.reduce((s, l) => s + l.item.price * l.quantity, 0);
+  // Choices: the buyer may pick just the cheapest one
+  const cheapest = lines.length ? Math.min(...lines.map((l) => l.item.price)) : 0;
+  const dearest = lines.length ? Math.max(...lines.map((l) => l.item.price)) : 0;
   const value = Number(discountValue) || 0;
   const kind = discountKind === "NONE" ? null : discountKind;
   const discount = offerDiscount(kind, value, itemsTotal);
   const total = itemsTotal - discount;
 
-  const sizeMissing = lines.some((l) => l.item.sizes.length > 0 && !l.variantId);
+  // A ready order needs each size; choices can leave the size to the buyer
+  const sizeMissing = !choose && lines.some((l) => l.item.sizes.length > 0 && !l.variantId);
   const discountProblem =
     !kind
       ? null
@@ -94,15 +109,22 @@ export default function NewOrderLinkPage() {
         ? kind === "PERCENT" ? "Enter how many percent off" : "Enter how many rupees off"
         : kind === "PERCENT" && value > MAX_PERCENT
           ? `Up to ${MAX_PERCENT}% only`
-          : kind === "FLAT" && itemsTotal > 0 && value >= itemsTotal
-            ? `That's more than the items cost (${rupees(itemsTotal)})`
-            : null;
+          : kind === "FLAT" && choose && cheapest > 0 && value >= cheapest
+            ? `That's more than your cheapest option (${rupees(cheapest)}). Use % off, or less.`
+            : kind === "FLAT" && !choose && itemsTotal > 0 && value >= itemsTotal
+              ? `That's more than the items cost (${rupees(itemsTotal)})`
+              : null;
 
   const add = (item: PickItem, variantId: string | null) => {
     setLines((prev) => {
       const key = `${item.id}:${variantId ?? ""}`;
       const found = prev.find((l) => lineKey(l) === key);
-      if (found) return prev.map((l) => (l === found ? { ...l, quantity: Math.min(maxQty(item), l.quantity + 1) } : l));
+      // Choices: one of each — the buyer says how many
+      if (found) return choose ? prev : prev.map((l) => (l === found ? { ...l, quantity: Math.min(maxQty(item), l.quantity + 1) } : l));
+      if (prev.length >= MAX_LINES[mode]) {
+        toast.error(`Up to ${MAX_LINES[mode]} items in one link`);
+        return prev;
+      }
       return [...prev, { item, variantId, quantity: 1 }];
     });
     toast.success(`Added ${item.name}${variantId ? ` · ${item.sizes.find((s) => s.id === variantId)?.label}` : ""}`, { duration: 1500 });
@@ -135,7 +157,8 @@ export default function NewOrderLinkPage() {
         forName: forName.trim() || undefined,
         note: note.trim() || undefined,
         days: Number(days),
-        forAnyone,
+        mode,
+        forAnyone: choose ? undefined : forAnyone,
       });
       setCreated(r.data);
       window.scrollTo({ top: 0 });
@@ -156,6 +179,8 @@ export default function NewOrderLinkPage() {
     setNote("");
     setPhone(null);
     setForAnyone(false);
+    setMode("ORDER");
+    setDays("3");
     setShowErrors(false);
   };
 
@@ -170,13 +195,26 @@ export default function NewOrderLinkPage() {
             Send it to {created.forName || "your buyer"}. They add their address and order — it comes to you like any order.
           </p>
           <p className="mt-2 text-[15px] font-semibold tabular-nums text-label">
-            {created.items.length} item{created.items.length > 1 ? "s" : ""} · {rupees(created.total)}
-            {created.discount > 0 && <span className="text-ok"> (−{rupees(created.discount)})</span>}
+            {created.mode === "CHOOSE" ? (
+              <>
+                {created.items.length} options for them to choose from
+                {created.offerText && <span className="text-ok"> · {created.offerText}</span>}
+              </>
+            ) : (
+              <>
+                {created.items.length} item{created.items.length > 1 ? "s" : ""} · {rupees(created.total)}
+                {created.discount > 0 && <span className="text-ok"> (−{rupees(created.discount)})</span>}
+              </>
+            )}
           </p>
         </div>
         <ShareLinkBody
           url={url}
-          message={orderLinkMessage({ shopName: created.shopName, forName: created.forName, items: created.items, discount: created.discount, offerText: created.offerText, total: created.total, url })}
+          message={
+            created.mode === "CHOOSE"
+              ? choicesMessage({ shopName: created.shopName, forName: created.forName, count: created.items.length, offerText: created.offerText, url })
+              : orderLinkMessage({ shopName: created.shopName, forName: created.forName, items: created.items, discount: created.discount, offerText: created.offerText, total: created.total, url })
+          }
           whatsappTo={phone}
           whatsappToName={created.forName}
         />
@@ -201,7 +239,32 @@ export default function NewOrderLinkPage() {
           back={{ href: `/vendor/order-links${storeQuery}`, label: "Order links" }}
         />
 
-        <FormCard title="What are they buying?" description="Pick from your shop · सामान चुनें">
+        <FormCard title="What are you sending?">
+          <Segmented<Mode>
+            label="Kind of link"
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              setDays(m === "CHOOSE" ? "15" : "3");
+              // Choices: one of each
+              if (m === "CHOOSE") setLines((prev) => prev.slice(0, MAX_LINES.CHOOSE).map((l) => ({ ...l, quantity: 1 })));
+            }}
+            options={[
+              { value: "ORDER", label: "A ready order" },
+              { value: "CHOOSE", label: "Options to choose" },
+            ]}
+          />
+          <p className="-mt-2 text-[14px] leading-snug text-label-2">
+            {choose
+              ? "Pick sarees for them — for a wedding or a festival. They choose what they like and order. · पसंद करने के लिए विकल्प"
+              : "You pick the items, sizes and how many. They add their address and order. · तैयार ऑर्डर"}
+          </p>
+        </FormCard>
+
+        <FormCard
+          title={choose ? "Options for them" : "What are they buying?"}
+          description={choose ? `Up to ${MAX_LINES.CHOOSE} items · विकल्प चुनें` : "Pick from your shop · सामान चुनें"}
+        >
           {lines.length > 0 && (
             <ul className="-mx-1 space-y-3">
               {lines.map((l, i) => {
@@ -228,9 +291,22 @@ export default function NewOrderLinkPage() {
                     {l.item.sizes.length > 0 && (
                       <div className="mt-3">
                         <p className={`mb-1.5 text-[14px] font-medium ${missing ? "text-bad" : "text-label-2"}`}>
-                          {missing ? "Pick a size" : "Size"}
+                          {missing ? "Pick a size" : choose ? "Size — or let them choose" : "Size"}
                         </p>
                         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Size for ${l.item.name}`}>
+                          {choose && (
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={!l.variantId}
+                              onClick={() => update(i, { variantId: null })}
+                              className={`min-h-[44px] rounded-xl border px-3 text-[15px] font-semibold cursor-pointer ${
+                                !l.variantId ? "border-tint bg-tint text-white" : "border-hairline text-label"
+                              }`}
+                            >
+                              They choose
+                            </button>
+                          )}
                           {l.item.sizes.map((s) => {
                             const on = l.variantId === s.id;
                             return (
@@ -253,6 +329,7 @@ export default function NewOrderLinkPage() {
                       </div>
                     )}
 
+                    {!choose && (
                     <div className="mt-3 flex items-center justify-between gap-3">
                       <div className="flex items-center rounded-xl bg-fill" role="group" aria-label={`How many ${l.item.name}`}>
                         <button
@@ -282,6 +359,7 @@ export default function NewOrderLinkPage() {
                         {l.item.counted && l.quantity >= cap && <p className="text-[13px] text-warn">Only {cap} in stock</p>}
                       </div>
                     </div>
+                    )}
                   </li>
                 );
               })}
@@ -312,7 +390,15 @@ export default function NewOrderLinkPage() {
               label={kind === "PERCENT" ? "Percent off" : "Rupees off"}
               htmlFor="discount"
               error={showErrors || value > 0 ? discountProblem : null}
-              hint={discount > 0 ? `They save ${rupees(discount)} and pay ${rupees(total)}` : undefined}
+              hint={
+                choose
+                  ? kind && value > 0 && !discountProblem
+                    ? `${offerWords(kind, value)} on whatever they pick`
+                    : undefined
+                  : discount > 0
+                    ? `They save ${rupees(discount)} and pay ${rupees(total)}`
+                    : undefined
+              }
             >
               <div className="relative">
                 {kind === "FLAT" && <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">₹</span>}
@@ -351,18 +437,31 @@ export default function NewOrderLinkPage() {
             label="How long the link works"
             value={days}
             onChange={setDays}
-            options={[
-              { value: "1", label: "1 day" },
-              { value: "3", label: "3 days" },
-              { value: "7", label: "7 days" },
-            ]}
+            options={
+              choose
+                ? [
+                    { value: "3", label: "3 days" },
+                    { value: "7", label: "7 days" },
+                    { value: "15", label: "15 days" },
+                    { value: "30", label: "30 days" },
+                  ]
+                : [
+                    { value: "1", label: "1 day" },
+                    { value: "3", label: "3 days" },
+                    { value: "7", label: "7 days" },
+                  ]
+            }
           />
-          <Toggle
-            checked={forAnyone}
-            onChange={setForAnyone}
-            label="Anyone can order from it"
-            description={forAnyone ? "For your story or status — many people can order" : "Off: one order only, for this buyer"}
-          />
+          {choose ? (
+            <p className="text-[14px] leading-snug text-label-2">The whole family can order from it, more than once — the bride now, relatives later.</p>
+          ) : (
+            <Toggle
+              checked={forAnyone}
+              onChange={setForAnyone}
+              label="Anyone can order from it"
+              description={forAnyone ? "For your story or status — many people can order" : "Off: one order only, for this buyer"}
+            />
+          )}
         </FormCard>
         {lines.length > 0 && !sizeMissing && !discountProblem && (
           <Notice tone="info">The buyer pays your shop price on the day they order{discount > 0 ? ", minus your discount" : ""}.</Notice>
@@ -372,8 +471,17 @@ export default function NewOrderLinkPage() {
 
       <StickyBar>
         <div className="min-w-0">
-          <p className="text-[13px] text-label-2">{discount > 0 ? `After ${rupees(discount)} off` : "Total"}</p>
-          <p className="text-[20px] font-bold tabular-nums text-label">{rupees(total)}</p>
+          {choose ? (
+            <>
+              <p className="text-[13px] text-label-2">{lines.length} option{lines.length === 1 ? "" : "s"}{kind && value > 0 && !discountProblem ? ` · ${offerWords(kind, value)}` : ""}</p>
+              <p className="text-[17px] font-bold tabular-nums text-label">{lines.length ? (cheapest === dearest ? rupees(cheapest) : `${rupees(cheapest)} – ${rupees(dearest)}`) : "—"}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] text-label-2">{discount > 0 ? `After ${rupees(discount)} off` : "Total"}</p>
+              <p className="text-[20px] font-bold tabular-nums text-label">{rupees(total)}</p>
+            </>
+          )}
         </div>
         <Button onClick={create} loading={saving} disabled={saving} className="flex-1">
           {saving ? "Making…" : "Make link"}
@@ -449,7 +557,8 @@ function ItemPicker({
       {items && items.length > 0 && (
         <ul className="divide-y divide-hairline overflow-hidden rounded-2xl bg-card">
           {items.map((p) => {
-            const soldOut = p.counted && p.left <= 0;
+            // Sold out, or switched off ("not available") — counted or not
+            const soldOut = p.left <= 0 || (p.sizes.length > 0 && !p.sizes.some((s) => s.available));
             const open = sizing === p.id;
             return (
               <li key={p.id}>
@@ -465,7 +574,15 @@ function ItemPicker({
                     <span className="line-clamp-2 block text-[16px] font-medium leading-snug text-label">{p.name}</span>
                     <span className="block text-[14px] tabular-nums text-label-2">
                       {rupees(p.price)}
-                      {soldOut ? " · Sold out" : p.counted && p.left <= 3 ? ` · ${p.left} left` : ""}
+                      {soldOut
+                        ? p.availableAgainAt
+                          ? ` · Not available · back ${formatIST(p.availableAgainAt)}`
+                          : p.counted
+                            ? " · Sold out"
+                            : " · Not available"
+                        : p.counted && p.left <= 3
+                          ? ` · ${p.left} left`
+                          : ""}
                       {p.sizes.length > 0 && !soldOut ? " · pick size" : ""}
                     </span>
                   </span>

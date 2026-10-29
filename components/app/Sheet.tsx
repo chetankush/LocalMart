@@ -5,6 +5,7 @@
  * a centred card on bigger screens. Closes on the dim backdrop, the X, or Esc.
  */
 import { useEffect, useId, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function Sheet({
@@ -40,9 +41,11 @@ export function Sheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // Drawn on <body>, so no section of the page (a sticky bar, a card with its
+  // own layer) can end up on top of it
+  return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-6">
       <div className="absolute inset-0 bg-black/45 animate-in fade-in duration-200" onClick={onClose} aria-hidden />
       <div
@@ -85,6 +88,7 @@ export function Sheet({
         )}
         {!footer && <div className="pb-[env(safe-area-inset-bottom,0px)]" aria-hidden />}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -154,8 +154,11 @@ export default function ProfileClient({ user }: ProfileClientProps) {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  // A missing date shows nothing rather than "Invalid Date"
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("en-IN", {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-IN", {
       day: "numeric",
       month: "long",
       year: "numeric",

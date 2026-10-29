@@ -4,7 +4,7 @@ import type { RentUnit } from "@/lib/rentals";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Map as MapIcon, Search, Star } from "lucide-react";
+import { ChevronRight, Map as MapIcon, MapPin, Search, Star } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useLocation } from "@/context/LocationContext";
 import type { Size } from "@/lib/sizes";
@@ -61,6 +61,9 @@ function SearchResultsContent() {
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
   // Shops already shown in the "Featured" row — not listed twice
   const [featuredIds, setFeaturedIds] = useState<string[]>([]);
+  // Nothing delivers to the chosen area, so these are from where LocalMart is
+  // live (like the home page does) — said plainly above the results
+  const [elsewhere, setElsewhere] = useState(false);
 
   const fetchResults = useCallback(async () => {
     if (!query.trim()) {
@@ -79,8 +82,16 @@ function SearchResultsContent() {
         lng: typeof location?.longitude === "number" ? location.longitude : undefined,
       });
       if (response.success) {
-        setStores(response.data.stores || []);
-        setProducts(response.data.products || []);
+        let data = response.data;
+        const away = (data.outsideArea?.stores ?? 0) + (data.outsideArea?.products ?? 0);
+        const none = (data.stores?.length ?? 0) + (data.products?.length ?? 0) === 0;
+        if (none && away > 0) {
+          const all = await apiClient.searchAdvanced(query, { limit: 50 });
+          if (all.success) data = all.data;
+        }
+        setElsewhere(none && away > 0);
+        setStores(data.stores || []);
+        setProducts(data.products || []);
       } else {
         setError("Couldn't search right now.");
       }
@@ -146,7 +157,9 @@ function SearchResultsContent() {
           <p className="text-[13px] font-medium text-label-2">Results for</p>
           <h1 className="truncate text-[24px] font-bold leading-tight tracking-[-0.02em] text-label sm:text-[30px]">“{query}”</h1>
           <p className="mt-0.5 text-[14px] text-label-2">
-            {isLoading ? "Searching…" : `${total} ${total === 1 ? "result" : "results"}${location?.locality || location?.city ? ` near ${location.locality || location.city}` : ""}`}
+            {isLoading
+              ? "Searching…"
+              : `${total} ${total === 1 ? "result" : "results"}${!elsewhere && (location?.locality || location?.city) ? ` near ${location.locality || location.city}` : ""}`}
           </p>
         </div>
         {query && (isLoading || total > 0) && (
@@ -159,6 +172,16 @@ function SearchResultsContent() {
           </Link>
         )}
       </div>
+
+      {!isLoading && elsewhere && total > 0 && (
+        <p className="mt-3 flex items-start gap-2 rounded-2xl border border-warn/25 bg-warn-soft px-4 py-3 text-[14px] leading-snug text-label">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-warn" aria-hidden />
+          <span>
+            <span className="font-semibold">No shop delivers to {location?.locality || location?.city || (location?.pincode ? `PIN ${location.pincode}` : "your area")} yet.</span>{" "}
+            <span className="text-label-2">These are from shops where LocalMart is live — you can pick up from the shop.</span>
+          </span>
+        </p>
+      )}
 
       {/* ── Tabs + sort ── */}
       {!isLoading && total > 0 && (

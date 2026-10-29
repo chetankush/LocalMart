@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Clock, Link2, Store } from "lucide-react";
 import { Button, EmptyState, Notice, Page, StickyBar, StickyBarSpacer, Thumb, buttonClass, formatIST, rupees } from "@/components/app/ui";
 import type { PublicOrderLink } from "@/lib/api/client";
+import ChoicesPicker from "./ChoicesPicker";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -29,11 +30,17 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const link = await getLink((await params).code);
   if (!link) return { title: "Order link · LocalMart", robots: { index: false } };
   // What WhatsApp shows under the link in the chat
-  const title = `Your order from ${link.shop.name} — ${rupees(link.total)}`;
+  const title =
+    link.mode === "CHOOSE"
+      ? `${link.items.length} options from ${link.shop.name}${link.forName ? ` for ${link.forName}` : ""}`
+      : `Your order from ${link.shop.name} — ${rupees(link.total)}`;
   const first = link.items.find((i) => i.image)?.image;
   return {
     title,
-    description: `${link.items.length} item${link.items.length > 1 ? "s" : ""}${link.offerText ? ` · ${link.offerText}` : ""}. Tap to add your address and order.`,
+    description:
+      link.mode === "CHOOSE"
+        ? `Choose what you like${link.offerText ? ` · ${link.offerText}` : ""}, and order.`
+        : `${link.items.length} item${link.items.length > 1 ? "s" : ""}${link.offerText ? ` · ${link.offerText}` : ""}. Tap to add your address and order.`,
     robots: { index: false, follow: false },
     openGraph: { title, ...(first ? { images: [first] } : {}) },
   };
@@ -95,6 +102,21 @@ export default async function OrderLinkPage({ params }: { params: Promise<{ code
             <Notice tone="bad">{link.message}</Notice>
           </div>
         )}
+        {link.mode === "CHOOSE" ? (
+          open ? (
+            <>
+              {link.offerText && (
+                <p className="mb-4 rounded-xl bg-ok-soft px-4 py-3 text-[15px] font-semibold text-ok">Special price for you: {link.offerText}</p>
+              )}
+              <ChoicesPicker link={link} />
+            </>
+          ) : (
+            <Link href={shopHref} className={buttonClass("secondary", "lg", true)}>
+              <Store className="h-5 w-5" aria-hidden /> See {link.shop.name}
+            </Link>
+          )
+        ) : (
+        <>
         {open && soldOut.length > 0 && (
           <div className="mb-5">
             <Notice tone="warn">
@@ -152,9 +174,11 @@ export default async function OrderLinkPage({ params }: { params: Promise<{ code
           <Store className="h-5 w-5" aria-hidden /> See {link.shop.name}
         </Link>
         <StickyBarSpacer />
+        </>
+        )}
       </Page>
 
-      {canOrder && (
+      {canOrder && link.mode !== "CHOOSE" && (
         <StickyBar>
           <div className="min-w-0">
             <p className="text-[13px] text-label-2">Add your address next</p>

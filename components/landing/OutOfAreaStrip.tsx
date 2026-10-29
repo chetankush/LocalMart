@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Check, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api/client";
+import { useFinishAreaNotify } from "@/hooks/useFinishAreaNotify";
 
 /**
  * Slim note at the top of the home page when no shop delivers to the
@@ -43,6 +44,8 @@ export default function OutOfAreaStrip({
       else toast.error("Couldn't save that. Please try again.");
     }
   };
+  // Back from signing in after tapping "Notify me": save it now
+  useFinishAreaNotify(pincode, isAuthenticated, notify);
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 pt-3 sm:px-6 lg:px-8">

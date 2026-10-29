@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Layers, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { Button, Pill, Thumb, rupees } from "@/components/app/ui";
+import { Button, Pill, Thumb, formatIST, rupees } from "@/components/app/ui";
 import { StatGrid, StatTile } from "@/components/app/seller";
 import { Sheet } from "@/components/app/Sheet";
 import { apiClient } from "@/lib/api/client";
@@ -53,6 +53,8 @@ export interface ProductListItem {
   availableAgainAt: string | null;
   /** Counted items switched off: the count to bring back */
   stockBeforeOff: number | null;
+  /** In a running "clear old stock" sale */
+  sale?: { percentOff: number; endsAt: string; priceBefore: number } | null;
 }
 
 type Filter = "all" | "live" | "hidden" | "low" | "out";
@@ -334,6 +336,11 @@ export function ProductList({
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px]">
                       <StockText p={p} />
                       {!p.isActive ? <Pill tone="neutral">Hidden</Pill> : !isOut(p) && <Pill tone="ok">On sale</Pill>}
+                      {p.sale && (
+                        <Pill tone="warn">
+                          −{p.sale.percentOff}% till {formatIST(p.sale.endsAt)}
+                        </Pill>
+                      )}
                     </div>
                   </div>
                 </Link>

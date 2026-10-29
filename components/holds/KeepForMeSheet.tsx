@@ -12,8 +12,8 @@ import { apiError } from "@/components/ads/adLabels";
 import type { HoldOptions } from "@/lib/holds";
 import { nameWithSize, type Size } from "@/lib/sizes";
 import { adThatBrought } from "@/lib/adAttribution";
+import { rememberContact, savedContact } from "@/lib/contact";
 
-const CONTACT_KEY = "lm_contact";
 
 /**
  * "Keep it for me · मेरे लिए रख दो": the buyer picks a time today, the shop
@@ -52,12 +52,7 @@ export default function KeepForMeSheet({
     setErrors({});
     setNote("");
     setSizeId(pickedSize ?? (sizes.filter((s) => s.isAvailable).length === 1 ? sizes.find((s) => s.isAvailable)!.id : null));
-    let saved: { name?: string; phone?: string } = {};
-    try {
-      saved = JSON.parse(localStorage.getItem(CONTACT_KEY) || "{}");
-    } catch {
-      // nothing saved
-    }
+    const saved = savedContact(user?.id);
     setName(saved.name || (user?.user_metadata?.full_name as string) || "");
     setPhone(saved.phone || "");
     setOptions(null);
@@ -101,11 +96,7 @@ export default function KeepForMeSheet({
         ...(note.trim() ? { note: note.trim() } : {}),
         ...(adId ? { adId } : {}),
       });
-      try {
-        localStorage.setItem(CONTACT_KEY, JSON.stringify({ name: name.trim(), phone: digits }));
-      } catch {
-        // private mode
-      }
+      rememberContact(user?.id, { name: name.trim(), phone: digits });
       setSent({ until: r.data.until });
     } catch (err) {
       setErrors({ form: apiError(err).message || "Couldn't send. Check your internet and try again." });

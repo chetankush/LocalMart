@@ -42,6 +42,7 @@ import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import { imageList } from "@/lib/shop-page";
 import { UNIT, rupees, todayIST, type RentUnit } from "@/lib/rentals";
 import { MessageShopButton } from "@/components/contact/MessageShop";
+import SaveShopButton from "@/components/contact/SaveShopButton";
 import { waText, whatsappLinkProps } from "@/lib/contact";
 import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 
@@ -637,6 +638,10 @@ export default function ConstructionTheme({ vendor, products }: Props) {
                   <MessageCircle className="h-4 w-4" aria-hidden /> WhatsApp
                 </a>
               )}
+              <SaveShopButton
+                vendorId={vendor.id}
+                className="inline-flex h-[52px] items-center gap-2 rounded-xl border border-white/25 px-5 text-[16px] font-semibold text-white transition-colors hover:bg-white/10"
+              />
             </div>
 
             {/* Numbers */}

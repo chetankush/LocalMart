@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { getServerAccessToken } from "@/src/shared/utils/auth";
 import ComingSoonClient from "./ComingSoonClient";
 import type { PopularStore } from "@/components/landing/PopularStoresGlobal";
 
@@ -102,10 +103,8 @@ interface PageProps {
 export default async function ComingSoonPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const cookieStore = await cookies();
-  const authToken =
-    cookieStore.get("sb-access-token")?.value ||
-    cookieStore.get("sb-auth-token")?.value ||
-    "";
+  // Signed in? (read through Supabase — its cookie name includes the project)
+  const authToken = await getServerAccessToken();
   const loc = parseLocationCookie(cookieStore.get(LOCATION_COOKIE_KEY)?.value);
 
   // Prefer URL pincode (explicit intent), fall back to cookie.

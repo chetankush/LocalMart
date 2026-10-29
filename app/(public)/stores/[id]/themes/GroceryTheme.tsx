@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import StoreImageCarousel from "./StoreImageCarousel";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { MessageShopButton } from "@/components/contact/MessageShop";
+import SaveShopButton from "@/components/contact/SaveShopButton";
 import { waText, whatsappLinkProps } from "@/lib/contact";
 
 interface Product {
@@ -103,6 +104,10 @@ export default function GroceryTheme({ vendor, products }: GroceryThemeProps) {
                   WhatsApp
                 </a>
               )}
+              <SaveShopButton
+                vendorId={vendor.id}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2"
+              />
             </div>
           </div>
         </div>

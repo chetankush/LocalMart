@@ -3,6 +3,7 @@
 import { UNIT, type RentUnit } from "@/lib/rentals";
 import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
 import { ShoppingCart, Star } from "lucide-react";
 import AddStepper from "@/components/cart/AddStepper";
@@ -60,6 +61,8 @@ export default function ProductCard({
     Array.isArray(product.images) && product.images.length > 0
       ? (product.images[0] as string)
       : null;
+  // A photo that won't load (deleted, bad link) shows the plain icon, not a broken image
+  const [broken, setBroken] = useState(false);
   const rental = product.listingType === "RENT";
   const out = product.stockQuantity <= 0;
   const rating = Number(product.averageRating) || 0;
@@ -74,11 +77,12 @@ export default function ProductCard({
           href={`/products/${product.id}`}
           className="relative block aspect-square overflow-hidden rounded-xl bg-fill"
         >
-          {image ? (
+          {image && !broken ? (
             <Image
               src={image}
               alt={product.name}
               fill
+              onError={() => setBroken(true)}
               sizes="(max-width: 640px) 40vw, 200px"
               // Fill the tile (shop photos are full-frame phone pictures): no grey bands
               className="object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"

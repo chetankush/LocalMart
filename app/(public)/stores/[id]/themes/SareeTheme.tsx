@@ -1,5 +1,6 @@
 "use client";
 
+import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import { useStoreBranding } from "@/context/StoreBrandingContext";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import AddStepper from "@/components/cart/AddStepper";
 import { MessageShopButton } from "@/components/contact/MessageShop";
+import SaveShopButton from "@/components/contact/SaveShopButton";
 import { waText, whatsappLinkProps } from "@/lib/contact";
 import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 import StoreHeroCarousel, { type HeroSlide } from "./StoreHeroCarousel";
@@ -51,6 +53,9 @@ interface Product {
   category?: { name: string; slug: string } | null;
   listingType?: "SALE" | "RENT" | null;
   variants?: Size[] | null;
+  /** "Verified Chanderi handloom" (only once LocalMart checked) */
+  handloomType?: string | null;
+  handloomStatus?: string | null;
 }
 
 interface StoreAddress {
@@ -496,6 +501,11 @@ function SareeCard({
             {product.name}
           </h3>
         </Link>
+        {product.handloomStatus === "VERIFIED" && (
+          <div className="mb-1">
+            <HandloomBadge product={product} size="sm" />
+          </div>
+        )}
 
         <div className="flex items-baseline gap-2 flex-wrap mb-1">
           <span className="text-base font-bold text-[#4A0D18]">{formatINR(price)}</span>
@@ -1006,6 +1016,11 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                     {Number(vendor.averageRating).toFixed(1)} ({vendor.reviewCount})
                   </span>
                 )}
+                <SaveShopButton
+                  vendorId={vendor.id}
+                  className="inline-flex items-center gap-1 rounded-full border border-[#6E1423]/30 bg-white px-2.5 py-1 text-[#6E1423] hover:bg-[#6E1423]/5"
+                  savedClassName="inline-flex items-center gap-1 rounded-full bg-[#6E1423] px-2.5 py-1 text-white"
+                />
               </div>
             </div>
           </div>

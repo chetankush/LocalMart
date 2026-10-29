@@ -95,9 +95,12 @@ const paymentText = (o: Order) => {
         ? 'Shop is checking payment'
         : o.paymentStatus === 'REFUNDED'
           ? 'Refunded'
-          : o.status === 'CANCELLED'
+          : o.status === 'CANCELLED' || o.status === 'REJECTED'
             ? 'Nothing to pay'
-            : 'Not paid yet';
+            : // Cash is handed over at the door
+              o.paymentMethod === 'COD' && o.status === 'DELIVERED'
+              ? 'Paid in cash'
+              : 'Not paid yet';
   return { method, state };
 };
 

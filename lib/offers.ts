@@ -10,12 +10,12 @@ export type DiscountKind = "PERCENT" | "FLAT";
 
 export const MAX_PERCENT = 90;
 
-/** Rupees off: whole rupees, a percent capped by "up to", never more than the items */
+/** Rupees off: whole rupees, a percent capped by "up to", never more than 90% of the items (as the server) */
 export function offerDiscount(kind: DiscountKind | null, value: number, itemsTotal: number, maxOff?: number | null): number {
   if (!kind || !(value > 0) || !(itemsTotal > 0)) return 0;
   let off = kind === "PERCENT" ? Math.round((itemsTotal * Math.min(value, MAX_PERCENT)) / 100) : value;
   if (kind === "PERCENT" && maxOff && maxOff > 0) off = Math.min(off, maxOff);
-  return Math.max(0, Math.min(off, Math.floor(itemsTotal)));
+  return Math.max(0, Math.min(off, Math.floor((itemsTotal * MAX_PERCENT) / 100)));
 }
 
 /** "10% off (up to ₹100)" / "₹100 off" */
@@ -45,6 +45,19 @@ export function orderLinkMessage(o: {
   if (o.discount > 0) lines.push(`Special price: ${o.offerText ? `${o.offerText}, ` : ""}−${rupees(o.discount)}`);
   lines.push(`Total: ${rupees(o.total)} (+ delivery agar ho)`, "", "Yahan tap karke address bhariye aur order kariye 👇", o.url);
   return lines.join("\n");
+}
+
+/** The WhatsApp message for a "choose from these" link (e.g. sarees for a wedding) */
+export function choicesMessage(o: { shopName: string; forName?: string | null; count: number; offerText?: string | null; url: string }) {
+  return [
+    `Namaste${o.forName ? ` ${o.forName} ji` : ""}! 🙏`,
+    `${o.shopName} se aapke liye ${o.count} options chune hain.`,
+    o.offerText ? `Aapke liye special price: ${o.offerText}` : null,
+    "Jo pasand aaye, yahin order kariye — ya dukaan aakar dekhiye 👇",
+    o.url,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** Text to post a code on WhatsApp status / Instagram */

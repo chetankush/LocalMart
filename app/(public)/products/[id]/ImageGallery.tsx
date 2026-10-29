@@ -3,19 +3,22 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { Package } from "lucide-react";
+import ProductVideo from "@/components/products/ProductVideo";
 
 interface ImageGalleryProps {
   images: string[];
   productName: string;
   /** e.g. 14 → "14% OFF" tag on the photo */
   discountPercent?: number;
+  /** The shop's Instagram reel of it — "Watch the video" under the photos */
+  videoUrl?: string | null;
 }
 
 /**
  * Swipe through photos on phones (native scroll-snap), thumbnails on
  * desktop. Dots show how many photos there are.
  */
-export default function ImageGallery({ images, productName, discountPercent = 0 }: ImageGalleryProps) {
+export default function ImageGallery({ images, productName, discountPercent = 0, videoUrl }: ImageGalleryProps) {
   const track = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
 
@@ -93,6 +96,12 @@ export default function ImageGallery({ images, productName, discountPercent = 0 
               <Image src={src} alt="" fill sizes="64px" className="object-contain mix-blend-multiply" />
             </button>
           ))}
+        </div>
+      )}
+
+      {videoUrl && (
+        <div className="px-4 pt-3 lg:px-0">
+          <ProductVideo videoUrl={videoUrl} productName={productName} />
         </div>
       )}
     </div>
