@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/app/ui";
 import { MessageCard } from "@/components/app/seller";
+import { getSellerApplication } from "@/src/shared/utils/sellerApplication";
 
 // Set NEXT_PUBLIC_SUPPORT_EMAIL to LocalMart's real support address; the
 // help line stays hidden until then
@@ -12,7 +14,13 @@ const NEXT_STEPS = [
   { title: "Add products and start selling", body: "Customers near you can order" },
 ];
 
-export default function VendorPendingPage() {
+export default async function VendorPendingPage() {
+  const application = await getSellerApplication();
+
+  // Only someone still waiting should see "LocalMart is checking your shop"
+  if (application?.hasLiveShop || application?.status === "APPROVED") redirect("/vendor/dashboard");
+  if (application?.status === "REJECTED") redirect("/vendor/rejected");
+
   return (
     <MessageCard
       icon={<Clock className="h-8 w-8" aria-hidden />}

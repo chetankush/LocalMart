@@ -77,9 +77,19 @@ export default function VisitSettingsPage() {
   const setDay = (key: DayKey, patch: Partial<DayHours>) =>
     setS((cur) => (cur ? { ...cur, hours: { ...cur.hours, [key]: { ...cur.hours[key], ...patch } } } : cur));
 
+  // Days whose closing time isn't after the opening time ("HH:MM" compares as text)
+  const badDays = s ? DAYS.filter(({ key }) => s.hours[key].on && s.hours[key].close <= s.hours[key].open) : [];
+
   const save = async () => {
     if (!s) return;
     setError(null);
+    // Say which day is wrong and take the seller to it — the Save bar is far below
+    if (badDays.length > 0) {
+      const first = badDays[0];
+      toast.error(`${first.label}: closing time must be after opening time`);
+      document.getElementById(`visit-day-${first.key}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
     setSaving(true);
     try {
       const { apiClient } = await import("@/lib/api/client");
@@ -96,7 +106,9 @@ export default function VisitSettingsPage() {
       setS(res.data);
       toast.success(s.enabled ? "Saved. Customers can book visits." : "Saved. Visits are off.");
     } catch (err) {
-      setError(apiError(err).message || "Couldn't save. Please try again.");
+      const message = apiError(err).message || "Couldn't save. Please try again.";
+      setError(message);
+      toast.error(message); // the notice sits at the bottom; this shows wherever they are
     } finally {
       setSaving(false);
     }
@@ -141,8 +153,13 @@ export default function VisitSettingsPage() {
         <div className="divide-y divide-hairline">
           {DAYS.map(({ key, label }) => {
             const d = s.hours[key];
+            const closesTooEarly = d.on && d.close <= d.open;
             return (
-              <div key={key} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+              <div
+                key={key}
+                id={`visit-day-${key}`}
+                className="flex scroll-mt-24 flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0"
+              >
                 <label className="flex w-36 cursor-pointer items-center gap-3">
                   <input
                     type="checkbox"
@@ -169,6 +186,8 @@ export default function VisitSettingsPage() {
                     <span className="text-label-2">to</span>
                     <select
                       aria-label={`${label} until`}
+                      aria-invalid={closesTooEarly || undefined}
+                      aria-describedby={closesTooEarly ? `visit-day-${key}-problem` : undefined}
                       className={`${selectClass} h-10 min-w-0 flex-1`}
                       value={d.close}
                       onChange={(e) => setDay(key, { close: e.target.value })}
@@ -182,6 +201,11 @@ export default function VisitSettingsPage() {
                   </div>
                 ) : (
                   <span className="text-[15px] text-label-3">No visits</span>
+                )}
+                {closesTooEarly && (
+                  <p id={`visit-day-${key}-problem`} role="alert" className="w-full text-[14px] text-bad">
+                    Closes before it opens — pick a later closing time · बंद होने का समय बाद का चुनें
+                  </p>
                 )}
               </div>
             );

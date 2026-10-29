@@ -60,7 +60,8 @@ export default async function ShopPageEditorPage({
           storeImages: vendor.storeImages,
           themeCustomization: vendor.themeCustomization,
         }}
-        products={(Array.isArray(products) ? products : []).map((p: any) => ({
+        // Only what customers can see — the shop page leaves hidden items out
+        products={(Array.isArray(products) ? products : []).filter((p: { isActive?: boolean }) => p.isActive !== false).map((p: any) => ({
           id: p.id,
           name: p.name,
           description: p.description,

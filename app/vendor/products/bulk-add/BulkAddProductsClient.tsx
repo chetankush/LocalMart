@@ -12,9 +12,16 @@ import { Sheet } from "@/components/app/Sheet";
 
 const cx = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(" ");
 
+// The API sends money as text ("899"); the product form needs a number
+const num = (value: unknown): number => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
 interface Category {
   id: string;
   name: string;
+  value?: string;
 }
 
 interface ProductTemplate {
@@ -22,8 +29,9 @@ interface ProductTemplate {
   name: string;
   description: string;
   suggestedImage: string | null;
-  suggestedPrice: number | null;
-  suggestedWeight: number | null;
+  // Decimal columns arrive as text ("899") — read them with num()
+  suggestedPrice: number | string | null;
+  suggestedWeight: number | string | null;
   isPopular: boolean;
   tags: string[];
   category: Category;
@@ -36,7 +44,12 @@ interface BulkAddProductsClientProps {
   allTemplatesCount: number;
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
+  /** The shop's kind (e.g. FASHION): its products are listed first */
+  shopKind?: string | null;
 }
+
+// A saree shop is a FASHION shop; its ready-made list is "Sarees"
+const RELATED_KINDS: Record<string, string[]> = { FASHION: ["FASHION", "SAREES"], SAREES: ["SAREES", "FASHION"] };
 
 interface SelectedProduct extends ProductTemplate {
   price: number;
@@ -87,6 +100,7 @@ export default function BulkAddProductsClient({
   allTemplatesCount,
   selectedCategory,
   onCategoryChange,
+  shopKind,
 }: BulkAddProductsClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,6 +143,17 @@ export default function BulkAddProductsClient({
     return acc;
   }, {} as Record<string, ProductTemplate[]>);
 
+  // The shop's own kind first, so a saree shop doesn't start with atta and salt
+  const ownKinds = shopKind ? (RELATED_KINDS[shopKind] ?? [shopKind]) : [];
+  const kindOf = (categoryName: string) => categories.find((c) => c.name === categoryName)?.value;
+  const groupEntries = Object.entries(groupedTemplates).sort(([a], [b]) => {
+    const rank = (name: string) => {
+      const i = ownKinds.indexOf(kindOf(name) ?? "");
+      return i === -1 ? ownKinds.length : i;
+    };
+    return rank(a) - rank(b);
+  });
+
   const handleToggleProduct = (template: ProductTemplate) => {
     const newSelected = new Map(selectedProducts);
     if (newSelected.has(template.id)) {
@@ -136,7 +161,7 @@ export default function BulkAddProductsClient({
     } else {
       newSelected.set(template.id, {
         ...template,
-        price: template.suggestedPrice || 0,
+        price: num(template.suggestedPrice),
         stockQuantity: 10, // Default stock
       });
     }
@@ -153,7 +178,7 @@ export default function BulkAddProductsClient({
       filteredTemplates.forEach((template) => {
         newSelected.set(template.id, {
           ...template,
-          price: template.suggestedPrice || 0,
+          price: num(template.suggestedPrice),
           stockQuantity: 10,
         });
       });
@@ -175,7 +200,7 @@ export default function BulkAddProductsClient({
         if (!newSelected.has(t.id)) {
           newSelected.set(t.id, {
             ...t,
-            price: t.suggestedPrice || 0,
+            price: num(t.suggestedPrice),
             stockQuantity: 10,
           });
         }
@@ -201,7 +226,7 @@ export default function BulkAddProductsClient({
       description: product.customDescription || product.description,
       price: product.price,
       stockQuantity: product.stockQuantity,
-      weight: product.customWeight || product.suggestedWeight || 0,
+      weight: num(product.customWeight || product.suggestedWeight),
       image: product.customImage || product.suggestedImage || "",
     });
     setEditModalOpen(true);
@@ -254,8 +279,12 @@ export default function BulkAddProductsClient({
     const products = Array.from(selectedProducts.values());
     let successCount = 0;
     let failCount = 0;
+    let hiddenCount = 0;
+    let firstError: string | null = null;
+    let offline = false;
 
     for (const product of products) {
+      const image = product.customImage || product.suggestedImage || null;
       try {
         const response = await apiClient.createVendorProduct({
           vendorId,
@@ -263,38 +292,53 @@ export default function BulkAddProductsClient({
           description: product.customDescription || product.description,
           // Use categoryName instead of categoryId since template categories are BusinessCategories
           categoryName: product.category.name,
-          price: product.price,
-          stockQuantity: product.stockQuantity,
+          price: num(product.price),
+          stockQuantity: Math.max(0, Math.round(Number(product.stockQuantity) || 0)),
           lowStockThreshold: 5,
-          weight: product.customWeight || product.suggestedWeight || undefined,
-          images: (product.customImage || product.suggestedImage) ? [product.customImage || product.suggestedImage] : [],
-          isActive: true,
+          weight: num(product.customWeight || product.suggestedWeight) || undefined,
+          images: image ? [image] : [],
+          // Same rule as "Add a product": buyers need a photo, so it stays hidden till one is added
+          isActive: !!image,
         });
 
         if (response.success) {
           successCount++;
+          if (!image) hiddenCount++;
           setAddedCount(successCount);
         } else {
           failCount++;
           setErrorCount(failCount);
           console.error(`Failed to add ${product.customName || product.name}`);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         failCount++;
         setErrorCount(failCount);
-        console.error(`Error adding ${product.customName || product.name}:`, error.message);
+        const message = error instanceof Error ? error.message : "";
+        if (error instanceof TypeError || /failed to fetch|network/i.test(message)) offline = true;
+        else if (!firstError && message) firstError = message;
+        console.error(`Error adding ${product.customName || product.name}:`, message);
       }
     }
 
     setLoading(false);
 
     if (successCount > 0) {
+      const notes = [
+        hiddenCount > 0 &&
+          `${hiddenCount === successCount ? "They are" : `${hiddenCount} are`} hidden till you add a photo — open each one in Products and add a photo. · फ़ोटो जोड़ें`,
+        failCount > 0 && `${failCount} couldn't be added — please try those again.`,
+      ].filter(Boolean);
       toast.success(`Added ${successCount} product${successCount === 1 ? "" : "s"} to your shop`, {
-        description: failCount > 0 ? `${failCount} couldn't be added — please try those again.` : undefined,
+        description: notes.length ? notes.join(" ") : undefined,
+        duration: hiddenCount > 0 ? 9000 : undefined,
       });
       router.push("/vendor/products");
-    } else {
+    } else if (offline) {
       toast.error("Couldn't add the products. Check your internet and try again.");
+    } else {
+      toast.error("Couldn't add the products. Please try again.", {
+        description: firstError ?? undefined,
+      });
     }
   };
 
@@ -395,7 +439,7 @@ export default function BulkAddProductsClient({
           />
         )
       ) : (
-        Object.entries(groupedTemplates).map(([categoryName, categoryTemplates]) => {
+        groupEntries.map(([categoryName, categoryTemplates]) => {
           const allSelected = categoryTemplates.every((t) => selectedProducts.has(t.id));
 
           return (
@@ -451,7 +495,7 @@ export default function BulkAddProductsClient({
                           </span>
                           <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-label-2">
                             {template.suggestedPrice ? (
-                              <span className="tabular-nums">{rupees(template.suggestedPrice)} usual price</span>
+                              <span className="tabular-nums">{rupees(num(template.suggestedPrice))} usual price</span>
                             ) : (
                               <span>Set your price</span>
                             )}
@@ -649,7 +693,7 @@ export default function BulkAddProductsClient({
             {/* Where it started */}
             <p className="px-1 text-[14px] leading-snug text-label-2">
               Started from: {editingProduct.name}
-              {editingProduct.suggestedPrice ? ` · ${rupees(editingProduct.suggestedPrice)} usual price` : ""}
+              {editingProduct.suggestedPrice ? ` · ${rupees(num(editingProduct.suggestedPrice))} usual price` : ""}
               {editingProduct.category?.name ? ` · ${editingProduct.category.name}` : ""}
             </p>
           </>

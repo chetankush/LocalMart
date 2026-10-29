@@ -31,6 +31,7 @@ export default function BulkAddProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [allTemplates, setAllTemplates] = useState<ProductTemplate[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [shopKind, setShopKind] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +50,7 @@ export default function BulkAddProductsPage() {
           return;
         }
         setVendorId(activeStore.id);
+        setShopKind(activeStore.businessType ?? null);
 
         // Get business categories from backend (admin panel categories)
         const categoriesResponse = await apiClient.getBusinessCategories(true);
@@ -128,6 +130,7 @@ export default function BulkAddProductsPage() {
       allTemplatesCount={allTemplates.length}
       selectedCategory={selectedCategory}
       onCategoryChange={setSelectedCategory}
+      shopKind={shopKind}
     />
   );
 }

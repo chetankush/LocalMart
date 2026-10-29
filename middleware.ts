@@ -3,14 +3,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { handleFromPath, itemFromPath } from "@/lib/shopHandle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-// handle → shop id (or null), remembered for a few minutes: short links are opened a lot
+// handle → shop id (or null), remembered briefly: short links are opened a lot,
+// but a shop that just changed its link must see the new one work right away
 const shortLinks = new Map<string, { id: string | null; at: number }>();
-const SHORT_LINK_TTL_MS = 5 * 60 * 1000;
+const FOUND_TTL_MS = 60 * 1000; // an old link keeps working for at most a minute
+const NOT_FOUND_TTL_MS = 10 * 1000; // a brand-new link works within seconds
 
-/** Short link → shop or item id, via the API; remembered (also "not found") for a few minutes */
+/** Short link → shop or item id, via the API; remembered (found: a minute, not found: seconds) */
 async function idFor(path: string): Promise<string | null> {
   const hit = shortLinks.get(path);
-  if (hit && Date.now() - hit.at < SHORT_LINK_TTL_MS) return hit.id;
+  if (hit && Date.now() - hit.at < (hit.id ? FOUND_TTL_MS : NOT_FOUND_TTL_MS)) return hit.id;
   let id: string | null = null;
   try {
     const key = process.env.INTERNAL_API_KEY;

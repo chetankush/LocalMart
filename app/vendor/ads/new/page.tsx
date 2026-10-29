@@ -501,7 +501,7 @@ export default function NewAdPage() {
       )}
 
       <p className="mb-4 px-1 text-[13px] leading-snug text-label-2">
-        We hold your spot for {options.holdMinutes} minutes while you pay. Your ad is marked “Ad” for shoppers.
+        We hold your spot for {options.holdMinutes} minutes while you pay. Shoppers see your shop under “Featured”.
       </p>
 
       <StickyBar aboveTabBar>

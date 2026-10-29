@@ -517,6 +517,7 @@ class ApiClient {
         stores: Array<{
           id: string;
           businessName: string;
+          businessType?: string;
           status: string;
           isActive: boolean;
         }>;

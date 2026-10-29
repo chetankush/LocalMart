@@ -1,30 +1,12 @@
-import { getCurrentUser } from "@/src/shared/utils/auth";
+import { redirect } from "next/navigation";
 import { XCircle } from "lucide-react";
 import { Button } from "@/components/app/ui";
 import { MessageCard } from "@/components/app/seller";
+import { getSellerApplication } from "@/src/shared/utils/sellerApplication";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 // Set NEXT_PUBLIC_SUPPORT_EMAIL to LocalMart's real support address; the
 // help line stays hidden until then
 const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
-
-async function getVendorRequestStatus(email: string) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/vendor-requests/status?email=${encodeURIComponent(email)}`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const result = await response.json();
-    return result.data || null;
-  } catch (error) {
-    console.error("Error fetching vendor request status:", error);
-    return null;
-  }
-}
 
 const TIPS = [
   "Use your real shop name",
@@ -33,15 +15,13 @@ const TIPS = [
 ];
 
 export default async function VendorRejectedPage() {
-  const user = await getCurrentUser();
+  const application = await getSellerApplication();
 
-  let rejectionReason = null;
-  if (user?.email) {
-    const requestStatus = await getVendorRequestStatus(user.email);
-    if (requestStatus?.status === 'REJECTED') {
-      rejectionReason = requestStatus.rejectionReason;
-    }
-  }
+  // An approved seller (or one still waiting) shouldn't be told "not approved"
+  if (application?.hasLiveShop || application?.status === "APPROVED") redirect("/vendor/dashboard");
+  if (application?.status === "PENDING") redirect("/vendor/pending");
+
+  const rejectionReason = application?.status === "REJECTED" ? application.rejectionReason : null;
 
   return (
     <MessageCard

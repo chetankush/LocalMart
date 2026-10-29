@@ -1007,6 +1007,10 @@ export default function AddProductForm({
     const priceNum = parseFloat(formData.price);
     if (!formData.price) next.price = "Add a price — customers need it to order";
     else if (isNaN(priceNum) || priceNum < 0) next.price = "Type the price in rupees, like 120 or 99.50";
+    // A crossed-out MRP below the price would read as a fake discount
+    const mrpNum = parseFloat(formData.compareAtPrice);
+    if (formData.compareAtPrice && !isNaN(mrpNum) && mrpNum > 0 && !isNaN(priceNum) && mrpNum <= priceNum)
+      next.compareAtPrice = "The MRP should be more than your price — or leave it empty";
     if (formData.trackStock && formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
     else if (formData.trackStock && parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
     if (!hasExistingCategory && !hasNewCategoryName) next.category = "Choose a category so customers can find it";
@@ -1229,7 +1233,7 @@ export default function AddProductForm({
                 placeholder="0"
               />
             </Field>
-            <Field label="Price before discount" optional htmlFor="p-mrp" hint="The MRP — shown crossed out">
+            <Field label="Price before discount" optional htmlFor="p-mrp" hint="The MRP — shown crossed out" error={errors.compareAtPrice}>
               <RupeeInput
                 id="p-mrp"
                 type="number"
@@ -1238,6 +1242,7 @@ export default function AddProductForm({
                 onChange={handleChange}
                 step="0.01"
                 min="0"
+                aria-invalid={!!errors.compareAtPrice || undefined}
                 placeholder="0"
               />
             </Field>
@@ -1517,12 +1522,13 @@ export default function AddProductForm({
 /* ─── Validation helpers ────────────────────────────────────────── */
 
 // Top-to-bottom order of the fields, so we jump to the first problem
-const FIELD_ORDER = ["images", "videoUrl", "name", "price", "stockQuantity", "category", "description"] as const;
+const FIELD_ORDER = ["images", "videoUrl", "name", "price", "compareAtPrice", "stockQuantity", "category", "description"] as const;
 const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
   images: "field-images",
   videoUrl: "p-video",
   name: "p-name",
   price: "p-price",
+  compareAtPrice: "p-mrp",
   stockQuantity: "p-stock",
   category: "p-category",
   description: "p-desc",

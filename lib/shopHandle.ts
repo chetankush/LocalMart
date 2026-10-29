@@ -6,7 +6,8 @@ export const HANDLE_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/;
 
 /** The site's own top-level pages and words shops can't take */
 const RESERVED = new Set([
-  "about", "account", "admin", "api", "app", "assets", "become-vendor", "blog", "careers", "cart", "checkout",
+  "about", "account", "admin", "api", "app", "assets", "become-vendor", "blog", "careers", "cart", "chat", "chats",
+  "checkout", "inbox", "messages",
   "coming-soon", "contact", "dashboard", "debug-categories", "faq", "favicon", "favorite-stores", "help", "home",
   "images", "index", "localmart", "login", "logout", "manifest", "map", "my-holds", "my-orders", "my-rentals",
   "my-visits", "notifications", "null", "offline", "orders", "phone-signin", "privacy", "products", "profile",
