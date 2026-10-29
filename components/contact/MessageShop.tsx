@@ -5,14 +5,21 @@ import { CheckCircle2, Loader2, MessageCircle, Send } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
 import { Field, inputClass, textareaClass } from "@/components/app/form";
 import { useAuth } from "@/lib/supabase/auth-provider";
+import { useRouter } from "next/navigation";
+import { signInHref } from "@/lib/auth/returnTo";
 import { apiError } from "@/components/ads/adLabels";
 import { rememberContact, savedContact, trackContact, whatsappHref, type ContactSource } from "@/lib/contact";
 
 /**
- * "Message the shop": the buyer's message, name and number go straight to the
- * shop's LocalMart inbox (and ring the seller's phone). The shop replies on
- * WhatsApp or calls back. Each message is a real lead for the shop.
+ * "Message the shop". Signed in: a chat with the shop inside LocalMart (live,
+ * both ways). Not signed in: a short form — the buyer's message, name and
+ * number go to the shop's inbox (and ring the seller's phone); the shop
+ * replies on WhatsApp or calls back. Either way it's a real lead for the shop.
  */
+/** Where "Message the shop" opens a chat (with the item to attach) */
+export const chatHref = (t: { vendor: { id: string }; product?: { id: string } }) =>
+  `/chats/new?shop=${encodeURIComponent(t.vendor.id)}${t.product ? `&product=${encodeURIComponent(t.product.id)}` : ""}`;
+
 export type MessageShopTarget = {
   vendor: { id: string; businessName: string; whatsappNumber?: string | null };
   product?: { id: string; name: string };
@@ -167,6 +174,11 @@ export function MessageShopSheet({ open, onClose, target }: { open: boolean; onC
         <p className="text-[14px] leading-snug text-label-3">
           Your name and number go to {target.vendor.businessName} so they can reply. · आपका नाम और नंबर दुकान को जाएगा।
         </p>
+        {!user && (
+          <a href={signInHref(chatHref(target))} className="block text-[15px] font-semibold text-tint">
+            Have an account? Sign in and chat with the shop here →
+          </a>
+        )}
         {errors.form && (
           <p role="alert" className="text-[15px] text-bad">
             {errors.form}
@@ -188,11 +200,14 @@ export function MessageShopButton({
   children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        // Signed in: straight into a chat with the shop; otherwise the short form
+        onClick={() => (user ? router.push(chatHref(target)) : setOpen(true))}
         className={
           className ??
           "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-cta px-5 text-[16px] font-semibold text-white hover:bg-cta-hover cursor-pointer"

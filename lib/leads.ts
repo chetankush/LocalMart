@@ -1,5 +1,6 @@
 "use client";
 
+import { subscribeChat } from "@/lib/chat/stream";
 import { useEffect, useState } from "react";
 
 /** A buyer's message to the shop ("Message the shop" on LocalMart) */
@@ -33,7 +34,11 @@ export type LeadSummary = {
 /** Fired after the inbox changes, so the tab badge updates at once */
 export const MESSAGES_CHANGED = "lm:messages-changed";
 
-/** Unread messages + keep-aside requests waiting for a yes: the seller tab badge (on load, every minute, and when the phone comes back) */
+/**
+ * Unread messages (form + chats) + keep-aside requests waiting for a yes: the
+ * seller tab badge — on load, every minute, when the phone comes back, and
+ * right after a chat message arrives live.
+ */
 export function useUnreadMessages(enabled = true) {
   const [unread, setUnread] = useState(0);
   useEffect(() => {
@@ -49,12 +54,20 @@ export function useUnreadMessages(enabled = true) {
       }
     };
     load();
+    // A chat message just arrived: refresh soon (a burst of messages = one refresh)
+    let soon: ReturnType<typeof setTimeout> | null = null;
+    const off = subscribeChat(() => {
+      if (soon) clearTimeout(soon);
+      soon = setTimeout(load, 1500);
+    });
     const t = setInterval(load, 60_000);
     const onFocus = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onFocus);
     window.addEventListener(MESSAGES_CHANGED, load);
     return () => {
       alive = false;
+      off();
+      if (soon) clearTimeout(soon);
       clearInterval(t);
       document.removeEventListener("visibilitychange", onFocus);
       window.removeEventListener(MESSAGES_CHANGED, load);

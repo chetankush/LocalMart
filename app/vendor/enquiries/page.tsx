@@ -12,6 +12,8 @@ import { apiError } from "@/components/ads/adLabels";
 import { whatsappHref } from "@/lib/contact";
 import { MESSAGES_CHANGED, timeAgo, type Enquiry, type LeadSummary } from "@/lib/leads";
 import HoldRequests from "./HoldRequests";
+import ChatList from "@/components/chat/ChatList";
+import { Segmented } from "@/components/app/form";
 
 /**
  * Seller inbox: buyers who wrote to the shop from LocalMart. Each one comes
@@ -27,6 +29,8 @@ export default function EnquiriesPage() {
   const [fresh, setFresh] = useState<Set<string>>(new Set());
   const [showDone, setShowDone] = useState(false);
   const [storeQuery, setStoreQuery] = useState<string | null>(null);
+  // Chats (live, inside LocalMart) or messages sent with the form
+  const [tab, setTab] = useState<"chats" | "forms">("chats");
 
   const load = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
@@ -108,7 +112,21 @@ export default function EnquiriesPage() {
         </section>
       )}
 
-      {messages === null && !error && (
+      <div className="mb-4">
+        <Segmented<"chats" | "forms">
+          label="Which messages"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "chats", label: "Chats" },
+            { value: "forms", label: `Form messages${open.length ? ` (${open.length})` : ""}` },
+          ]}
+        />
+      </div>
+
+      {tab === "chats" && storeQuery !== null && <ChatList side="SHOP" storeQuery={storeQuery} />}
+
+      {tab === "forms" && messages === null && !error && (
         <div className="space-y-3" aria-busy="true" aria-label="Loading messages">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-36 animate-pulse rounded-2xl bg-card" />
@@ -116,7 +134,7 @@ export default function EnquiriesPage() {
         </div>
       )}
 
-      {messages && open.length === 0 && (
+      {tab === "forms" && messages && open.length === 0 && (
         <EmptyState
           icon={<MessageCircle className="h-7 w-7" aria-hidden />}
           title="No messages yet"
@@ -124,7 +142,7 @@ export default function EnquiriesPage() {
         />
       )}
 
-      {open.length > 0 && (
+      {tab === "forms" && open.length > 0 && (
         <section className="space-y-3">
           {open.map((m) => (
             <MessageCard key={m.id} m={m} shopName={shopName} isNew={fresh.has(m.id)} onStatus={setStatus} storeQuery={storeQuery ?? ""} />
@@ -132,7 +150,7 @@ export default function EnquiriesPage() {
         </section>
       )}
 
-      {done.length > 0 && (
+      {tab === "forms" && done.length > 0 && (
         <section className="mt-8">
           <button type="button" onClick={() => setShowDone((v) => !v)} className="w-full text-left cursor-pointer">
             <SectionHeader title={`Done (${done.length})`} />

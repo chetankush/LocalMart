@@ -65,6 +65,9 @@ export default function NewOrderLinkPage() {
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [created, setCreated] = useState<(ShopOrderLink & { shopName: string }) | null>(null);
+  // Made from a chat: send it back into that chat
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [sendingToChat, setSendingToChat] = useState(false);
 
   // From the Messages inbox: ?product=…&for=…&phone=…
   useEffect(() => {
@@ -74,6 +77,7 @@ export default function NewOrderLinkPage() {
     setStoreQuery(q);
     if (p.get("for")) setForName(p.get("for")!.slice(0, 40));
     if (p.get("phone")) setPhone(p.get("phone"));
+    if (p.get("chat")) setChatId(p.get("chat"));
     if (p.get("mode") === "choose") {
       setMode("CHOOSE");
       setDays("15");
@@ -208,6 +212,29 @@ export default function NewOrderLinkPage() {
             )}
           </p>
         </div>
+        {chatId && (
+          <Button
+            full
+            className="mb-3"
+            loading={sendingToChat}
+            onClick={async () => {
+              setSendingToChat(true);
+              try {
+                const { apiClient } = await import("@/lib/api/client");
+                await apiClient.post(`/chats/${chatId}/messages`, {
+                  orderLinkCode: created.code,
+                  body: created.mode === "CHOOSE" ? "Aapke liye kuch options chune hain — dekhiye 👇" : `Aapka order tayyar hai — ${rupees(created.total)}`,
+                });
+                router.push(`/vendor/chats/${chatId}${storeQuery}`);
+              } catch (err) {
+                toast.error(apiError(err).message || "Couldn't send it in the chat. Use WhatsApp below.");
+                setSendingToChat(false);
+              }
+            }}
+          >
+            Send in the chat
+          </Button>
+        )}
         <ShareLinkBody
           url={url}
           message={

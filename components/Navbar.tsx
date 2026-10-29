@@ -9,6 +9,7 @@ import CartBar from "@/components/cart/CartBar";
 import { useLocation } from "@/context/LocationContext";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
 import NotificationBell from "@/components/NotificationBell";
+import ChatButton from "@/components/chat/ChatButton";
 import SearchOverlay from "@/components/search/SearchOverlay";
 import { preloadCriticalRoutes } from "@/lib/utils/navigation";
 import { signInHref } from "@/lib/auth/returnTo";
@@ -33,10 +34,12 @@ import {
   Store,
   User,
   X,
+  MessageCircle,
 } from "lucide-react";
 
 // Screens that are a focused task (or have their own navigation)
-const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth"];
+// An open chat ("/chats/<id>") uses the whole screen, like WhatsApp
+const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth", "/chats/"];
 const FOCUSED = ["/checkout", "/orders/waiting"];
 
 // Desktop category strip → shop list filtered by category. A category
@@ -308,6 +311,7 @@ const Navbar = () => {
               </div>
             )}
             <div className="flex shrink-0 items-center">
+              {user && !sellerArea && !focused && <ChatButton />}
               {!focused && (
                 <button
                   onClick={() => (user || loading ? setShowAccount(true) : router.push(signInHref(pathname)))}
@@ -345,6 +349,7 @@ const Navbar = () => {
           <div className="flex-1">{shopping && searchTrigger(true)}</div>
           <nav className="flex shrink-0 items-center gap-1 text-label">
             {user && <NotificationBell />}
+            {user && !sellerArea && <ChatButton withLabel />}
             {loading ? (
               <span className="h-10 w-24 animate-pulse rounded-lg bg-fill" />
             ) : (
@@ -474,6 +479,7 @@ const Navbar = () => {
           <SheetGroup>
             <SheetRow icon={MapPin} label="Delivery area" value={place ?? "Choose your area"} onClick={() => { setShowAccount(false); setShowLocationModal(true); }} />
             {user && <SheetRow icon={Package} label="Your orders" href="/my-orders" />}
+            {user && <SheetRow icon={MessageCircle} label="Chats with shops" href="/chats" />}
             {user && <SheetRow icon={CalendarClock} label="My rentals" href="/my-rentals" />}
             {user && <SheetRow icon={Clock} label="Kept for me" href="/my-holds" />}
             {user && <SheetRow icon={CalendarCheck} label="Your shop visits" href="/my-visits" />}

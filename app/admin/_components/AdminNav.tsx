@@ -21,6 +21,8 @@ import {
   Store,
   Users,
   ShieldCheck,
+  LayoutDashboard,
+  MessagesSquare,
 } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
 import { AdminGate } from "@/components/app/admin";
@@ -31,8 +33,10 @@ const GROUPS: { title: string; items: Item[] }[] = [
   {
     title: "Run",
     items: [
+      { href: "/admin/overview", label: "Overview", icon: LayoutDashboard },
       { href: "/admin", label: "Shops & requests", icon: Store, match: (p) => p === "/admin" },
       { href: "/admin/orders", label: "Orders", icon: ReceiptText },
+      { href: "/admin/chats", label: "Chats", icon: MessagesSquare },
       { href: "/admin/visits", label: "Shop visits", icon: CalendarCheck },
       { href: "/admin/users", label: "People", icon: Users },
     ],
@@ -65,12 +69,12 @@ const GROUPS: { title: string; items: Item[] }[] = [
 
 const ALL = GROUPS.flatMap((g) => g.items);
 // Phone tab bar: the four places used most, the rest under "More"
-const TABS = ALL.filter((i) => ["/admin", "/admin/orders", "/admin/users", "/admin/revenue"].includes(i.href));
+const TABS = ALL.filter((i) => ["/admin/overview", "/admin", "/admin/orders", "/admin/chats"].includes(i.href));
 const SHORT: Record<string, string> = {
+  "/admin/overview": "Overview",
   "/admin": "Shops",
   "/admin/orders": "Orders",
-  "/admin/users": "People",
-  "/admin/revenue": "Revenue",
+  "/admin/chats": "Chats",
 };
 
 const isActive = (item: Item, path: string) =>
@@ -78,7 +82,7 @@ const isActive = (item: Item, path: string) =>
 
 /**
  * Admin navigation. Desktop: a left sidebar under the site header.
- * Phones: a bottom tab bar (Shops, Orders, People, Revenue, More).
+ * Phones: a bottom tab bar (Overview, Shops, Orders, Chats, More).
  */
 export function AdminNav() {
   const path = usePathname() ?? "";
