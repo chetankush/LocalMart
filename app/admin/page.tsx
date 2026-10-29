@@ -2,7 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { toast } from "sonner";
+import { ChevronRight, Inbox, Store } from "lucide-react";
+import { Button, Notice, Row, formatDateIST, formatIST } from "@/components/app/ui";
+import { Field, Segmented, textareaClass } from "@/components/app/form";
+import { List } from "@/components/app/seller";
+import { Sheet } from "@/components/app/Sheet";
+import {
+  AdminGate,
+  AdminPage,
+  Avatar,
+  Chips,
+  Detail,
+  DetailGrid,
+  EmptyBlock,
+  LoadingBlock,
+  StatusPill,
+  TableCard,
+  Toolbar,
+  tdClass,
+  thClass,
+  trClass,
+} from "@/components/app/admin";
+import { useConfirm } from "@/hooks/useConfirm";
 
 type VendorRequest = {
   id: string;
@@ -13,30 +35,64 @@ type VendorRequest = {
   businessType: string;
   city: string;
   address: string;
+  pincode?: string | null;
+  locality?: string | null;
   description: string | null;
   status: string;
   rejectionReason: string | null;
   createdAt: string;
 };
 
+// The shops list comes from the public /vendors API, which leaves out the
+// owner's details — so everything past the basics is optional
 type Vendor = {
   id: string;
   businessName: string;
   businessType: string;
   city: string;
-  state: string;
+  state?: string;
+  locality?: string | null;
+  pincode?: string | null;
+  storeLogo?: string | null;
   status: string;
   isActive: boolean;
   createdAt: string;
-  user: {
+  user?: {
     email: string;
     fullName: string;
     phone: string | null;
   };
 };
 
+const place = (v: Vendor) => [v.locality, v.city, v.state].filter(Boolean).join(", ");
+
+const TYPE_LABEL: Record<string, string> = {
+  GROCERY: "Grocery",
+  RESTAURANT: "Food",
+  PHARMACY: "Medical",
+  ELECTRONICS: "Electronics",
+  FASHION: "Fashion",
+  HOME_SERVICES: "Services",
+  OTHER: "Other",
+};
+const typeLabel = (t: string) => TYPE_LABEL[t] ?? t.charAt(0) + t.slice(1).replace(/_/g, " ").toLowerCase();
+
+const REQUEST_FILTERS = [
+  { value: "PENDING", label: "Waiting" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "ALL", label: "All" },
+];
+const SHOP_FILTERS = [
+  { value: "PENDING_APPROVAL", label: "Waiting for approval" },
+  { value: "ACTIVE", label: "Live" },
+  { value: "SUSPENDED", label: "Paused" },
+  { value: "ALL", label: "All" },
+];
+
 export default function AdminDashboard() {
   const router = useRouter();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<"requests" | "vendors">("requests");
   const [requests, setRequests] = useState<VendorRequest[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -46,36 +102,66 @@ export default function AdminDashboard() {
   const [selectedRequest, setSelectedRequest] = useState<VendorRequest | null>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [processing, setProcessing] = useState(false);
+  const [reasonError, setReasonError] = useState("");
+  const [processing, setProcessing] = useState<null | "approve" | "reject" | "delete" | "status">(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Check authentication
+  // Check authentication via Supabase
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("adminAuth");
-    if (!isAuthenticated) {
-      router.push("/admin/login");
-    }
+    const checkAuth = async () => {
+      try {
+        let isAdmin = false;
+
+        try {
+          const response = await fetch("/api/admin/check-auth");
+          if (response.ok) {
+            const data = await response.json();
+            isAdmin = data.isAdmin;
+          }
+        } catch {
+          const { apiClient } = await import("@/lib/api/client");
+          const result = await apiClient.checkAdminAuth();
+          isAdmin = result.isAdmin;
+        }
+
+        if (!isAdmin) {
+          router.push("/admin/login");
+          return;
+        }
+
+        setAuthChecked(true);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.push("/admin/login");
+      }
+    };
+
+    checkAuth();
   }, [router]);
 
   useEffect(() => {
+    if (!authChecked) return;
+
     if (activeTab === "requests") {
       fetchRequests();
     } else {
       fetchVendors();
     }
-  }, [filter, vendorFilter, activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, vendorFilter, activeTab, authChecked]);
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const url = filter === "ALL"
-        ? "/api/vendor-requests"
-        : `/api/vendor-requests?status=${filter}`;
-
-      const response = await fetch(url);
+      const query = filter === "ALL" ? "" : `?status=${filter}`;
+      const response = await fetch(`/api/admin/vendor-requests${query}`, {
+        cache: "no-store",
+      });
       const data = await response.json();
       setRequests(data.data || []);
     } catch (error) {
       console.error("Error fetching requests:", error);
+      toast.error("Couldn't load seller requests");
     } finally {
       setLoading(false);
     }
@@ -84,629 +170,511 @@ export default function AdminDashboard() {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const url = vendorFilter === "ALL"
-        ? "/api/vendors"
-        : `/api/vendors?status=${vendorFilter}`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-      setVendors(data.data || []);
+      // With no status the API only returns live shops, so "All" asks for each one
+      const statuses = vendorFilter === "ALL" ? ["PENDING_APPROVAL", "ACTIVE", "SUSPENDED"] : [vendorFilter];
+      const lists = await Promise.all(
+        statuses.map((st) =>
+          fetch(`/api/admin/vendors?status=${st}`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((d) => (d.data || []) as Vendor[]),
+        ),
+      );
+      const seen = new Set<string>();
+      setVendors(
+        lists
+          .flat()
+          .filter((v) => (seen.has(v.id) ? false : (seen.add(v.id), true)))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      );
     } catch (error) {
       console.error("Error fetching vendors:", error);
+      toast.error("Couldn't load shops");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (id: string) => {
-    if (!confirm("Are you sure you want to approve this vendor request?")) return;
+  const closeRequest = () => {
+    setSelectedRequest(null);
+    setRejectionReason("");
+    setReasonError("");
+  };
 
-    setProcessing(true);
+  const handleApprove = async (id: string) => {
+    setReasonError("");
+    const ok = await confirm({
+      title: "Approve this seller?",
+      description: "Their shop goes live and they can start adding products.",
+      confirmLabel: "Approve",
+    });
+    if (!ok) return;
+
+    setProcessing("approve");
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
+      const response = await fetch(`/api/admin/vendor-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "APPROVE" }),
       });
-
       const data = await response.json();
 
-      if (response.ok) {
-        alert("Vendor approved successfully!");
-        fetchRequests();
-        setSelectedRequest(null);
+      if (data.success) {
+        toast.success("Seller approved — their shop is live");
+        await fetchRequests();
+        closeRequest();
       } else {
-        alert(data.error || "Failed to approve vendor");
+        toast.error(data.error || "Couldn't approve this seller");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error approving vendor:", error);
-      alert("Failed to approve vendor");
+      toast.error(error.message || "Couldn't approve this seller");
     } finally {
-      setProcessing(false);
+      setProcessing(null);
     }
   };
 
   const handleReject = async (id: string) => {
     if (!rejectionReason.trim()) {
-      alert("Please provide a rejection reason");
+      setReasonError("Tell the seller why — they will see this message.");
       return;
     }
 
-    setProcessing(true);
+    setProcessing("reject");
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
+      const response = await fetch(`/api/admin/vendor-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "REJECT",
-          rejectionReason
-        }),
+        body: JSON.stringify({ action: "REJECT", rejectionReason }),
       });
-
       const data = await response.json();
 
-      if (response.ok) {
-        alert("Vendor rejected");
-        fetchRequests();
-        setSelectedRequest(null);
-        setRejectionReason("");
+      if (data.success) {
+        toast.success("Request rejected — the seller will see your reason");
+        await fetchRequests();
+        closeRequest();
       } else {
-        alert(data.error || "Failed to reject vendor");
+        toast.error(data.error || "Couldn't reject this request");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error rejecting vendor:", error);
-      alert("Failed to reject vendor");
+      toast.error(error.message || "Couldn't reject this request");
     } finally {
-      setProcessing(false);
+      setProcessing(null);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this request?")) return;
+    const ok = await confirm({
+      title: "Delete this request?",
+      description: "It is removed from the list for good.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
 
-    setProcessing(true);
+    setProcessing("delete");
     try {
-      const response = await fetch(`/api/vendor-requests/${id}`, {
+      const response = await fetch(`/api/admin/vendor-requests/${id}`, {
         method: "DELETE",
       });
+      const data = await response.json();
 
-      if (response.ok) {
-        alert("Request deleted");
-        fetchRequests();
-        setSelectedRequest(null);
+      if (data.success) {
+        toast.success(data.message || "Request deleted");
+        await fetchRequests();
+        closeRequest();
       } else {
-        alert("Failed to delete request");
+        toast.error(data.error || "Couldn't delete this request");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting request:", error);
-      alert("Failed to delete request");
+      toast.error(error.message || "Couldn't delete this request");
     } finally {
-      setProcessing(false);
+      setProcessing(null);
     }
   };
 
   const handleVendorStatusUpdate = async (id: string, status: string) => {
-    const confirmMessage = status === "ACTIVE"
-      ? "Approve this vendor store? It will be visible to customers."
-      : "Suspend this vendor store? It will be hidden from customers.";
+    const goingLive = status === "ACTIVE";
+    const ok = await confirm({
+      title: goingLive ? "Make this shop live?" : "Pause this shop?",
+      description: goingLive
+        ? "Customers can see the shop and order from it."
+        : "The shop is hidden from customers until you make it live again.",
+      confirmLabel: goingLive ? "Make live" : "Pause shop",
+      destructive: !goingLive,
+    });
+    if (!ok) return;
 
-    if (!confirm(confirmMessage)) return;
-
-    setProcessing(true);
+    setProcessing("status");
     try {
-      const response = await fetch(`/api/vendors/${id}`, {
+      const response = await fetch(`/api/admin/vendors/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          isActive: status === "ACTIVE"
+          isActive: goingLive,
         }),
       });
-
       const data = await response.json();
 
-      if (response.ok) {
-        alert(`Vendor ${status === "ACTIVE" ? "approved" : "suspended"} successfully!`);
-        fetchVendors();
+      if (data.success) {
+        toast.success(goingLive ? "Shop is live" : "Shop paused");
+        await fetchVendors();
         setSelectedVendor(null);
       } else {
-        alert(data.error || "Failed to update vendor status");
+        toast.error(data.error || data.message || "Couldn't change the shop");
       }
     } catch (error) {
       console.error("Error updating vendor:", error);
-      alert("Failed to update vendor status");
+      toast.error("Couldn't change the shop");
     } finally {
-      setProcessing(false);
+      setProcessing(null);
     }
   };
 
+  if (!authChecked) return <AdminGate />;
+
+  const isRequests = activeTab === "requests";
+  // The shops API doesn't send owners today; only show the column if it does
+  const hasOwners = vendors.some((v) => v.user);
+  const empty = isRequests ? requests.length === 0 : vendors.length === 0;
+  const filterLabel = (isRequests ? REQUEST_FILTERS.find((f) => f.value === filter) : SHOP_FILTERS.find((f) => f.value === vendorFilter))?.label ?? "";
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  localStorage.removeItem("adminAuth");
-                  router.push("/admin/login");
-                }}
-                className="text-red-600 hover:text-red-700 font-medium"
-              >
-                Logout
-              </button>
-              <Link href="/" className="text-blue-600 hover:text-blue-700">
-                Back to Site
-              </Link>
-            </div>
-          </div>
-        </div>
+    <AdminPage title="Shops & requests" subtitle="Approve new sellers and look after live shops.">
+      <div className="mb-4 max-w-sm">
+        <Segmented
+          label="Show"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: "requests", label: "Seller requests" },
+            { value: "vendors", label: "Shops" },
+          ]}
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Tabs */}
-        <div className="mb-6 flex gap-4 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab("requests")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              activeTab === "requests"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Vendor Requests
-          </button>
-          <button
-            onClick={() => setActiveTab("vendors")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              activeTab === "vendors"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Vendor Stores
-          </button>
-        </div>
-
-        {/* Filters */}
-        {activeTab === "requests" ? (
-          <div className="mb-6 flex gap-2">
-            {["PENDING", "APPROVED", "REJECTED", "ALL"].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  filter === status
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
+      <Toolbar>
+        {isRequests ? (
+          <Chips label="Filter requests" options={REQUEST_FILTERS} value={filter} onChange={setFilter} />
         ) : (
-          <div className="mb-6 flex gap-2">
-            {["PENDING_APPROVAL", "ACTIVE", "SUSPENDED", "ALL"].map((status) => (
-              <button
-                key={status}
-                onClick={() => setVendorFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  vendorFilter === status
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {status.replace("_", " ")}
-              </button>
-            ))}
-          </div>
+          <Chips label="Filter shops" options={SHOP_FILTERS} value={vendorFilter} onChange={setVendorFilter} />
         )}
+      </Toolbar>
 
-        {/* Content */}
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
-          </div>
-        ) : activeTab === "requests" ? (
-          requests.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-600">No {filter.toLowerCase()} requests found</p>
-            </div>
-          ) : (
-            // Requests Table
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Business
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+      {loading ? (
+        <LoadingBlock />
+      ) : empty ? (
+        <EmptyBlock
+          icon={isRequests ? <Inbox className="h-7 w-7" aria-hidden /> : <Store className="h-7 w-7" aria-hidden />}
+          title={isRequests ? "No requests here" : "No shops here"}
+          body={
+            filterLabel === "All"
+              ? isRequests
+                ? "New seller applications show up here."
+                : "Shops show up here once sellers are approved."
+              : `Nothing under “${filterLabel}” right now.`
+          }
+        />
+      ) : isRequests ? (
+        <>
+          {/* Desktop */}
+          <TableCard>
+            <thead>
+              <tr>
+                <th className={thClass}>Shop</th>
+                <th className={thClass}>Contact</th>
+                <th className={thClass}>City</th>
+                <th className={thClass}>Status</th>
+                <th className={thClass}>Applied</th>
+                <th className={thClass}>
+                  <span className="sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((request) => (
+                <tr key={request.id} className={`${trClass} cursor-pointer`} onClick={() => setSelectedRequest(request)}>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={request.businessName} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-label">{request.businessName}</p>
+                        <p className="text-[13px] text-label-2">{typeLabel(request.businessType)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={tdClass}>
+                    <p>{request.fullName}</p>
+                    <p className="text-[13px] text-label-2">{request.email}</p>
+                  </td>
+                  <td className={`${tdClass} text-label-2`}>{request.city}</td>
+                  <td className={tdClass}>
+                    <StatusPill status={request.status} />
+                  </td>
+                  <td className={`${tdClass} whitespace-nowrap text-label-2`}>{formatDateIST(request.createdAt)}</td>
+                  <td className={`${tdClass} text-right`}>
+                    <span className="inline-flex items-center gap-0.5 text-[15px] font-medium text-tint">
+                      Review <ChevronRight className="h-4 w-4" aria-hidden />
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {requests.map((request) => (
-                  <tr key={request.id}>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {request.businessName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {request.businessType}
-                        </div>
+              ))}
+            </tbody>
+          </TableCard>
+
+          {/* Phone */}
+          <List className="md:hidden">
+            {requests.map((request) => (
+              <Row
+                key={request.id}
+                onClick={() => setSelectedRequest(request)}
+                leading={<Avatar name={request.businessName} />}
+                title={<span className="font-semibold">{request.businessName}</span>}
+                subtitle={`${request.fullName} · ${request.city} · ${formatDateIST(request.createdAt)}`}
+                trailing={<StatusPill status={request.status} />}
+              />
+            ))}
+          </List>
+        </>
+      ) : (
+        <>
+          <TableCard>
+            <thead>
+              <tr>
+                <th className={thClass}>Shop</th>
+                {hasOwners && <th className={thClass}>Owner</th>}
+                <th className={thClass}>Place</th>
+                <th className={thClass}>Status</th>
+                <th className={thClass}>Since</th>
+                <th className={thClass}>
+                  <span className="sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendors.map((vendor) => (
+                <tr key={vendor.id} className={`${trClass} cursor-pointer`} onClick={() => setSelectedVendor(vendor)}>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={vendor.businessName} src={vendor.storeLogo} />
+                      <div className="min-w-0">
+                        <p className="font-semibold text-label">{vendor.businessName}</p>
+                        <p className="text-[13px] text-label-2">{typeLabel(vendor.businessType)}</p>
                       </div>
+                    </div>
+                  </td>
+                  {hasOwners && (
+                    <td className={tdClass}>
+                      {vendor.user ? (
+                        <>
+                          <p>{vendor.user.fullName}</p>
+                          <p className="text-[13px] text-label-2">{vendor.user.email}</p>
+                        </>
+                      ) : (
+                        <span className="text-label-3">—</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm text-gray-900">{request.fullName}</div>
-                        <div className="text-sm text-gray-500">{request.email}</div>
-                        <div className="text-sm text-gray-500">{request.phone}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {request.city}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          request.status === "APPROVED"
-                            ? "bg-green-100 text-green-800"
-                            : request.status === "REJECTED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {new Date(request.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <button
-                        onClick={() => setSelectedRequest(request)}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          )
-        ) : (
-          // Vendors Table
-          vendors.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-600">No {vendorFilter.toLowerCase().replace("_", " ")} vendors found</p>
+                  )}
+                  <td className={`${tdClass} text-label-2`}>{place(vendor)}</td>
+                  <td className={tdClass}>
+                    <StatusPill status={vendor.status} />
+                  </td>
+                  <td className={`${tdClass} whitespace-nowrap text-label-2`}>{formatDateIST(vendor.createdAt)}</td>
+                  <td className={`${tdClass} text-right`}>
+                    <span className="inline-flex items-center gap-0.5 text-[15px] font-medium text-tint">
+                      Manage <ChevronRight className="h-4 w-4" aria-hidden />
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </TableCard>
+
+          <List className="md:hidden">
+            {vendors.map((vendor) => (
+              <Row
+                key={vendor.id}
+                onClick={() => setSelectedVendor(vendor)}
+                leading={<Avatar name={vendor.businessName} src={vendor.storeLogo} />}
+                title={<span className="font-semibold">{vendor.businessName}</span>}
+                subtitle={[typeLabel(vendor.businessType), vendor.user?.fullName, vendor.city].filter(Boolean).join(" · ")}
+                trailing={<StatusPill status={vendor.status} />}
+              />
+            ))}
+          </List>
+        </>
+      )}
+
+      {/* ── Seller request ── */}
+      <Sheet
+        open={!!selectedRequest}
+        onClose={closeRequest}
+        wide
+        title={selectedRequest?.businessName}
+        description={selectedRequest ? `${typeLabel(selectedRequest.businessType)} · applied ${formatIST(selectedRequest.createdAt)}` : undefined}
+        footer={
+          selectedRequest &&
+          (selectedRequest.status === "PENDING" ? (
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1 text-bad!"
+                onClick={() => handleReject(selectedRequest.id)}
+                loading={processing === "reject"}
+                disabled={!!processing}
+              >
+                Reject
+              </Button>
+              <Button
+                className="flex-[1.6]"
+                onClick={() => handleApprove(selectedRequest.id)}
+                loading={processing === "approve"}
+                disabled={!!processing}
+              >
+                Approve seller
+              </Button>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Business
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Owner
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Location
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {vendors.map((vendor) => (
-                    <tr key={vendor.id}>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {vendor.businessName}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {vendor.businessType}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm text-gray-900">{vendor.user.fullName}</div>
-                          <div className="text-sm text-gray-500">{vendor.user.email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {vendor.city}, {vendor.state}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            vendor.status === "ACTIVE"
-                              ? "bg-green-100 text-green-800"
-                              : vendor.status === "SUSPENDED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {vendor.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {new Date(vendor.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <button
-                          onClick={() => setSelectedVendor(vendor)}
-                          className="text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          Manage
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <Button
+              variant="danger"
+              full
+              onClick={() => handleDelete(selectedRequest.id)}
+              loading={processing === "delete"}
+              disabled={!!processing}
+            >
+              Delete request
+            </Button>
+          ))
+        }
+      >
+        {selectedRequest && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <StatusPill status={selectedRequest.status} />
             </div>
-          )
+            <DetailGrid>
+              <Detail label="Contact person">{selectedRequest.fullName}</Detail>
+              <Detail label="Phone">
+                <a href={`tel:${selectedRequest.phone}`} className="text-tint">
+                  {selectedRequest.phone}
+                </a>
+              </Detail>
+              <Detail label="Email">{selectedRequest.email}</Detail>
+              <Detail label="Area">
+                {[selectedRequest.locality, selectedRequest.city].filter(Boolean).join(", ")}
+              </Detail>
+              <Detail label="PIN code">{selectedRequest.pincode || "Not given"}</Detail>
+              <Detail label="Address" wide>
+                {selectedRequest.address}
+              </Detail>
+              {selectedRequest.description && (
+                <Detail label="About the shop" wide>
+                  {selectedRequest.description}
+                </Detail>
+              )}
+            </DetailGrid>
+
+            {selectedRequest.rejectionReason && (
+              <Notice tone="bad">
+                <p className="font-semibold">Reason given</p>
+                <p className="mt-0.5 text-label-2">{selectedRequest.rejectionReason}</p>
+              </Notice>
+            )}
+
+            {selectedRequest.status === "PENDING" && (
+              <div className="rounded-2xl bg-card p-4">
+                <Field
+                  label="Reason, if you reject"
+                  htmlFor="reject-reason"
+                  hint="The seller sees this, so keep it clear and kind."
+                  error={reasonError}
+                >
+                  <textarea
+                    id="reject-reason"
+                    value={rejectionReason}
+                    onChange={(e) => {
+                      setRejectionReason(e.target.value);
+                      if (reasonError) setReasonError("");
+                    }}
+                    rows={3}
+                    aria-invalid={!!reasonError}
+                    className={textareaClass}
+                    placeholder="e.g. Please add a clear shop address"
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
         )}
-      </div>
+      </Sheet>
 
-      {/* Request Details Modal */}
-      {selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Request Details
-                </h2>
-                <button
-                  onClick={() => {
-                    setSelectedRequest(null);
-                    setRejectionReason("");
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Information</h3>
-                  <p className="text-gray-900">{selectedRequest.businessName}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.businessType}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Contact Person</h3>
-                  <p className="text-gray-900">{selectedRequest.fullName}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.email}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.phone}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Location</h3>
-                  <p className="text-gray-900">{selectedRequest.city}</p>
-                  <p className="text-sm text-gray-600">{selectedRequest.address}</p>
-                </div>
-
-                {selectedRequest.description && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Description</h3>
-                    <p className="text-gray-900">{selectedRequest.description}</p>
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Status</h3>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full ${
-                      selectedRequest.status === "APPROVED"
-                        ? "bg-green-100 text-green-800"
-                        : selectedRequest.status === "REJECTED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {selectedRequest.status}
-                  </span>
-                </div>
-
-                {selectedRequest.rejectionReason && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Rejection Reason</h3>
-                    <p className="text-gray-900">{selectedRequest.rejectionReason}</p>
-                  </div>
-                )}
-
-                {selectedRequest.status === "PENDING" && (
-                  <div className="pt-4 border-t space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Rejection Reason (optional)
-                      </label>
-                      <textarea
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter reason if rejecting..."
-                      />
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleApprove(selectedRequest.id)}
-                        disabled={processing}
-                        className="flex-1 bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                      >
-                        {processing ? "Processing..." : "Approve"}
-                      </button>
-                      <button
-                        onClick={() => handleReject(selectedRequest.id)}
-                        disabled={processing}
-                        className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-400"
-                      >
-                        {processing ? "Processing..." : "Reject"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedRequest.status !== "PENDING" && (
-                  <div className="pt-4 border-t">
-                    <button
-                      onClick={() => handleDelete(selectedRequest.id)}
-                      disabled={processing}
-                      className="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Deleting..." : "Delete Request"}
-                    </button>
-                  </div>
-                )}
-              </div>
+      {/* ── Shop ── */}
+      <Sheet
+        open={!!selectedVendor}
+        onClose={() => setSelectedVendor(null)}
+        wide
+        title={selectedVendor?.businessName}
+        description={selectedVendor ? `${typeLabel(selectedVendor.businessType)} · ${place(selectedVendor)}` : undefined}
+        footer={
+          selectedVendor &&
+          (selectedVendor.status === "ACTIVE" ? (
+            <Button
+              variant="secondary"
+              full
+              className="text-bad!"
+              onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
+              loading={processing === "status"}
+            >
+              Pause shop
+            </Button>
+          ) : selectedVendor.status === "PENDING_APPROVAL" || selectedVendor.status === "SUSPENDED" ? (
+            <Button
+              full
+              onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
+              loading={processing === "status"}
+            >
+              {selectedVendor.status === "SUSPENDED" ? "Make live again" : "Approve and make live"}
+            </Button>
+          ) : undefined)
+        }
+      >
+        {selectedVendor && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill status={selectedVendor.status} />
+              <span className="text-[14px] text-label-2">
+                {selectedVendor.isActive ? "Visible to customers" : "Hidden from customers"}
+              </span>
             </div>
+            <DetailGrid>
+              {selectedVendor.user && (
+                <>
+                  <Detail label="Owner">{selectedVendor.user.fullName}</Detail>
+                  <Detail label="Phone">
+                    {selectedVendor.user.phone ? (
+                      <a href={`tel:${selectedVendor.user.phone}`} className="text-tint">
+                        {selectedVendor.user.phone}
+                      </a>
+                    ) : (
+                      <span className="text-label-3">Not given</span>
+                    )}
+                  </Detail>
+                  <Detail label="Email">{selectedVendor.user.email}</Detail>
+                </>
+              )}
+              <Detail label="Place">{place(selectedVendor) || "—"}</Detail>
+              {selectedVendor.pincode && <Detail label="PIN code">{selectedVendor.pincode}</Detail>}
+              <Detail label="On LocalMart since">{formatDateIST(selectedVendor.createdAt)}</Detail>
+            </DetailGrid>
+            <Button href={`/stores/${selectedVendor.id}`} variant="secondary" full>
+              <Store className="h-[18px] w-[18px]" aria-hidden />
+              See the shop page
+            </Button>
           </div>
-        </div>
-      )}
-
-      {/* Vendor Details Modal */}
-      {selectedVendor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Vendor Store Details
-                </h2>
-                <button
-                  onClick={() => setSelectedVendor(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Name</h3>
-                  <p className="text-gray-900">{selectedVendor.businessName}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Business Type</h3>
-                  <p className="text-gray-900">{selectedVendor.businessType}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Owner</h3>
-                  <p className="text-gray-900">{selectedVendor.user.fullName}</p>
-                  <p className="text-sm text-gray-600">{selectedVendor.user.email}</p>
-                  {selectedVendor.user.phone && (
-                    <p className="text-sm text-gray-600">{selectedVendor.user.phone}</p>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Location</h3>
-                  <p className="text-gray-900">{selectedVendor.city}, {selectedVendor.state}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Current Status</h3>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full ${
-                      selectedVendor.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800"
-                        : selectedVendor.status === "SUSPENDED"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {selectedVendor.status.replace("_", " ")}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Active</h3>
-                  <p className="text-gray-900">{selectedVendor.isActive ? "Yes" : "No"}</p>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-700">Created</h3>
-                  <p className="text-gray-900">
-                    {new Date(selectedVendor.createdAt).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t space-y-3">
-                  <h3 className="font-semibold text-gray-700 mb-2">Update Status</h3>
-
-                  {selectedVendor.status === "PENDING_APPROVAL" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
-                      disabled={processing}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "✓ Approve Store (Make Active)"}
-                    </button>
-                  )}
-
-                  {selectedVendor.status === "ACTIVE" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "SUSPENDED")}
-                      disabled={processing}
-                      className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "Suspend Store"}
-                    </button>
-                  )}
-
-                  {selectedVendor.status === "SUSPENDED" && (
-                    <button
-                      onClick={() => handleVendorStatusUpdate(selectedVendor.id, "ACTIVE")}
-                      disabled={processing}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                    >
-                      {processing ? "Processing..." : "Reactivate Store"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        )}
+      </Sheet>
+    </AdminPage>
   );
 }

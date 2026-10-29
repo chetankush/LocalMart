@@ -1,27 +1,56 @@
 "use client";
 
+import { refreshShopPage } from "@/lib/refreshShopPage";
 import { useState } from "react";
+import SizesEditor, { type SizeDraft } from "@/components/products/SizesEditor";
+import VideoLinkField from "@/components/products/VideoLinkField";
+import HandloomProofCard from "@/components/products/HandloomProofCard";
+import { VIDEO_LINK_PROBLEM, parseVideoLink } from "@/lib/videoLink";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { toast } from "sonner";
+import { Button, StickyBar, StickyBarSpacer } from "@/components/app/ui";
+import { Field, FormCard, RupeeInput, Toggle, inputClass, textareaClass } from "@/components/app/form";
+import { useConfirm } from "@/hooks/useConfirm";
+import {
+  CategoryButton,
+  CategoryPicker,
+  MoreDetails,
+  MoreDetailsFields,
+  PhotoPicker,
+  StockStepper,
+  focusField,
+  moreSummary,
+} from "@/app/vendor/products/new/AddProductForm";
 
 interface Category {
   id: string;
   name: string;
+  /** Set when the category belongs to this shop only */
+  vendorId?: string | null;
 }
 
 interface Product {
   id: string;
+  /** The shop this product belongs to */
+  vendorId: string;
   name: string;
   description: string;
   categoryId: string;
   images: any;
+  /** The shop's Instagram reel of it */
+  videoUrl?: string | null;
   price: any;
   compareAtPrice: any;
   sku: string | null;
   stockQuantity: number;
+  /** false = not counted: just available or not */
+  trackStock?: boolean;
   lowStockThreshold: number | null;
   weight: any;
   isActive: boolean;
+  category?: { id: string; name: string } | null;
+  /** Sizes, in order */
+  variants?: { id: string; label: string; isAvailable: boolean }[];
 }
 
 interface EditProductFormProps {
@@ -29,41 +58,76 @@ interface EditProductFormProps {
   categories: Category[];
 }
 
+// Top-to-bottom order of the fields, so we jump to the first problem
+const FIELD_ORDER = ["images", "videoUrl", "name", "price", "compareAtPrice", "stockQuantity", "category", "description"] as const;
+const FIELD_IDS: Record<(typeof FIELD_ORDER)[number], string> = {
+  images: "field-images",
+  videoUrl: "p-video",
+  name: "p-name",
+  price: "p-price",
+  compareAtPrice: "p-mrp",
+  stockQuantity: "p-stock",
+  category: "p-category",
+  description: "p-desc",
+};
+
 export default function EditProductForm({
   product,
   categories,
 }: EditProductFormProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  // Inline messages under fields, keyed by field name ("" = no error)
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const startSizes = (product.variants ?? []).map((v) => ({ id: v.id, label: v.label, isAvailable: v.isAvailable }));
+  const [sizes, setSizes] = useState<SizeDraft[]>(startSizes);
+  // Only the list itself (adding / removing / order) waits for Save — "sold out" is saved at once
+  const sizesChanged = sizes.map((x) => x.label).join("|") !== startSizes.map((x) => x.label).join("|");
 
-  // Debug: Log categories received
-  console.log("EditProductForm received categories:", categories.length);
-  console.log(
-    "Category names:",
-    categories.map((c) => c.name)
-  );
+  const toggleSoldOut = async (size: SizeDraft) => {
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.patch(`/vendor/products/${product.id}/sizes/${size.id}`, { available: size.isAvailable });
+      toast.success(size.isAvailable ? `Size ${size.label} is back on sale` : `Size ${size.label} marked sold out`);
+      void refreshShopPage(product.vendorId, product.id);
+    } catch {
+      setSizes((list) => list.map((x) => (x.id === size.id ? { ...x, isAvailable: !size.isAvailable } : x)));
+      toast.error("Couldn't change that size. Please try again.");
+    }
+  };
+  const [showMore, setShowMore] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const startForm = () => ({
     name: product.name,
     description: product.description,
     categoryId: product.categoryId,
     price: product.price.toString(),
     compareAtPrice: product.compareAtPrice?.toString() || "",
     sku: product.sku || "",
-    stockQuantity: product.stockQuantity.toString(),
+    trackStock: product.trackStock !== false,
+    // Uncounted items keep a placeholder number — start the box empty if they switch to counting
+    stockQuantity: product.trackStock === false ? "" : product.stockQuantity.toString(),
     lowStockThreshold: product.lowStockThreshold?.toString() || "10",
     weight: product.weight?.toString() || "",
     isActive: product.isActive,
+    videoUrl: product.videoUrl || "",
   });
+  const startImages = (): string[] => (Array.isArray(product.images) ? product.images : []);
 
-  const [images, setImages] = useState<string[]>(
-    Array.isArray(product.images) ? product.images : []
-  );
+  const [formData, setFormData] = useState(startForm);
+  const [images, setImages] = useState<string[]>(startImages);
+  // What the form looked like when opened — to warn before throwing changes away
+  const [startSnapshot] = useState(() => JSON.stringify([startForm(), startImages()]));
 
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [showAddCategory, setShowAddCategory] = useState(false);
+  // Categories added from this screen join the list straight away
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
+
+  const clearError = (key: string) =>
+    setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -77,56 +141,57 @@ export default function EditProductForm({
       [name]:
         type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
+    clearError(name);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+    const input = e.target;
+    const files = input.files;
     if (!files || files.length === 0) return;
 
     // Validate max 5 images
     if (images.length + files.length > 5) {
-      alert("Maximum 5 images allowed");
+      const left = 5 - images.length;
+      toast.error(left > 0 ? `You can add ${left} more photo${left === 1 ? "" : "s"} (5 in total)` : "You can add up to 5 photos");
+      input.value = "";
       return;
     }
 
     setUploadingImages(true);
 
     try {
+      const { apiClient } = await import("@/lib/api/client");
+
       const uploadPromises = Array.from(files).map(async (file) => {
         // Validate file
         if (!file.type.startsWith("image/")) {
-          throw new Error("Please select image files only");
+          throw new Error("Please pick a photo (JPG or PNG)");
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          throw new Error("Each image must be less than 5MB");
+          throw new Error("Each photo must be smaller than 5 MB");
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "product");
+        // Same upload as the add screen (there is no /api/vendor/upload route in this app)
+        const response = await apiClient.vendorUpload(file, "products");
 
-        const res = await fetch("/api/vendor/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Failed to upload image");
+        if (!response.success) {
+          throw new Error("Couldn't upload the photo. Please try again.");
         }
 
-        return data.url;
+        return response.url;
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
       setImages((prev) => [...prev, ...uploadedUrls]);
+      clearError("images");
     } catch (error: any) {
       console.error("Image upload error:", error);
-      alert(error.message || "Failed to upload images");
+      toast.error(error.message || "Couldn't upload the photo. Please try again.");
     }
 
+    // Let the same photo be picked again later
+    input.value = "";
     setUploadingImages(false);
   };
 
@@ -134,412 +199,305 @@ export default function EditProductForm({
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) {
-      alert("Please enter a category name");
+  const selectCategory = (category: Category) => {
+    setFormData((prev) => ({ ...prev, categoryId: category.id }));
+    setShowCategoryPicker(false);
+    clearError("category");
+  };
+
+  const handleAddCategory = async (name: string) => {
+    if (!name.trim()) {
+      toast.error("Type a category name first");
       return;
     }
 
     setAddingCategory(true);
 
     try {
-      const res = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newCategoryName.trim() }),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      // Made just for this product's shop
+      const data = await apiClient.createCategory({ name: name.trim(), storeId: product.vendorId });
 
       if (data.success) {
-        // Add the new category to the list and select it
-        const newCategory = { id: data.data.id, name: data.data.name };
+        // Add the new category to the list and select it (no page reload, so edits are kept)
+        const newCategory = { id: data.data.id, name: data.data.name, vendorId: data.data.vendorId };
+        setLocalCategories((prev) => (prev.some((c) => c.id === newCategory.id) ? prev : [...prev, newCategory]));
         setFormData((prev) => ({ ...prev, categoryId: newCategory.id }));
-        setNewCategoryName("");
-        setShowAddCategory(false);
-        alert("Category added successfully!");
-        // Refresh the page to get updated categories
-        window.location.reload();
+        setShowCategoryPicker(false);
+        clearError("category");
+        toast.success(`Category “${newCategory.name}” added`);
       } else {
-        alert(data.error || "Failed to add category");
+        toast.error((data as any).error || data.message || "Couldn't add the category");
       }
     } catch (error) {
       console.error("Add category error:", error);
-      alert("Failed to add category");
+      toast.error("Couldn't add the category. Please try again.");
     }
 
     setAddingCategory(false);
   };
 
+  const handleCancel = async () => {
+    const dirty = JSON.stringify([formData, images]) !== startSnapshot;
+    if (
+      dirty &&
+      !(await confirm({
+        title: "Leave without saving?",
+        description: "Your changes to this product will be lost.",
+        confirmLabel: "Leave",
+        cancelLabel: "Keep editing",
+        destructive: true,
+      }))
+    )
+      return;
+    if (window.history.length > 1) router.back();
+    else router.push("/vendor/products");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate images
-    if (images.length === 0) {
-      alert("Please add at least one product image");
+    // Validate — one plain message under each field that needs fixing
+    const next: Record<string, string> = {};
+    if (images.length === 0) next.images = "Add at least one photo — customers want to see what they are buying";
+    if (formData.videoUrl.trim() && !parseVideoLink(formData.videoUrl)) next.videoUrl = VIDEO_LINK_PROBLEM;
+    if (!formData.name.trim()) next.name = "Add a name — customers search by it";
+    const priceNum = parseFloat(formData.price);
+    if (!formData.price) next.price = "Add a price — customers need it to order";
+    else if (isNaN(priceNum) || priceNum < 0) next.price = "Type the price in rupees, like 120 or 99.50";
+    // A crossed-out MRP below the price would read as a fake discount
+    const mrpNum = parseFloat(formData.compareAtPrice);
+    if (formData.compareAtPrice && !isNaN(mrpNum) && mrpNum > 0 && !isNaN(priceNum) && mrpNum <= priceNum)
+      next.compareAtPrice = "The MRP should be more than your price — or leave it empty";
+    if (formData.trackStock && formData.stockQuantity === "") next.stockQuantity = "Tell us how many you have — tap + or type a number";
+    else if (formData.trackStock && parseInt(formData.stockQuantity) < 0) next.stockQuantity = "Stock can't be less than 0";
+    if (!formData.categoryId) next.category = "Choose a category so customers can find it";
+    if (!formData.description.trim()) next.description = "Add a short description — size, colour or brand";
+
+    const firstKey = FIELD_ORDER.find((k) => next[k]);
+    if (firstKey) {
+      setErrors(next);
+      toast.error(next[firstKey]);
+      focusField(FIELD_IDS[firstKey]);
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/vendor/products/${product.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          images,
-          price: parseFloat(formData.price),
-          compareAtPrice: formData.compareAtPrice
-            ? parseFloat(formData.compareAtPrice)
-            : null,
-          stockQuantity: parseInt(formData.stockQuantity) || 0,
-          lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
-          weight: formData.weight ? parseFloat(formData.weight) : null,
-        }),
+      const { apiClient } = await import("@/lib/api/client");
+      // Send the count only if the seller changed it (or started counting) —
+      // otherwise orders placed while this form was open would be undone
+      const { stockQuantity: typedStock, trackStock, ...rest } = formData;
+      const countChanged =
+        trackStock && (typedStock !== startForm().stockQuantity || product.trackStock === false);
+      const data = await apiClient.updateVendorProduct(product.id, {
+        ...rest,
+        images,
+        price: parseFloat(formData.price),
+        compareAtPrice: formData.compareAtPrice
+          ? parseFloat(formData.compareAtPrice)
+          : null,
+        ...(trackStock !== (product.trackStock !== false) ? { trackStock } : {}),
+        ...(countChanged ? { stockQuantity: parseInt(typedStock) || 0 } : {}),
+        lowStockThreshold: parseInt(formData.lowStockThreshold) || 10,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        ...(sizesChanged ? { sizes: sizes.map((x) => ({ label: x.label, isAvailable: x.isAvailable })) } : {}),
       });
 
-      const data = await res.json();
-
       if (data.success) {
-        alert("Product updated successfully!");
+        toast.success("Changes saved");
+        void refreshShopPage(product.vendorId, product.id);
         router.push("/vendor/products");
+        router.refresh();
+        // Keep the button busy while we leave the page (no double save)
+        return;
       } else {
-        alert(data.error || "Failed to update product");
+        toast.error((data as any).error || data.message || "Couldn't save your changes. Please try again.");
       }
     } catch (error) {
       console.error("Product update error:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     }
 
     setLoading(false);
   };
 
+  const selectedCategoryName =
+    localCategories.find((c) => c.id === formData.categoryId)?.name ||
+    (product.category?.id === formData.categoryId ? product.category?.name : "") ||
+    "";
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Product Images */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Product Images *</h2>
+    <>
+      <form onSubmit={handleSubmit} noValidate>
+        {/* ── Photos ── */}
+        <FormCard title="Photos" description="Clear photos sell faster. Add up to 5 — the first one is the main photo.">
+          <div id="field-images">
+            <PhotoPicker
+              images={images}
+              uploading={uploadingImages}
+              onPick={handleImageUpload}
+              onRemove={handleRemoveImage}
+              error={errors.images}
+            />
+          </div>
+          <VideoLinkField
+            value={formData.videoUrl}
+            onChange={(v) => {
+              setFormData((prev) => ({ ...prev, videoUrl: v }));
+              clearError("videoUrl");
+            }}
+            error={errors.videoUrl}
+          />
+        </FormCard>
 
-        <div className="grid grid-cols-5 gap-4 mb-4">
-          {images.map((url, index) => (
-            <div
-              key={index}
-              className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200"
-            >
-              <Image
-                src={url}
-                alt={`Product ${index + 1}`}
-                fill
-                className="object-cover"
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveImage(index)}
-                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-              {index === 0 && (
-                <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                  Main
-                </div>
-              )}
-            </div>
-          ))}
-
-          {images.length < 5 && (
-            <label className="aspect-square rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
-              {uploadingImages ? (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-              ) : (
-                <>
-                  <svg
-                    className="w-8 h-8 text-gray-400 mb-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  <span className="text-xs text-gray-500">Add Image</span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={uploadingImages}
-              />
-            </label>
-          )}
-        </div>
-
-        <p className="text-xs text-gray-500">
-          Upload up to 5 images. First image will be the main product image.
-        </p>
-      </div>
-
-      {/* Basic Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Product Name *
-            </label>
+        {/* ── The basics: name, price, stock, category ── */}
+        <FormCard>
+          <Field label="Product name" htmlFor="p-name" hint="Customers search by this name" error={errors.name}>
             <input
+              id="p-name"
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autoComplete="off"
+              aria-invalid={!!errors.name || undefined}
+              className={inputClass}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description *
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              required
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category *
-            </label>
-            <div className="flex gap-2">
-              <select
-                name="categoryId"
-                value={formData.categoryId}
-                onChange={handleChange}
-                required
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {categories && categories.length > 0 ? (
-                  categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No categories available</option>
-                )}
-              </select>
-              <button
-                type="button"
-                onClick={() => setShowAddCategory(!showAddCategory)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                + Add New
-              </button>
-            </div>
-
-            {showAddCategory && (
-              <div className="mt-3 p-4 bg-gray-50 rounded-lg border">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Enter new category name"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddCategory}
-                    disabled={addingCategory}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                  >
-                    {addingCategory ? "Adding..." : "Add"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddCategory(false);
-                      setNewCategoryName("");
-                    }}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm font-medium"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                SKU (Stock Keeping Unit)
-              </label>
-              <input
-                type="text"
-                name="sku"
-                value={formData.sku}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Weight (kg)
-              </label>
-              <input
+          <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+            <Field label="Price" htmlFor="p-price" hint="What customers pay" error={errors.price}>
+              <RupeeInput
+                id="p-price"
                 type="number"
-                name="weight"
-                value={formData.weight}
+                name="price"
+                value={formData.price}
                 onChange={handleChange}
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-invalid={!!errors.price || undefined}
+                placeholder="0"
               />
-            </div>
+            </Field>
+            <Field label="Price before discount" optional htmlFor="p-mrp" hint="The MRP — shown crossed out" error={errors.compareAtPrice}>
+              <RupeeInput
+                id="p-mrp"
+                type="number"
+                name="compareAtPrice"
+                value={formData.compareAtPrice}
+                onChange={handleChange}
+                step="0.01"
+                min="0"
+                aria-invalid={!!errors.compareAtPrice || undefined}
+                placeholder="0"
+              />
+            </Field>
           </div>
-        </div>
-      </div>
 
-      {/* Pricing */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Pricing</h2>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Selling Price (₹) *
-            </label>
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              required
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="rounded-2xl bg-fill px-3.5 py-1">
+            <Toggle
+              checked={formData.trackStock}
+              onChange={(on) => {
+                setFormData((prev) => ({ ...prev, trackStock: on }));
+                clearError("stockQuantity");
+              }}
+              label="Count how many I have"
+              description={
+                formData.trackStock
+                  ? "We take one off for every order and stop orders at 0."
+                  : "Off: it's simply available. Switch it off in Products when it runs out. · गिनती ज़रूरी नहीं"
+              }
             />
           </div>
+          {formData.trackStock && (
+            <Field
+              label="How many do you have?"
+              htmlFor="p-stock"
+              hint="Pieces or packets in your shop right now"
+              error={errors.stockQuantity}
+            >
+              <StockStepper
+                id="p-stock"
+                value={formData.stockQuantity}
+                invalid={!!errors.stockQuantity}
+                onChange={(v) => {
+                  setFormData((prev) => ({ ...prev, stockQuantity: v }));
+                  clearError("stockQuantity");
+                }}
+              />
+            </Field>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Compare at Price (₹)
-            </label>
-            <input
-              type="number"
-              name="compareAtPrice"
-              value={formData.compareAtPrice}
-              onChange={handleChange}
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <SizesEditor value={sizes} onChange={setSizes} onToggleSoldOut={toggleSoldOut} />
+
+          <Field label="Category" htmlFor="p-category" hint="Helps customers find it in your shop" error={errors.category}>
+            <CategoryButton
+              id="p-category"
+              label={selectedCategoryName}
+              invalid={!!errors.category}
+              onClick={() => setShowCategoryPicker(true)}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Original price before discount
-            </p>
-          </div>
-        </div>
-      </div>
+          </Field>
+        </FormCard>
 
-      {/* Inventory */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Inventory</h2>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stock Quantity *
-            </label>
-            <input
-              type="number"
-              name="stockQuantity"
-              value={formData.stockQuantity}
+        {/* ── Description ── */}
+        <FormCard>
+          <Field
+            label="Description"
+            htmlFor="p-desc"
+            hint="A line or two — size, colour, brand or how to use it"
+            error={errors.description}
+          >
+            <textarea
+              id="p-desc"
+              name="description"
+              value={formData.description}
               onChange={handleChange}
-              required
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={4}
+              aria-invalid={!!errors.description || undefined}
+              className={textareaClass}
             />
-          </div>
+          </Field>
+        </FormCard>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Low Stock Alert Threshold
-            </label>
-            <input
-              type="number"
-              name="lowStockThreshold"
-              value={formData.lowStockThreshold}
-              onChange={handleChange}
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Status */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Status</h2>
-
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            name="isActive"
+        {/* ── Show in shop ── */}
+        <FormCard>
+          <Toggle
             checked={formData.isActive}
-            onChange={handleChange}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            onChange={(v) => setFormData((prev) => ({ ...prev, isActive: v }))}
+            label="Show in my shop"
+            description={formData.isActive ? "Customers can see and order it" : "Hidden — customers can't see it"}
           />
-          <span className="ml-2 text-sm text-gray-700">
-            Active (Product will be visible to customers)
-          </span>
-        </label>
-      </div>
+        </FormCard>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading || uploadingImages}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? "Saving Changes..." : "Save Changes"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+        {/* ── Rarely used fields ── */}
+        <MoreDetails open={showMore} onToggle={() => setShowMore((v) => !v)} summary={moreSummary(formData)}>
+          <MoreDetailsFields formData={formData} onChange={handleChange} />
+        </MoreDetails>
+
+        <StickyBarSpacer />
+        <StickyBar aboveTabBar>
+          <Button variant="secondary" onClick={handleCancel} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1" loading={loading} disabled={loading || uploadingImages}>
+            {loading ? "Saving…" : uploadingImages ? "Uploading photo…" : "Save changes"}
+          </Button>
+        </StickyBar>
+      </form>
+      <HandloomProofCard productId={product.id} vendorId={product.vendorId} />
+
+      <CategoryPicker
+        open={showCategoryPicker}
+        onClose={() => setShowCategoryPicker(false)}
+        categories={localCategories}
+        selectedId={formData.categoryId}
+        onSelect={selectCategory}
+        onAddNew={handleAddCategory}
+        adding={addingCategory}
+      />
+    </>
   );
 }

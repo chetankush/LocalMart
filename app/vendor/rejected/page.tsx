@@ -1,69 +1,65 @@
-import Link from "next/link";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
-import { getCurrentUser } from "@/src/shared/utils/auth";
+import { redirect } from "next/navigation";
+import { XCircle } from "lucide-react";
+import { Button } from "@/components/app/ui";
+import { MessageCard } from "@/components/app/seller";
+import { getSellerApplication } from "@/src/shared/utils/sellerApplication";
+
+// Set NEXT_PUBLIC_SUPPORT_EMAIL to LocalMart's real support address; the
+// help line stays hidden until then
+const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "";
+
+const TIPS = [
+  "Use your real shop name",
+  "Give the full address with a landmark",
+  "Say clearly what you sell",
+];
 
 export default async function VendorRejectedPage() {
-  const user = await getCurrentUser();
+  const application = await getSellerApplication();
 
-  let rejectionReason = null;
-  if (user) {
-    const vendorRequest = await prisma.vendorRequest.findFirst({
-      where: {
-        email: user.email || '',
-        status: 'REJECTED'
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    rejectionReason = vendorRequest?.rejectionReason;
-  }
+  // An approved seller (or one still waiting) shouldn't be told "not approved"
+  if (application?.hasLiveShop || application?.status === "APPROVED") redirect("/vendor/dashboard");
+  if (application?.status === "PENDING") redirect("/vendor/pending");
+
+  const rejectionReason = application?.status === "REJECTED" ? application.rejectionReason : null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-        <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
-          <svg
-            className="h-8 w-8 text-red-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+    <MessageCard
+      icon={<XCircle className="h-8 w-8" aria-hidden />}
+      title="Your shop was not approved"
+      body="Don't worry — fix your details and apply again."
+    >
+      {rejectionReason && (
+        <div className="rounded-2xl bg-bad-soft p-4 text-left">
+          <p className="text-[14px] font-semibold text-bad">Reason from LocalMart</p>
+          <p className="mt-0.5 text-[15px] leading-snug text-label">{rejectionReason}</p>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
-          Application Not Approved
-        </h2>
-        <p className="text-gray-600 mb-4">
-          Unfortunately, your vendor application was not approved at this time.
-        </p>
-
-        {rejectionReason && (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm font-semibold text-gray-700 mb-1">Reason:</p>
-            <p className="text-gray-600">{rejectionReason}</p>
-          </div>
-        )}
-
-        <div className="space-y-3">
-          <Link
-            href="/become-vendor"
-            className="block w-full bg-blue-600 text-white py-2 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Apply Again
-          </Link>
-          <Link
-            href="/"
-            className="block w-full border border-gray-300 text-gray-700 py-2 px-6 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Back to Homepage
-          </Link>
-        </div>
+      )}
+      <div className="rounded-2xl bg-fill p-4 text-left">
+        <p className="text-[15px] font-semibold text-label">Before you apply again</p>
+        <ul className="mt-2 space-y-1.5 text-[15px] leading-snug text-label-2">
+          {TIPS.map((tip) => (
+            <li key={tip} className="flex gap-2">
+              <span aria-hidden className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-label-3" />
+              {tip}
+            </li>
+          ))}
+        </ul>
       </div>
-    </div>
+      <Button href="/become-vendor" full>
+        Apply again
+      </Button>
+      <Button href="/" variant="secondary" full>
+        Go to home
+      </Button>
+      {SUPPORT_EMAIL && (
+      <p className="pt-2 text-[14px] text-label-2">
+        Need help? Write to{" "}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-tint">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+      )}
+    </MessageCard>
   );
 }

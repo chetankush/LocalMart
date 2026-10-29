@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { apiClient } from "@/lib/api/client";
+import { Shield, Mail, Lock, ArrowLeft, AlertCircle } from "lucide-react";
+import { Button, Notice } from "@/components/app/ui";
+import { Field, inputClass } from "@/components/app/form";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,85 +23,111 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError("");
 
-    // Hardcoded credentials
-    const ADMIN_EMAIL = "chetankushwah729@gmail.com";
-    const ADMIN_PASSWORD = "ChetanKaPlatform@1212";
+    try {
+      const supabase = createClient();
 
-    if (formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
-      // Set admin session
+      // Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        setError(signInError.message || "Wrong email or password.");
+        setLoading(false);
+        return;
+      }
+
+      if (!data.user) {
+        setError("Failed to sign in");
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is admin via NestJS backend
+      const result = await apiClient.checkAdminAuth();
+
+      if (!result.isAdmin) {
+        // Sign out if not admin
+        await supabase.auth.signOut();
+        setError("This account is not an admin account.");
+        setLoading(false);
+        return;
+      }
+
+      // Store admin auth flag for session
       localStorage.setItem("adminAuth", "true");
+
+      // Redirect to admin dashboard
       router.push("/admin");
-    } else {
-      setError("Invalid email or password");
+    } catch (err: any) {
+      console.error("Admin login error:", err);
+      setError(err.message || "Failed to sign in. Please try again.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Admin Login
-          </h1>
-          <p className="text-gray-600">
-            Access the admin dashboard
-          </p>
-        </div>
+    <div className="mx-auto flex min-h-[calc(100vh-65px)] w-full max-w-md flex-col justify-center px-4 py-10">
+      <div className="rounded-3xl bg-card p-6 sm:p-8">
+        <span className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-tint text-white">
+          <Shield className="h-7 w-7" aria-hidden />
+        </span>
+        <h1 className="text-[26px] font-bold leading-tight tracking-[-0.02em] text-label">LocalMart admin</h1>
+        <p className="mt-1 text-[15px] text-label-2">Sign in with your admin account.</p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="admin@example.com"
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <Field label="Email" htmlFor="admin-email">
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3" aria-hidden />
+              <input
+                id="admin-email"
+                type="email"
+                autoComplete="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+                className={`${inputClass} pl-12`}
+                placeholder="you@localmart.in"
+              />
+            </div>
+          </Field>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
-          </div>
+          <Field label="Password" htmlFor="admin-password">
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-label-3" aria-hidden />
+              <input
+                id="admin-password"
+                type="password"
+                autoComplete="current-password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+                className={`${inputClass} pl-12`}
+                placeholder="Your password"
+              />
+            </div>
+          </Field>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <Notice tone="bad" icon={<AlertCircle className="h-5 w-5 text-bad" aria-hidden />}>
               {error}
-            </div>
+            </Notice>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
+          <Button type="submit" full loading={loading}>
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
         </form>
-
-        <div className="mt-6 text-center">
-          <a
-            href="/"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            ← Back to Homepage
-          </a>
-        </div>
       </div>
+
+      <Link
+        href="/"
+        className="mx-auto mt-6 inline-flex min-h-[44px] items-center gap-1 text-[15px] font-medium text-label-2 hover:text-label"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Back to LocalMart
+      </Link>
     </div>
   );
 }

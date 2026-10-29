@@ -1,22 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { refreshShopPage } from "@/lib/refreshShopPage";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { toast } from "sonner";
+import {
+  Camera,
+  Check,
+  ChevronDown,
+  Eye,
+  House,
+  Loader2,
+  MapPin,
+  Megaphone,
+  Package,
+  Palette,
+  Pill as PillIcon,
+  Send,
+  Share2,
+  Shirt,
+  ShoppingCart,
+  Smartphone,
+  Store,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
+import ShareStoreModal from "@/components/ShareStoreModal";
+import { Button, Pill, Row, StickyBar, buttonClass } from "@/components/app/ui";
+import { Field, FormCard, inputClass, textareaClass } from "@/components/app/form";
+import { IconBox, List } from "@/components/app/seller";
+import { DEFAULT_TOWN, distanceKm, fillFromPin, pincodeCentre, type LatLng } from "@/lib/geo";
+import type { PickedLocation } from "@/components/map/LocationPinPicker";
 
-// Dynamically import map component to avoid SSR issues
-const LocationPicker = dynamic(
-  () => import("@/app/vendor/settings/LocationPicker"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-        <p className="text-gray-500">Loading map...</p>
-      </div>
-    ),
-  }
-);
+// The map loads in the browser only
+const ShopLocationField = dynamic(() => import("@/components/map/ShopLocationField"), {
+  ssr: false,
+  loading: () => <div className="h-[168px] animate-pulse rounded-2xl bg-fill" />,
+});
 
 interface VendorSettingsFormProps {
   vendor: {
@@ -25,6 +47,7 @@ interface VendorSettingsFormProps {
     businessType: string;
     storeDescription: string | null;
     storeLogo: string | null;
+    storeImages: any;
     contactEmail: string;
     contactPhone: string;
     businessAddress: any;
@@ -32,8 +55,102 @@ interface VendorSettingsFormProps {
     state: string;
     locality: string | null;
     pincode: string | null;
+    whatsappNumber: string | null;
+    upiId?: string | null;
+    upiQrImage?: string | null;
+    telegramLink: string | null;
+    instagramHandle: string | null;
+    facebookPage: string | null;
+    websiteUrl: string | null;
   };
 }
+
+// Same limit as "Design my shop page" — these are the big photos at the top
+const MAX_PHOTOS = 5;
+
+// Shop type picked during onboarding — shown read-only
+const BUSINESS_TYPES: Record<string, { label: string; Icon: typeof Store }> = {
+  FASHION: { label: "Fashion & clothes", Icon: Shirt },
+  GROCERY: { label: "Grocery & daily needs", Icon: ShoppingCart },
+  ELECTRONICS: { label: "Electronics", Icon: Smartphone },
+  RESTAURANT: { label: "Restaurant & food", Icon: UtensilsCrossed },
+  PHARMACY: { label: "Medical shop", Icon: PillIcon },
+  HOME_SERVICES: { label: "Home & kitchen", Icon: House },
+  OTHER: { label: "Other", Icon: Package },
+};
+
+/* ─── Quick links at the top of the "My shop" tab ───────────────── */
+
+export function ShopShortcuts({
+  storeId,
+  storeName,
+  storeDescription,
+}: {
+  storeId: string;
+  storeName: string;
+  storeDescription?: string | null;
+}) {
+  const [sharing, setSharing] = useState(false);
+  const icon = "h-5 w-5";
+
+  return (
+    <section className="mb-6">
+      <List>
+        <Row
+          href={`/vendor/shop-page?storeId=${storeId}`}
+          leading={<IconBox tone="solid" size={40}><Palette className={icon} /></IconBox>}
+          title="Design my shop page"
+          subtitle="Add your own photos · दुकान का पेज सजाएं"
+          chevron
+        />
+        <Row
+          href={`/stores/${storeId}`}
+          leading={<IconBox tone="brand" size={40}><Eye className={icon} /></IconBox>}
+          title="See my shop"
+          subtitle="How customers see it"
+          chevron
+        />
+        <Row
+          onClick={() => setSharing(true)}
+          leading={<IconBox tone="brand" size={40}><Share2 className={icon} /></IconBox>}
+          title="Share my shop"
+          subtitle="Send your shop link on WhatsApp"
+          chevron
+        />
+        <Row
+          href="/vendor/telegram"
+          leading={<IconBox tone="brand" size={40}><Send className={icon} /></IconBox>}
+          title="Order alerts on Telegram"
+          subtitle="A message for every new order"
+          chevron
+        />
+        <Row
+          href={`/vendor/broadcast?storeId=${storeId}`}
+          leading={<IconBox tone="brand" size={40}><Megaphone className={icon} /></IconBox>}
+          title="Send an offer to customers"
+          subtitle="ग्राहकों को ऑफ़र भेजें"
+          chevron
+        />
+        <Row
+          href="/vendor/stores"
+          leading={<IconBox tone="brand" size={40}><Store className={icon} /></IconBox>}
+          title="All my shops"
+          subtitle="Switch shop or open a new one"
+          chevron
+        />
+      </List>
+      <ShareStoreModal
+        isOpen={sharing}
+        onClose={() => setSharing(false)}
+        storeId={storeId}
+        storeName={storeName}
+        storeDescription={storeDescription}
+      />
+    </section>
+  );
+}
+
+/* ─── Shop details form ─────────────────────────────────────────── */
 
 export default function VendorSettingsForm({
   vendor,
@@ -42,7 +159,9 @@ export default function VendorSettingsForm({
   const [loading, setLoading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingStoreImage, setUploadingStoreImage] = useState(false);
 
+  const roughPin = vendor.businessAddress?.coordinatesSource === "pincode";
   const [formData, setFormData] = useState({
     businessName: vendor.businessName,
     storeDescription: vendor.storeDescription || "",
@@ -54,9 +173,23 @@ export default function VendorSettingsForm({
     locality: vendor.locality || "",
     pincode: vendor.pincode || "",
     storeLogo: vendor.storeLogo || "",
-    latitude: vendor.businessAddress?.coordinates?.lat || 0,
-    longitude: vendor.businessAddress?.coordinates?.lng || 0,
+    storeImages: Array.isArray(vendor.storeImages) ? vendor.storeImages : [],
+    // A spot guessed from the PIN code isn't the owner's pin
+    latitude: roughPin ? 0 : Number(vendor.businessAddress?.coordinates?.lat) || 0,
+    longitude: roughPin ? 0 : Number(vendor.businessAddress?.coordinates?.lng) || 0,
+    whatsappNumber: vendor.whatsappNumber || "",
+    upiId: vendor.upiId || "",
+    upiQrImage: vendor.upiQrImage || "",
+    telegramLink: vendor.telegramLink || "",
+    instagramHandle: vendor.instagramHandle || "",
+    facebookPage: vendor.facebookPage || "",
+    websiteUrl: vendor.websiteUrl || "",
   });
+
+  // Social links are optional, so start folded unless the shop already has some
+  const [showSocial, setShowSocial] = useState(
+    () => Boolean(vendor.telegramLink || vendor.instagramHandle || vendor.facebookPage || vendor.websiteUrl)
+  );
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -67,367 +200,748 @@ export default function VendorSettingsForm({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setFilledFromPin((prev) => prev.filter((f) => f !== e.target.name));
   };
 
   const handleImageUpload = async (
     file: File,
-    type: "logo" | "banner"
+    type: "logo" | "banner" | "store"
   ): Promise<string | null> => {
-    const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
-    uploadFn(true);
+    // Only manage loading state for logo/banner - store images manage their own
+    const shouldManageLoading = type !== "store";
+    if (shouldManageLoading) {
+      const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
+      uploadFn(true);
+    }
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", type);
+      const { apiClient } = await import("@/lib/api/client");
+      // All store-related uploads (logo, banner, store images) use "stores" type
+      const result = await apiClient.vendorUpload(file, "stores");
 
-      const res = await fetch("/api/vendor/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        return data.url;
+      if (result.success) {
+        return result.url;
       } else {
-        alert(data.error || "Failed to upload image");
+        toast.error("Couldn't upload the photo. Please try again.");
         return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error);
-      alert("Failed to upload image");
+      toast.error(error?.message || "Couldn't upload the photo. Please try again.");
       return null;
     } finally {
-      uploadFn(false);
+      if (shouldManageLoading) {
+        const uploadFn = type === "logo" ? setUploadingLogo : setUploadingBanner;
+        uploadFn(false);
+      }
+    }
+  };
+
+  // Photos save the moment they're added or removed — no "Save changes"
+  // needed, so a seller can't lose them by leaving the page
+  const savePhotos = async (data: { storeLogo?: string; storeImages?: string[] }, done: string) => {
+    try {
+      const { apiClient } = await import("@/lib/api/client");
+      await apiClient.updateShopPage(data, vendor.id);
+      toast.success(done);
+      void refreshShopPage(vendor.id);
+      return true;
+    } catch (error: any) {
+      toast.error(error?.message || "Couldn't save the photo. Please try again.");
+      return false;
     }
   };
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    // Reset so picking the same photo again still fires onChange
+    e.target.value = "";
     if (!file) return;
 
-    // Validate file
     if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
+      toast.error("That file isn't a photo. Please pick a photo.");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("Image size must be less than 5MB");
+      toast.error("Photo is too big. Please pick one under 5 MB.");
       return;
     }
 
     const url = await handleImageUpload(file, "logo");
-    if (url) {
+    if (url && (await savePhotos({ storeLogo: url }, "Logo saved · लोगो सेव हो गया"))) {
       setFormData((prev) => ({ ...prev, storeLogo: url }));
     }
   };
 
-  const handleLocationSelect = (lat: number, lng: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng,
-    }));
+  const handleStoreImagesChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const currentImagesCount = formData.storeImages.length;
+    if (currentImagesCount + files.length > MAX_PHOTOS) {
+      toast.error(`You can add up to ${MAX_PHOTOS} photos. Remove one to add more.`);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingStoreImage(true);
+
+    try {
+      const list = Array.from(files);
+      const usable = list.filter((file) => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024);
+      if (usable.length < list.length) {
+        toast.error("Some photos were skipped. Use photos under 5 MB.");
+      }
+
+      const uploadedUrls = await Promise.all(usable.map((file) => handleImageUpload(file, "store")));
+      const validUrls = uploadedUrls.filter((url) => url !== null) as string[];
+
+      if (validUrls.length > 0) {
+        const next = [...formData.storeImages, ...validUrls];
+        if (await savePhotos({ storeImages: next }, validUrls.length === 1 ? "Photo added to your shop" : `${validUrls.length} photos added`)) {
+          setFormData((prev) => ({ ...prev, storeImages: next }));
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading store images:", error);
+      toast.error("Some photos couldn't be uploaded. Please try again.");
+    } finally {
+      setUploadingStoreImage(false);
+      e.target.value = "";
+    }
   };
+
+  const handleRemoveStoreImage = async (indexToRemove: number) => {
+    const next = formData.storeImages.filter((_: any, index: number) => index !== indexToRemove);
+    if (await savePhotos({ storeImages: next }, "Photo removed")) {
+      setFormData((prev) => ({ ...prev, storeImages: next }));
+    }
+  };
+
+  // Where the map starts when there's no pin yet: the rough spot we had,
+  // else the PIN code's area, else the town
+  const [mapStart, setMapStart] = useState<LatLng>(() => {
+    const c = vendor.businessAddress?.coordinates;
+    return roughPin && Number(c?.lat) && Number(c?.lng) ? { lat: Number(c.lat), lng: Number(c.lng) } : DEFAULT_TOWN.at;
+  });
+  useEffect(() => {
+    if (roughPin || !vendor.pincode) return;
+    pincodeCentre(vendor.pincode).then((at) => at && setMapStart(at));
+  }, [roughPin, vendor.pincode]);
+
+  // Fields just filled in from the pin, to point them out
+  const [filledFromPin, setFilledFromPin] = useState<string[]>([]);
+  // The pin's street line when the owner already typed their own
+  const [streetFromPin, setStreetFromPin] = useState<string | null>(null);
+
+  const handlePinPicked = (picked: PickedLocation) => {
+    const before = formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null;
+    // Moved more than ~50 m → the area, town and PIN follow the new pin
+    const moved = !before || distanceKm(before, picked) > 0.05;
+    const { next, filled, streetSuggestion } = fillFromPin(formData, picked.address, moved);
+    setFormData({ ...next, latitude: picked.lat, longitude: picked.lng });
+    setFilledFromPin(filled);
+    setStreetFromPin(moved ? streetSuggestion : null);
+  };
+  const pinFilled = (name: string) => (filledFromPin.includes(name) ? "ring-2 ring-ok/40 bg-ok-soft/40" : "");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const res = await fetch("/api/vendor/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
+      const { apiClient } = await import("@/lib/api/client");
+      const data = await apiClient.updateVendorSettings(formData);
 
       if (data.success) {
-        alert("Settings updated successfully!");
+        toast.success("Changes saved · बदलाव सेव हो गए");
+        void refreshShopPage(vendor.id);
         router.refresh();
       } else {
-        alert(data.error || "Failed to update settings");
+        toast.error((data as any).error || (data as any).message || "Couldn't save. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Settings update error:", error);
-      alert("Something went wrong. Please try again.");
+      toast.error(error?.message || "Something went wrong. Please try again.");
     }
 
     setLoading(false);
   };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {/* Store Images Section */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Store Images</h2>
+  const businessType = BUSINESS_TYPES[vendor.businessType?.toUpperCase()] || BUSINESS_TYPES.OTHER;
+  const BusinessIcon = businessType.Icon;
+  const uploading = uploadingLogo || uploadingBanner || uploadingStoreImage;
+  const photoCount = formData.storeImages.length;
+  const pinSet = Boolean(formData.latitude && formData.longitude);
 
-        {/* Store Logo */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Store Logo
-          </label>
-          <div className="flex items-center gap-6">
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* ── Photos ── */}
+      <FormCard title="Shop photos" description="Good photos help customers trust your shop.">
+        {/* Logo */}
+        <div className="flex items-center gap-4">
+          <label
+            htmlFor="logo-upload"
+            aria-disabled={uploadingLogo}
+            className={`relative flex h-28 w-28 shrink-0 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl bg-fill text-center transition-colors active:bg-fill-strong aria-disabled:cursor-wait ${
+              formData.storeLogo ? "" : "border-2 border-dashed border-hairline"
+            }`}
+          >
             {formData.storeLogo ? (
-              <div className="relative w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
-                <Image
-                  src={formData.storeLogo}
-                  alt="Store Logo"
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
-                <svg
-                  className="w-12 h-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
+              <Image src={formData.storeLogo} alt="Shop logo" fill className="object-cover" />
+            ) : !uploadingLogo ? (
+              <>
+                <Camera className="h-7 w-7 text-label-2" aria-hidden />
+                <span className="mt-1.5 text-[14px] font-semibold leading-tight text-label">Add logo</span>
+                <span className="text-[13px] leading-tight text-label-2">लोगो जोड़ें</span>
+              </>
+            ) : null}
+            {uploadingLogo && (
+              <span className="absolute inset-0 flex items-center justify-center bg-white/70">
+                <Loader2 className="h-6 w-6 animate-spin text-label-2" aria-hidden />
+                <span className="sr-only">Uploading logo</span>
+              </span>
             )}
-            <div>
-              <input
-                type="file"
-                id="logo-upload"
-                accept="image/*"
-                onChange={handleLogoChange}
-                className="hidden"
-                disabled={uploadingLogo}
-              />
+          </label>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-label">Shop logo</p>
+            <p className="mt-0.5 text-[14px] leading-snug text-label-2">A square photo works best</p>
+            {formData.storeLogo && (
               <label
                 htmlFor="logo-upload"
-                className={`inline-block px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium cursor-pointer ${
-                  uploadingLogo
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
+                aria-disabled={uploadingLogo}
+                className={`${buttonClass("secondary", "md")} mt-3 aria-disabled:pointer-events-none aria-disabled:opacity-40`}
+              >
+                <Camera className="h-[18px] w-[18px]" aria-hidden />
+                Change logo
+              </label>
+            )}
+          </div>
+          <input
+            type="file"
+            id="logo-upload"
+            accept="image/*"
+            onChange={handleLogoChange}
+            className="hidden"
+            disabled={uploadingLogo}
+          />
+        </div>
+
+        {/* Shop photos gallery */}
+        <div className="border-t border-hairline pt-5">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <p className="text-[15px] font-semibold text-label">Photos of your shop</p>
+            <span className="text-[14px] tabular-nums text-label-2">
+              {photoCount} of {MAX_PHOTOS}
+            </span>
+          </div>
+          <p className="-mt-1 mb-3 text-[14px] leading-snug text-label-2">
+            They slide at the top of your shop page, in this order. Saved as soon as you add them.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+            {formData.storeImages.map((imageUrl: string, index: number) => (
+              <div key={index} className="relative aspect-square overflow-hidden rounded-xl bg-fill">
+                <Image src={imageUrl} alt={`Shop photo ${index + 1}`} fill className="object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveStoreImage(index)}
+                  className="absolute right-0 top-0 flex h-11 w-11 items-start justify-end p-1.5 cursor-pointer"
+                  aria-label={`Remove photo ${index + 1}`}
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white">
+                    <X className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                  </span>
+                </button>
+              </div>
+            ))}
+
+            {photoCount < MAX_PHOTOS && (
+              <label
+                htmlFor="store-images-upload"
+                aria-disabled={uploadingStoreImage}
+                className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-hairline bg-fill px-2 text-center transition-colors active:bg-fill-strong aria-disabled:cursor-wait ${
+                  photoCount === 0 ? "col-span-3 h-40 sm:col-span-4" : "aspect-square"
                 }`}
               >
-                {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                {uploadingStoreImage ? (
+                  <>
+                    <Loader2 className="h-7 w-7 animate-spin text-label-2" aria-hidden />
+                    <span className="mt-1.5 text-[14px] font-medium text-label-2">Uploading…</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className={photoCount === 0 ? "h-8 w-8 text-label-2" : "h-6 w-6 text-label-2"} aria-hidden />
+                    <span className="mt-1.5 text-[15px] font-semibold leading-tight text-label">Add photo</span>
+                    <span className="text-[13px] leading-tight text-label-2">फ़ोटो जोड़ें</span>
+                    {photoCount === 0 && (
+                      <span className="mt-2 text-[14px] text-label-2">Shop front, inside, or your products</span>
+                    )}
+                  </>
+                )}
               </label>
-              <p className="text-xs text-gray-500 mt-2">
-                Recommended: Square image, at least 200x200px
-              </p>
-            </div>
+            )}
+          </div>
+          <input
+            type="file"
+            id="store-images-upload"
+            accept="image/*"
+            multiple
+            onChange={handleStoreImagesChange}
+            className="hidden"
+            disabled={uploadingStoreImage}
+          />
+        </div>
+      </FormCard>
+
+      {/* ── Name + description ── */}
+      <FormCard title="Shop details">
+        <div className="flex items-center gap-3 rounded-xl bg-fill px-3 py-3">
+          <IconBox tone="brand" size={40}>
+            <BusinessIcon className="h-5 w-5" />
+          </IconBox>
+          <div className="min-w-0">
+            <p className="text-[13px] text-label-2">Shop type</p>
+            <p className="text-[16px] font-semibold leading-snug text-label">{businessType.label}</p>
           </div>
         </div>
-      </div>
 
-      {/* Store Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Store Information</h2>
+        <Field label="Shop name" htmlFor="businessName" hint="Customers see this name">
+          <input
+            id="businessName"
+            type="text"
+            name="businessName"
+            value={formData.businessName}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Business Name *
-            </label>
-            <input
-              type="text"
-              name="businessName"
-              value={formData.businessName}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+        <Field label="About your shop" htmlFor="storeDescription" hint="Shown on your shop page" optional>
+          <textarea
+            id="storeDescription"
+            name="storeDescription"
+            value={formData.storeDescription}
+            onChange={handleChange}
+            rows={4}
+            className={textareaClass}
+            placeholder="e.g. Silk and cotton sarees since 1995. Free delivery nearby."
+          />
+        </Field>
+      </FormCard>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Store Description
-            </label>
-            <textarea
-              name="storeDescription"
-              value={formData.storeDescription}
-              onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Tell customers about your store..."
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              This will be shown on your store page
-            </p>
-          </div>
+      {/* ── Contact ── */}
+      <FormCard title="Contact" description="Customers use these to reach you.">
+        <Field label="Phone number" htmlFor="contactPhone">
+          <input
+            id="contactPhone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            name="contactPhone"
+            value={formData.contactPhone}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Email *
-              </label>
-              <input
-                type="email"
-                name="contactEmail"
-                value={formData.contactEmail}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+        <Field
+          label="WhatsApp number"
+          htmlFor="whatsappNumber"
+          hint="With +91 in front, e.g. +919876543210"
+          optional
+        >
+          <input
+            id="whatsappNumber"
+            type="tel"
+            inputMode="tel"
+            name="whatsappNumber"
+            value={formData.whatsappNumber}
+            onChange={handleChange}
+            placeholder="+919876543210"
+            className={inputClass}
+          />
+        </Field>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Phone *
-              </label>
-              <input
-                type="tel"
-                name="contactPhone"
-                value={formData.contactPhone}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+        <Field label="Email" htmlFor="contactEmail">
+          <input
+            id="contactEmail"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            name="contactEmail"
+            value={formData.contactEmail}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </Field>
+      </FormCard>
 
-      {/* Address Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-6">Address Information</h2>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Street Address *
-            </label>
-            <input
-              type="text"
-              name="street"
-              value={formData.street}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Locality/Area
-              </label>
-              <input
-                type="text"
-                name="locality"
-                value={formData.locality}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                PIN Code
-              </label>
-              <input
-                type="text"
-                name="pincode"
-                value={formData.pincode}
-                onChange={handleChange}
-                pattern="[0-9]{6}"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                City *
-              </label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                State *
-              </label>
-              <input
-                type="text"
-                name="state"
-                value={formData.state}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Location on Map */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-2">Store Location</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Click on the map to set your exact store location
-        </p>
-
-        <LocationPicker
-          initialLat={formData.latitude}
-          initialLng={formData.longitude}
-          onLocationSelect={handleLocationSelect}
+      {/* ── UPI ── */}
+      <FormCard
+        title={
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>Payments · UPI से पेमेंट</span>
+            {formData.upiId.trim() ? (
+              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
+                UPI on
+              </Pill>
+            ) : (
+              <Pill tone="neutral">Cash only</Pill>
+            )}
+          </span>
+        }
+        description="Customers pay you directly on this UPI ID with GPay, PhonePe or Paytm. The money comes straight to your bank."
+      >
+        {/* Easiest: a photo of the shop's QR — the UPI ID is read from it */}
+        <UpiQrPicker
+          image={formData.upiQrImage}
+          onRead={(upiId, image) => setFormData((prev) => ({ ...prev, upiId, upiQrImage: image }))}
+          onRemove={() => setFormData((prev) => ({ ...prev, upiQrImage: "" }))}
         />
 
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Latitude
-            </label>
-            <input
-              type="number"
-              value={formData.latitude}
-              readOnly
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">
-              Longitude
-            </label>
-            <input
-              type="number"
-              value={formData.longitude}
-              readOnly
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-4">
-        <button
-          type="submit"
-          disabled={loading || uploadingLogo || uploadingBanner}
-          className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        <Field
+          label="Your UPI ID"
+          htmlFor="upiId"
+          hint="Filled in from your QR, or type it. Find it in your UPI app under your profile. Leave empty to take cash only."
+          optional
         >
-          {loading ? "Saving..." : "Save Changes"}
-        </button>
+          <input
+            id="upiId"
+            type="text"
+            name="upiId"
+            value={formData.upiId}
+            onChange={handleChange}
+            placeholder="e.g. 98xxxxxx10@ybl or yourname@okaxis"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className={inputClass}
+          />
+        </Field>
+      </FormCard>
+
+      {/* ── Map pin first, then the address (filled in from the pin) ── */}
+      <FormCard title="Address & map" description="Customers nearby find your shop with this.">
+        <div id="shop-location" className="scroll-mt-24">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[15px] font-semibold text-label">Shop on the map</p>
+            {pinSet ? (
+              <Pill tone="ok" icon={<Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}>
+                Pin is set
+              </Pill>
+            ) : (
+              <Pill tone="warn" icon={<MapPin className="h-3.5 w-3.5" aria-hidden />}>
+                {roughPin ? "Only rough location" : "Pin not set yet"}
+              </Pill>
+            )}
+          </div>
+          <ShopLocationField
+            value={pinSet ? { lat: formData.latitude, lng: formData.longitude } : null}
+            onChange={handlePinPicked}
+            near={mapStart}
+            nearLabel={formData.city || DEFAULT_TOWN.label}
+            addressText={[formData.street, formData.locality, formData.city].filter(Boolean).join(", ")}
+          />
+        </div>
+
+        {filledFromPin.length > 0 && (
+          <div role="status" className="flex items-start gap-2.5 rounded-xl bg-ok-soft px-3.5 py-3 text-[14px] leading-snug text-label">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" strokeWidth={3} aria-hidden />
+            <p>
+              <span className="font-semibold">Address filled from your pin.</span> Add your shop number and check it once.
+              <span className="block text-label-2">पता पिन से भरा गया — दुकान नंबर जोड़ें और एक बार जाँच लें।</span>
+            </p>
+          </div>
+        )}
+
+        {streetFromPin && (
+          <div className="rounded-xl bg-info-soft px-3.5 py-3">
+            <p className="text-[13px] font-medium text-label-2">Address at your pin · पिन वाला पता</p>
+            <p className="mt-0.5 text-[15px] font-semibold leading-snug text-label">{streetFromPin}</p>
+            <div className="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, street: streetFromPin }));
+                  setFilledFromPin((prev) => [...prev, "street"]);
+                  setStreetFromPin(null);
+                }}
+                className="h-10 rounded-full bg-cta px-4 text-[14px] font-semibold text-white hover:bg-cta-hover cursor-pointer"
+              >
+                Use this address
+              </button>
+              <button
+                type="button"
+                onClick={() => setStreetFromPin(null)}
+                className="h-10 rounded-full border border-label/20 bg-card px-4 text-[14px] font-semibold text-label active:bg-fill cursor-pointer"
+              >
+                Keep mine
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Field label="Shop no., building, street" htmlFor="street" hint="e.g. Shop 4, Main Road, near Railway Gate">
+          <input
+            id="street"
+            type="text"
+            name="street"
+            value={formData.street}
+            onChange={handleChange}
+            required
+            autoComplete="street-address"
+            className={`${inputClass} ${pinFilled("street")}`}
+          />
+        </Field>
+
+        <Field label="Area / locality" htmlFor="locality" optional>
+          <input
+            id="locality"
+            type="text"
+            name="locality"
+            value={formData.locality}
+            onChange={handleChange}
+            className={`${inputClass} ${pinFilled("locality")}`}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="City" htmlFor="city">
+            <input
+              id="city"
+              type="text"
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              required
+              className={`${inputClass} ${pinFilled("city")}`}
+            />
+          </Field>
+          <Field label="State" htmlFor="state">
+            <input
+              id="state"
+              type="text"
+              name="state"
+              value={formData.state}
+              onChange={handleChange}
+              required
+              className={`${inputClass} ${pinFilled("state")}`}
+            />
+          </Field>
+        </div>
+
+        <Field label="PIN code" htmlFor="pincode" hint="6 numbers" optional className="sm:w-1/2">
+          <input
+            id="pincode"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            name="pincode"
+            value={formData.pincode}
+            onChange={handleChange}
+            pattern="[0-9]{6}"
+            title="PIN code is 6 numbers"
+            className={`${inputClass} tabular-nums ${pinFilled("pincode")}`}
+          />
+        </Field>
+      </FormCard>
+
+      {/* ── Social (folded) ── */}
+      <section className="mb-4 overflow-hidden rounded-2xl bg-card">
         <button
           type="button"
-          onClick={() => router.push("/vendor/dashboard")}
-          className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+          onClick={() => setShowSocial((v) => !v)}
+          aria-expanded={showSocial}
+          aria-controls="social-links"
+          className="flex min-h-[64px] w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-fill sm:px-5 cursor-pointer"
         >
-          Cancel
+          <span className="min-w-0 flex-1">
+            <span className="block text-[17px] font-semibold leading-snug text-label">
+              Social links <span className="font-normal text-label-3">· optional</span>
+            </span>
+            <span className="mt-0.5 block text-[14px] leading-snug text-label-2">
+              Instagram, Facebook, Telegram group, website
+            </span>
+          </span>
+          <ChevronDown
+            className={`h-5 w-5 shrink-0 text-label-3 transition-transform ${showSocial ? "rotate-180" : ""}`}
+            aria-hidden
+          />
         </button>
-      </div>
+
+        {showSocial && (
+          <div id="social-links" className="space-y-5 px-4 pb-5 sm:px-5">
+            <Field label="Instagram" htmlFor="instagramHandle" optional>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[16px] text-label-2">
+                  @
+                </span>
+                <input
+                  id="instagramHandle"
+                  type="text"
+                  name="instagramHandle"
+                  value={formData.instagramHandle}
+                  onChange={handleChange}
+                  placeholder="yourshop"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  className={`${inputClass} pl-8`}
+                />
+              </div>
+            </Field>
+
+            <Field label="Facebook page" htmlFor="facebookPage" optional>
+              <input
+                id="facebookPage"
+                type="url"
+                inputMode="url"
+                name="facebookPage"
+                value={formData.facebookPage}
+                onChange={handleChange}
+                placeholder="https://facebook.com/yourshop"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field
+              label="Telegram group or channel"
+              htmlFor="telegramLink"
+              hint="For new-order alerts, use “Order alerts on Telegram” above"
+              optional
+            >
+              <input
+                id="telegramLink"
+                type="url"
+                inputMode="url"
+                name="telegramLink"
+                value={formData.telegramLink}
+                onChange={handleChange}
+                placeholder="https://t.me/yourshop"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Website" htmlFor="websiteUrl" optional>
+              <input
+                id="websiteUrl"
+                type="url"
+                inputMode="url"
+                name="websiteUrl"
+                value={formData.websiteUrl}
+                onChange={handleChange}
+                placeholder="https://yourshop.com"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        )}
+      </section>
+
+      {/* ── Save ── */}
+      <StickyBar aboveTabBar>
+        <Button type="submit" full loading={loading} disabled={loading || uploading}>
+          {loading ? "Saving…" : uploading ? "Wait, photo uploading…" : "Save changes"}
+        </Button>
+      </StickyBar>
     </form>
+  );
+}
+
+/**
+ * "Upload your UPI QR": the seller picks a photo of their GPay / PhonePe /
+ * Paytm QR; we read the UPI ID from it (on the phone) and keep the photo to
+ * show buyers on the payment page. Saved with the rest of the form.
+ */
+function UpiQrPicker({
+  image,
+  onRead,
+  onRemove,
+}: {
+  image: string;
+  onRead: (upiId: string, image: string) => void;
+  onRemove: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setProblem(null);
+    if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) {
+      setProblem("Pick a photo under 8 MB.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { readUpiQr } = await import("@/lib/upiQr");
+      const read = await readUpiQr(file);
+      if (!read.ok) {
+        setProblem(
+          read.reason === "not-upi"
+            ? "This QR isn't a UPI payment QR. Use the QR from GPay, PhonePe or Paytm (Receive money / My QR)."
+            : "Couldn't read a QR in this photo. Take a clear, close photo of just the QR — or type your UPI ID below.",
+        );
+        return;
+      }
+      const { apiClient } = await import("@/lib/api/client");
+      // Save just the QR (cut from the photo) — bigger and easier to scan for buyers
+      const upload = read.cropped ? new File([read.cropped], "upi-qr.png", { type: "image/png" }) : file;
+      const res = await apiClient.vendorUpload(upload, "stores");
+      if (!res.url) throw new Error("upload failed");
+      onRead(read.upiId, res.url);
+      toast.success(`Found your UPI ID: ${read.upiId} — tap Save changes`);
+    } catch {
+      setProblem("Couldn't save the photo. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-2xl bg-fill p-3">
+      {image ? (
+        <div className="flex items-center gap-3">
+          <Image src={image} alt="Your UPI QR" width={80} height={80} unoptimized className="h-20 w-20 shrink-0 rounded-xl bg-white object-contain" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-label">Your UPI QR is added</p>
+            <p className="text-[13px] text-label-2">Buyers see it on the payment page · QR लगा है</p>
+            <div className="mt-1 flex gap-3">
+              <label className="min-h-[40px] cursor-pointer content-center text-[14px] font-semibold text-tint">
+                Change
+                <input type="file" accept="image/*" className="sr-only" onChange={pick} disabled={busy} />
+              </label>
+              <button type="button" onClick={onRemove} className="min-h-[40px] text-[14px] font-semibold text-label-2 cursor-pointer">
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <label className="flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-label/30 bg-card px-4 text-[16px] font-semibold text-label">
+          {busy ? "Reading your QR…" : "Upload your UPI QR photo · QR की फोटो"}
+          <input type="file" accept="image/*" className="sr-only" onChange={pick} disabled={busy} />
+        </label>
+      )}
+      {!image && !problem && (
+        <p className="mt-2 text-[13px] text-label-2">
+          Open GPay / PhonePe / Paytm → “Receive money” or “My QR” → take a screenshot, then upload it here. We read your UPI ID from it.
+        </p>
+      )}
+      {problem && (
+        <p role="alert" className="mt-2 text-[14px] text-bad">
+          {problem}
+        </p>
+      )}
+    </div>
   );
 }

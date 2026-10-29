@@ -1,33 +1,26 @@
 "use server";
 
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+// DEPRECATED: This file used Prisma directly which has been removed from frontend.
+// All database operations should now go through the NestJS backend API.
+// These functions are kept for reference but are no longer functional.
+
+// import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 // Get all active vendors (optionally filter by city)
+// Now use: fetch(`${API_BASE_URL}/vendors?status=ACTIVE&city=${city}`)
 export const getActiveVendors = async (city?: string) => {
+  console.warn("DEPRECATED: Use API endpoint /vendors instead");
   try {
-    const vendors = await prisma.vendor.findMany({
-      where: {
-        status: "ACTIVE",
-        isActive: true,
-        ...(city && { city }),
-      },
-      select: {
-        id: true,
-        businessName: true,
-        businessType: true,
-        storeDescription: true,
-        storeLogo: true,
-        minOrderAmount: true,
-        isActive: true,
-        status: true,
-        city: true,
-        state: true,
-        locality: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const params = new URLSearchParams({ status: "ACTIVE" });
+    if (city) params.append("city", city);
 
-    return vendors;
+    const response = await fetch(`${API_BASE_URL}/vendors?${params}`);
+    if (!response.ok) throw new Error("Failed to fetch vendors");
+
+    const result = await response.json();
+    return result.data || [];
   } catch (error) {
     console.error("Error fetching vendors:", error);
     throw new Error("Failed to fetch vendors");
@@ -35,21 +28,12 @@ export const getActiveVendors = async (city?: string) => {
 };
 
 // Get available cities
+// Now use: fetch(`${API_BASE_URL}/vendors/cities`)
 export const getAvailableCities = async () => {
+  console.warn("DEPRECATED: Use API endpoint /vendors/cities instead");
   try {
-    const cities = await prisma.vendor.findMany({
-      where: {
-        status: "ACTIVE",
-        isActive: true,
-      },
-      select: {
-        city: true,
-        state: true,
-      },
-      distinct: ["city"],
-    });
-
-    return cities;
+    // This endpoint may need to be added to the backend
+    return [];
   } catch (error) {
     console.error("Error fetching cities:", error);
     return [];
@@ -57,32 +41,15 @@ export const getAvailableCities = async () => {
 };
 
 // Get vendor by ID with products
+// Now use: fetch(`${API_BASE_URL}/vendors/${vendorId}/details`)
 export const getVendorById = async (vendorId: string) => {
+  console.warn("DEPRECATED: Use API endpoint /vendors/:id/details instead");
   try {
-    const vendor = await prisma.vendor.findUnique({
-      where: { id: vendorId },
-      include: {
-        products: {
-          where: { isActive: true },
-          include: {
-            category: {
-              select: {
-                name: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        user: {
-          select: {
-            fullName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const response = await fetch(`${API_BASE_URL}/vendors/${vendorId}/details`);
+    if (!response.ok) throw new Error("Failed to fetch vendor details");
 
-    return vendor;
+    const result = await response.json();
+    return result.data || null;
   } catch (error) {
     console.error("Error fetching vendor:", error);
     throw new Error("Failed to fetch vendor details");
@@ -90,28 +57,25 @@ export const getVendorById = async (vendorId: string) => {
 };
 
 // Get vendor's products by category
+// Now use: fetch(`${API_BASE_URL}/products?vendorId=${vendorId}`)
 export const getVendorProductsByCategory = async (vendorId: string) => {
+  console.warn("DEPRECATED: Use API endpoint /products?vendorId= instead");
   try {
-    const products = await prisma.product.findMany({
-      where: {
-        vendorId,
-        isActive: true,
-      },
-      include: {
-        category: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const response = await fetch(`${API_BASE_URL}/products?vendorId=${vendorId}`);
+    if (!response.ok) throw new Error("Failed to fetch products");
+
+    const result = await response.json();
+    const products = result.data || [];
 
     // Group products by category
-    const groupedProducts = products.reduce((acc, product) => {
-      const categoryName = product.category.name;
+    const groupedProducts = products.reduce((acc: any, product: any) => {
+      const categoryName = product.category?.name || "Uncategorized";
       if (!acc[categoryName]) {
         acc[categoryName] = [];
       }
       acc[categoryName].push(product);
       return acc;
-    }, {} as Record<string, typeof products>);
+    }, {} as Record<string, any[]>);
 
     return groupedProducts;
   } catch (error) {

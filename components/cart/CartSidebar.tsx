@@ -9,6 +9,7 @@ import {
   removeFromCart,
   incrementQuantity,
   decrementQuantity,
+  cartKey,
 } from '@/lib/redux/slices/cartSlice';
 import { X, Plus, Minus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
@@ -64,7 +65,7 @@ export default function CartSidebar() {
             <div className="space-y-4">
               {items.map((item) => (
                 <div
-                  key={item.id}
+                  key={cartKey(item)}
                   className="flex gap-4 bg-gray-50 p-4 rounded-lg"
                 >
                   {/* Product Image */}
@@ -100,7 +101,7 @@ export default function CartSidebar() {
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-3 mt-3">
                       <button
-                        onClick={() => dispatch(decrementQuantity(item.id))}
+                        onClick={() => dispatch(decrementQuantity(cartKey(item)))}
                         className="p-1 hover:bg-gray-200 rounded transition-colors cursor-pointer"
                         aria-label="Decrease quantity"
                       >
@@ -110,7 +111,7 @@ export default function CartSidebar() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => dispatch(incrementQuantity(item.id))}
+                        onClick={() => dispatch(incrementQuantity(cartKey(item)))}
                         className="p-1 hover:bg-gray-200 rounded transition-colors cursor-pointer"
                         disabled={item.quantity >= item.stockQuantity}
                         aria-label="Increase quantity"
@@ -118,7 +119,7 @@ export default function CartSidebar() {
                         <Plus className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => dispatch(removeFromCart(item.id))}
+                        onClick={() => dispatch(removeFromCart(cartKey(item)))}
                         className="ml-auto p-1 hover:bg-red-100 text-red-600 rounded transition-colors cursor-pointer"
                         aria-label="Remove item"
                       >
@@ -149,7 +150,7 @@ export default function CartSidebar() {
 
             {/* View Cart Button */}
             <button
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer"
+              className="w-full bg-[#FF9933] text-white py-3 rounded-full font-semibold hover:bg-[#e8872b] transition-colors cursor-pointer"
               onClick={() => {
                 dispatch(closeCart());
                 router.push('/cart');

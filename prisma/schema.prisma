@@ -60,6 +60,26 @@ enum BusinessType {
   OTHER
 }
 
+enum StoreTheme {
+  KIRANA                  // Kirana stores
+  GROCERY                 // Daily needs grocery and general stores
+  CLOTHING                // Clothing stores
+  SAREE                   // Saree and ethnic wear stores
+  SHOES                   // Shoe stores
+  DAIRY                   // Milk and dairy stores
+  ELECTRONICS             // Electronics stores
+  MOBILES                 // Mobiles and laptops stores
+  BRAND_SPEC              // Brand specific stores
+  WHOLESALE               // Wholesale stores
+  COSMETICS               // Cosmetics stores
+  BEAUTY_PARLOUR          // Beauty parlour stores
+  AUTOMOTIVE              // Automotive parts stores
+  BICYCLE                 // Bicycle stores
+  MEDICINE                // Medicine stores
+  DEFAULT                 // Default theme (current UI)
+  OTHER                   // Other stores
+}
+
 // ================================
 // USER MANAGEMENT
 // ================================
@@ -87,24 +107,56 @@ model VendorRequest {
 model User {
   id        String   @id @default(uuid())
   email     String?  @unique // Email for email auth (null for phone-only users)
-  phone     String?  @unique // Phone for phone auth (null for email-only users)
+  phone     String?  // Phone number (can be shared across multiple accounts)
   fullName  String
   role      Role     @default(CUSTOMER)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Additional contact information for delivery notifications
+  additionalEmails String[] @default([]) // Additional email addresses
+  additionalPhones String[] @default([]) // Additional phone numbers
+  priorityEmail    String?  // High priority email for delivery notifications
+  priorityPhone    String?  // High priority phone for delivery calls/SMS
+
   // Relations
-  vendor    Vendor?
-  orders    Order[]    @relation("CustomerOrders")
-  addresses Address[]
-  reviews   Review[]
-  cart      CartItem[]
+  vendor                    Vendor?
+  orders                    Order[]    @relation("CustomerOrders")
+  addresses                 Address[]
+  reviews                   Review[]
+  storeReviews              StoreReview[]
+  productReviews            ProductReview[]
+  cart                      CartItem[]
+  favoriteStores            FavoriteStore[]
+  notifications             Notification[]
+  backInStockSubscriptions  BackInStockSubscription[]
+  areaNotificationSubscriptions AreaNotificationSubscription[]
 
   @@index([email])
   @@index([phone])
   @@index([role])
   @@map("users")
+}
+
+// ================================
+// FAVORITE STORES
+// ================================
+
+model FavoriteStore {
+  id        String   @id @default(uuid())
+  userId    String
+  vendorId  String
+  createdAt DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+  @@index([vendorId])
+  @@map("favorite_stores")
 }
 
 // ================================
@@ -120,6 +172,11 @@ model Vendor {
   businessLicense     String?
   storeDescription    String?      @db.Text
   storeLogo           String?
+  storeImages         Json?        // Array of store image URLs
+
+  // Store Theme Selection
+  storeTheme          StoreTheme   @default(DEFAULT) // Store theme for UI customization
+  themeCustomization  Json?        // Theme-specific customization settings
 
   // Location Information
   city                String       // City name (e.g., "Guna")
@@ -152,10 +209,24 @@ model Vendor {
   // Business Hours
   businessHours       Json? // { [day]: { open, close, isOpen } }
 
+  // Social Media Links
+  whatsappNumber      String?      // WhatsApp number with country code
+  telegramLink        String?      // Telegram channel/group link
+  instagramHandle     String?      // Instagram username
+  facebookPage        String?      // Facebook page URL
+  websiteUrl          String?      // Store website URL
+
   // Verification
   isVerified          Boolean      @default(false)
   verifiedAt          DateTime?
   rejectionReason     String?      @db.Text
+
+  // Favorite Stores
+  favoriteCount       Int          @default(0)
+
+  // Store Reviews & Ratings
+  averageRating       Decimal?     @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
+  reviewCount         Int          @default(0)
 
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
@@ -166,6 +237,9 @@ model Vendor {
   orders             Order[]       @relation("VendorOrders")
   analytics          VendorAnalytics[]
   reviews            Review[]
+  storeReviews       StoreReview[]
+  favoritedBy        FavoriteStore[]
+  notifications      Notification[]
 
   @@index([userId])
   @@index([status])
@@ -188,15 +262,48 @@ model Category {
   icon        String?
   isActive    Boolean   @default(true)
   sortOrder   Int       @default(0)
+  storeThemes StoreTheme[] @default([DEFAULT])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  products    Product[]
+  products          Product[]
+  productTemplates  ProductTemplate[]
 
   @@index([slug])
   @@index([isActive])
   @@map("categories")
+}
+
+// Product Templates for quick product addition
+model ProductTemplate {
+  id                String   @id @default(uuid())
+  categoryId        String
+
+  name              String
+  description       String   @db.Text
+  suggestedImage    String?  // URL to a generic product image
+
+  // Suggested values (vendors can modify these)
+  suggestedPrice    Decimal? @db.Decimal(10, 2)
+  suggestedWeight   Decimal? @db.Decimal(10, 2)
+
+  // Template metadata
+  isPopular         Boolean  @default(false) // Popular products shown first
+  usageCount        Int      @default(0) // Track how many times this template was used
+
+  // Tags for better searchability
+  tags              Json?    // Array of strings like ["oil", "cooking", "edible"]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  category          Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([isPopular])
+  @@map("product_templates")
 }
 
 model Product {
@@ -232,6 +339,13 @@ model Product {
   isActive          Boolean  @default(true)
   isFeatured        Boolean  @default(false)
 
+  // Tags for filtering (valentine, for-her, for-him, gifts, seasonal, etc.)
+  tags              String[] @default([])
+
+  // Product Reviews & Ratings
+  averageRating     Decimal? @db.Decimal(3, 2) // Average rating (0.00 - 5.00)
+  reviewCount       Int      @default(0)
+
   // SEO
   metaTitle         String?
   metaDescription   String?  @db.Text
@@ -240,11 +354,14 @@ model Product {
   updatedAt         DateTime @updatedAt
 
   // Relations
-  vendor            Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  category          Category    @relation(fields: [categoryId], references: [id])
-  orderItems        OrderItem[]
-  reviews           Review[]
-  cartItems         CartItem[]
+  vendor                    Vendor      @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category                  Category    @relation(fields: [categoryId], references: [id])
+  orderItems                OrderItem[]
+  reviews                   Review[]
+  productReviews            ProductReview[]
+  cartItems                 CartItem[]
+  notifications             Notification[]
+  backInStockSubscriptions  BackInStockSubscription[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -408,6 +525,7 @@ model Address {
 // REVIEWS & RATINGS
 // ================================
 
+// Order-based product reviews (existing system)
 model Review {
   id                  String   @id @default(uuid())
   orderId             String   @unique
@@ -445,6 +563,84 @@ model Review {
   @@index([productId])
   @@index([userId])
   @@map("reviews")
+}
+
+// Store-level reviews (new system for rating stores directly)
+model StoreReview {
+  id                  String   @id @default(uuid())
+  userId              String
+  vendorId            String
+
+  // Rating (1-5 stars)
+  rating              Int      // Store rating
+
+  // Review Content
+  comment             String?  @db.Text
+  images              Json?    // Array of image URLs for store photos
+
+  // Vendor Response
+  vendorResponse      String?  @db.Text
+  vendorRespondedAt   DateTime?
+
+  // Moderation
+  isApproved          Boolean  @default(true)
+  isHidden            Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor              Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // One review per user per store
+  @@unique([userId, vendorId])
+  @@index([vendorId])
+  @@index([userId])
+  @@index([rating])
+  @@index([createdAt])
+  @@map("store_reviews")
+}
+
+// Product-specific reviews (separate from store and order reviews)
+model ProductReview {
+  id                  String   @id @default(uuid())
+  userId              String
+  productId           String
+
+  // Rating (1-5 stars)
+  rating              Int      // Product rating
+
+  // Review Content
+  comment             String?  @db.Text
+  images              Json?    // Array of image URLs for product photos
+
+  // Vendor Response
+  vendorResponse      String?  @db.Text
+  vendorRespondedAt   DateTime?
+
+  // Moderation
+  isApproved          Boolean  @default(true)
+  isHidden            Boolean  @default(false)
+
+  // Verification (can be marked if user purchased the product)
+  isVerifiedPurchase  Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // One review per user per product
+  @@unique([userId, productId])
+  @@index([productId])
+  @@index([userId])
+  @@index([rating])
+  @@index([isVerifiedPurchase])
+  @@index([createdAt])
+  @@map("product_reviews")
 }
 
 // ================================
@@ -493,3 +689,72 @@ model VendorAnalytics {
   @@index([date])
   @@map("vendor_analytics")
 }
+
+// ================================
+// NOTIFICATION SYSTEM
+// ================================
+
+enum NotificationType {
+  NEW_COLLECTION        // Vendor posted new product
+  BACK_IN_STOCK        // Product is back in stock
+  VENDOR_BROADCAST     // Manual message from vendor
+  NEW_STORE_IN_AREA    // New store opened in subscribed area
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  userId          String
+  vendorId        String?          // Null for system notifications
+  productId       String?          // For product-related notifications
+  type            NotificationType
+  title           String
+  message         String           @db.Text
+  isRead          Boolean          @default(false)
+  metadata        Json?            // Additional data (product image, link, etc.)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor          Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  product         Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([vendorId])
+  @@map("notifications")
+}
+
+model BackInStockSubscription {
+  id              String    @id @default(uuid())
+  userId          String
+  productId       String
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("back_in_stock_subscriptions")
+}
+
+// Area notification subscription - notify when new stores open in an area
+model AreaNotificationSubscription {
+  id              String    @id @default(uuid())
+  userId          String
+  pincode         String
+  city            String?
+  locality        String?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, pincode])
+  @@index([pincode])
+  @@index([userId])
+  @@map("area_notification_subscriptions")
+}
+

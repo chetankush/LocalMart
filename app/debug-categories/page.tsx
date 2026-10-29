@@ -14,11 +14,9 @@ export default function DebugCategoriesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch("/api/check-categories");
-      const data = await response.json();
-      if (data.success) {
-        setCategories(data.data);
-      }
+      const { apiClient } = await import("@/lib/api/client");
+      const { data } = await apiClient.getCategories();
+      setCategories(data);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     } finally {

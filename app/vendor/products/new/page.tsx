@@ -1,48 +1,110 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { LargeTitle, Page } from "@/components/app/ui";
 import AddProductForm from "@/app/vendor/products/new/AddProductForm";
+import { signInHref } from "@/lib/auth/returnTo";
 
-export default async function AddProductPage() {
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+
+interface StoreInfo {
+  id: string;
+  businessName: string;
+  businessType: string;
+  status: string;
+  isActive: boolean;
+  city?: string;
+  storeLogo?: string;
+}
+
+async function getVendorStores(authToken: string): Promise<StoreInfo[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/vendor/check`, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    return result.data?.stores || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+// LocalMart's shared categories plus the seller's own shop categories
+async function getCategories(authToken: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/categories/mine`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    return result.data || [];
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    return [];
+  }
+}
+
+export default async function AddProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
   const user = await requireRole(["VENDOR"]);
+  const params = await searchParams;
+  const storeId = params.storeId;
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (!vendor) {
+  if (!session?.access_token) {
+    redirect(signInHref("/vendor/products/new"));
+  }
+
+  const [stores, categories] = await Promise.all([
+    getVendorStores(session.access_token),
+    getCategories(session.access_token),
+  ]);
+
+  if (stores.length === 0) {
     redirect("/vendor/onboarding");
   }
 
-  // Get all categories
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-  });
+  // Find the specific store if storeId is provided, otherwise use the first store
+  const vendorInfo = storeId
+    ? stores.find(s => s.id === storeId) || stores[0]
+    : stores[0];
 
-  // Debug: Log categories to console
-  console.log("Categories fetched:", categories.length);
-  console.log(
-    "Categories:",
-    categories.map((c) => c.name)
-  );
+  if (!vendorInfo) {
+    redirect("/vendor/onboarding");
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Add New Product</h1>
-          <p className="text-sm text-gray-600">
-            Fill in the details to add a new product to your store
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <AddProductForm vendorId={vendor.id} categories={categories} />
-      </div>
-    </div>
+    <Page>
+      <LargeTitle
+        title="Add a product"
+        subtitle="नया सामान जोड़ें"
+        back={{ href: "/vendor/products", label: "Products" }}
+      />
+      <AddProductForm
+        vendorId={vendorInfo.id}
+        // Shared categories + this shop's own (not the seller's other shops')
+        categories={categories.filter((c: { vendorId?: string | null }) => !c.vendorId || c.vendorId === vendorInfo.id)}
+        businessType={vendorInfo.businessType}
+      />
+    </Page>
   );
 }

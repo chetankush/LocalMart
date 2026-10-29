@@ -1,35 +1,96 @@
 import { requireRole } from "@/src/shared/utils/auth";
-import { prisma } from "@/src/core/infrastructure/database/prisma/client";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import VendorSettingsForm from "@/app/vendor/settings/VendorSettingsForm";
+import VendorSettingsForm, { ShopShortcuts } from "@/app/vendor/settings/VendorSettingsForm";
+import ThemeSelectorWrapper from "@/app/vendor/settings/ThemeSelectorWrapper";
+import ShopLinkCard from "@/app/vendor/settings/ShopLinkCard";
+import SellingOptionsCard from "@/app/vendor/settings/SellingOptionsCard";
+import { NotificationSoundSettings } from "@/app/vendor/settings/NotificationSoundSettings";
+import { LargeTitle, Page, StickyBarSpacer } from "@/components/app/ui";
+import { signInHref } from "@/lib/auth/returnTo";
 
-export default async function VendorSettingsPage() {
-  const user = await requireRole(["VENDOR"]);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-  // Get vendor profile
-  const vendor = await prisma.vendor.findUnique({
-    where: { userId: user.id },
-  });
+async function getVendorSettings(authToken: string, storeId?: string) {
+  try {
+    const url = storeId
+      ? `${API_BASE_URL}/vendor/settings?storeId=${storeId}`
+      : `${API_BASE_URL}/vendor/settings`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      console.error("Failed to fetch vendor settings:", response.status);
+      return null;
+    }
+
+    const result = await response.json();
+    return result.data || null;
+  } catch (error) {
+    console.error("Error fetching vendor settings:", error);
+    return null;
+  }
+}
+
+/**
+ * "My shop" tab: quick links first (see shop, share, Telegram, offers),
+ * then the shop's look, its details form and the new-order sound.
+ */
+export default async function VendorSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
+  await requireRole(["VENDOR"]);
+  const params = await searchParams;
+  const storeId = params.storeId;
+
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session?.access_token) {
+    redirect(signInHref("/vendor/settings"));
+  }
+
+  const vendor = await getVendorSettings(session.access_token, storeId);
 
   if (!vendor) {
     redirect("/vendor/onboarding");
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold text-gray-900">Store Settings</h1>
-          <p className="text-sm text-gray-600">
-            Manage your store information, images, and location
-          </p>
-        </div>
-      </div>
+    <Page>
+      <LargeTitle title="My shop" subtitle={vendor.businessName} />
 
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <VendorSettingsForm vendor={vendor} />
-      </div>
-    </div>
+      {/* localmart.in/<handle> — for the Instagram bio and visiting card */}
+      <ShopLinkCard storeId={vendor.id} />
+
+      {/* Home delivery, pickup, parcels and exchanges */}
+      <SellingOptionsCard storeId={vendor.id} />
+
+      <ShopShortcuts
+        storeId={vendor.id}
+        storeName={vendor.businessName}
+        storeDescription={vendor.storeDescription}
+      />
+
+      <ThemeSelectorWrapper currentTheme={vendor.storeTheme} storeId={storeId} />
+
+      <VendorSettingsForm vendor={vendor} />
+
+      {/* Per-store new-order chime mute */}
+      <NotificationSoundSettings />
+
+      <StickyBarSpacer />
+    </Page>
   );
 }

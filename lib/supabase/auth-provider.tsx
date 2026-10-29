@@ -5,6 +5,7 @@
  * Manages authentication state for client components
  */
 
+import { forgetContact } from "@/lib/contact";
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "./client";
 import type { User } from "@supabase/supabase-js";
@@ -13,13 +14,13 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (returnTo?: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signUpWithEmail: (
     email: string,
     password: string,
     fullName?: string
-  ) => Promise<{ error: any }>;
+  ) => Promise<{ error: any; signedIn: boolean }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,13 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // The next person on this phone mustn't see this one's name and number
+    forgetContact();
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (returnTo?: string) => {
+    // Come back to the page the shopper was on (checked again in the callback)
+    const next = returnTo && returnTo !== "/" ? `?next=${encodeURIComponent(returnTo)}` : "";
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback${next}`,
       },
     });
   };
@@ -73,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string,
     fullName?: string
   ) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -83,7 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    return { error };
+    // Signed straight in when email confirmation is turned off
+    return { error, signedIn: !!data?.session };
   };
 
   const value = {
