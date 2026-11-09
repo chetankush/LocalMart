@@ -344,6 +344,7 @@ export default function MapExplorer({ initialQuery, initialType }: { initialQuer
           onSelect={desktop ? setSelectedId : selectFromMap}
           user={user}
           place={place}
+          alwaysLabels
           fitKey={`${query}|${type}|${user?.lat ?? ""}|${place?.lat ?? ""}|${shown.length}`}
           padding={desktop ? { top: 64, right: 64, bottom: 64, left: 64 } : { top: 112, bottom: 210, left: 32, right: 32 }}
         />

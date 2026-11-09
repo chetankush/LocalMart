@@ -34,6 +34,12 @@ interface Props {
   interactive?: boolean;
   /** Shop names next to the pins */
   showLabels?: boolean;
+  /**
+   * Names at every zoom level, not only when zoomed in. A name goes to the right of its pin,
+   * or to the left if that is clearer, and is left out when it would cover another pin or
+   * name (the chosen shop always shows).
+   */
+  alwaysLabels?: boolean;
   /** Change it to zoom the map to fit all pins again */
   fitKey?: string;
   /** Room kept free around the pins (px) for panels drawn over the map */
@@ -79,6 +85,7 @@ export default function ShopMap({
   place = null,
   interactive = true,
   showLabels = true,
+  alwaysLabels = false,
   fitKey = "",
   padding,
   className,
@@ -92,6 +99,8 @@ export default function ShopMap({
   const placeMarker = useRef<Marker | null>(null);
   const resizeObs = useRef<ResizeObserver | null>(null);
   const shopsRef = useRef(shops);
+  const alwaysRef = useRef(alwaysLabels);
+  alwaysRef.current = alwaysLabels;
   const onSelectRef = useRef(onSelect);
   const selectedRef = useRef(selectedId);
   shopsRef.current = shops;
@@ -130,6 +139,67 @@ export default function ShopMap({
   const fitRef = useRef(fit);
   fitRef.current = fit;
 
+  // Place each shop's name beside its pin without covering another pin or name
+  const layoutLabels = () => {
+    const map = mapRef.current;
+    if (!map || !alwaysRef.current) return;
+    type Box = { x1: number; y1: number; x2: number; y2: number };
+    const hit = (a: Box, b: Box) => a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+    try {
+      const size = map.getSize();
+      const items: { id: string; label: HTMLElement; p: { x: number; y: number }; w: number; h: number }[] = [];
+      for (const shop of shopsRef.current) {
+        const marker = markers.current.get(shop.id);
+        const label = marker?.getElement()?.querySelector<HTMLElement>(".lmpin-label");
+        if (!marker || !label) continue;
+        label.classList.remove("is-off", "is-left", "is-above", "is-below"); // measure it on the right, visible
+        label.style.removeProperty("--dx");
+        const p = map.latLngToContainerPoint(marker.getLatLng());
+        items.push({ id: shop.id, label, p: { x: p.x, y: p.y }, w: label.offsetWidth, h: label.offsetHeight });
+      }
+      // The chosen shop first, then the list's own order (nearest / best first)
+      items.sort((a, b) => Number(b.id === selectedRef.current) - Number(a.id === selectedRef.current));
+      const pinBox = (p: { x: number; y: number }): Box => ({ x1: p.x - 15, y1: p.y - 39, x2: p.x + 15, y2: p.y + 1 });
+      const taken: Box[] = items.map((i) => pinBox(i.p));
+      if (user) {
+        const u = map.latLngToContainerPoint([user.lat, user.lng]);
+        taken.push({ x1: u.x - 11, y1: u.y - 11, x2: u.x + 11, y2: u.y + 11 });
+      }
+      // Keep names out of the strips that panels drawn over the map cover (the left card on the home page)
+      const room = { l: Math.max(4, pad.left - 4), t: Math.max(4, Math.min(pad.top, 80) - 24), r: Math.max(4, Math.min(pad.right, 80) - 24), b: Math.max(4, Math.min(pad.bottom, 80) - 24) };
+      const inside = (b: Box) => b.x1 >= room.l && b.y1 >= room.t && b.x2 <= size.x - room.r && b.y2 <= size.y - room.b;
+      // Above or below a pin the name is centred, but slid sideways if that would reach into a covered strip or off the map
+      const slid = (b: Box): { box: Box; dx: number } => {
+        const dx = b.x1 < room.l ? room.l - b.x1 : b.x2 > size.x - room.r ? size.x - room.r - b.x2 : 0;
+        return { box: { x1: b.x1 + dx, y1: b.y1, x2: b.x2 + dx, y2: b.y2 }, dx };
+      };
+      for (const it of items) {
+        const top = it.p.y - 31;
+        const cx = it.p.x - it.w / 2;
+        const above = slid({ x1: cx, y1: it.p.y - 42 - it.h, x2: cx + it.w, y2: it.p.y - 42 });
+        const below = slid({ x1: cx, y1: it.p.y + 3, x2: cx + it.w, y2: it.p.y + 3 + it.h });
+        // Beside the pin first (right, then left), then above it, then below it
+        const spots: { cls: string; box: Box; dx?: number }[] = [
+          { cls: "", box: { x1: it.p.x + 15, y1: top, x2: it.p.x + 15 + it.w, y2: top + it.h } },
+          { cls: "is-left", box: { x1: it.p.x - 15 - it.w, y1: top, x2: it.p.x - 15, y2: top + it.h } },
+          { cls: "is-above", box: above.box, dx: above.dx },
+          { cls: "is-below", box: below.box, dx: below.dx },
+        ];
+        const spot = spots.find((c) => inside(c.box) && !taken.some((t) => hit(t, c.box)));
+        if (spot) {
+          if (spot.cls) it.label.classList.add(spot.cls);
+          if (spot.dx) it.label.style.setProperty("--dx", `${spot.dx}px`);
+          taken.push(spot.box);
+        } else if (it.id === selectedRef.current) taken.push(spots[0].box); // the chosen shop always shows
+        else it.label.classList.add("is-off");
+      }
+    } catch {
+      // the map has no view yet: the next move or zoom lays the names out
+    }
+  };
+  const layoutRef = useRef(layoutLabels);
+  layoutRef.current = layoutLabels;
+
   // Create the map once
   useEffect(() => {
     let cancelled = false;
@@ -153,13 +223,15 @@ export default function ShopMap({
       layer.current = L.layerGroup().addTo(map);
       mapRef.current = map;
       // Like Google Maps: names only once you're zoomed in (the chosen shop always)
-      const labels = () => el.current?.classList.toggle("lm-nolabels", map.getZoom() < LABEL_ZOOM);
+      const labels = () => el.current?.classList.toggle("lm-nolabels", !alwaysRef.current && map.getZoom() < LABEL_ZOOM);
       map.on("zoomend", labels);
+      map.on("zoomend moveend", () => layoutRef.current());
       labels();
       drawShops();
       drawUser();
       drawPlace();
       fit();
+      layoutRef.current();
       // The box can change size after the map is made (layout, fonts):
       // re-measure, and for still previews fit the pins again
       let last = `${el.current.clientWidth}x${el.current.clientHeight}`;
@@ -170,6 +242,7 @@ export default function ShopMap({
         last = size;
         mapRef.current.invalidateSize();
         if (!interactive) fitRef.current();
+        layoutRef.current();
       });
       resizeObs.current.observe(el.current);
     })();
@@ -202,6 +275,7 @@ export default function ShopMap({
       marker.addTo(layer.current);
       markers.current.set(shop.id, marker);
     }
+    layoutRef.current();
   };
 
   const drawUser = () => {
@@ -246,7 +320,7 @@ export default function ShopMap({
   useEffect(() => {
     drawShops();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shops, showLabels]);
+  }, [shops, showLabels, alwaysLabels]);
 
   useEffect(() => {
     drawUser();
@@ -273,6 +347,7 @@ export default function ShopMap({
       marker.setIcon(L.divIcon({ className: "lmpin-wrap", html: pinHtml(shop, on, showLabels), iconSize: [32, 40], iconAnchor: [16, 40] }));
       marker.setZIndexOffset(on ? 1000 : 0);
     }
+    layoutRef.current();
     const shop = shopsRef.current.find((s) => s.id === selectedId);
     const map = mapRef.current;
     if (shop && map && interactive) {
@@ -299,8 +374,12 @@ const PIN_CSS = `
 .lmpin-head{position:absolute;left:3px;top:6px;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--c);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
 .lmpin-ic{transform:rotate(45deg);display:flex}
 .lmpin.is-approx .lmpin-head{border-style:dashed}
-.lmpin-label{position:absolute;left:31px;top:9px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/1.3 var(--font-system,system-ui);color:#202124;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 3px #fff}
+.lmpin-label{position:absolute;left:31px;top:9px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12px/1.3 var(--font-system,system-ui);color:#202124;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff,0 0 3px #fff}
 .lm-nolabels .lmpin:not(.is-sel) .lmpin-label{display:none}
+.lmpin-label.is-left{left:auto;right:31px;text-align:right}
+.lmpin-label.is-above{left:50%;top:auto;bottom:42px;transform:translateX(calc(-50% + var(--dx,0px)))}
+.lmpin-label.is-below{left:50%;top:43px;transform:translateX(calc(-50% + var(--dx,0px)))}
+.lmpin-label.is-off{display:none}
 .lmpin.is-sel{transform:scale(1.15);z-index:2}
 .lmpin.is-sel .lmpin-label{background:#fff;text-shadow:none;padding:2px 8px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,.25);top:7px}
 .lmplace{position:relative;width:20px;height:20px}

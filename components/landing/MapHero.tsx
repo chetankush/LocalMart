@@ -435,6 +435,7 @@ function MapPanel({ shops, user, place }: { shops: MapShopFull[]; user: { lat: n
           shops={shops}
           user={user}
           interactive={false}
+          alwaysLabels
           fitKey={`${count}|${user?.lat ?? ""}|${panelPad}`}
           padding={{ top: 56, bottom: 72, left: panelPad || 48, right: 56 }}
         />
