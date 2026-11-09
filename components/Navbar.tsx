@@ -40,7 +40,7 @@ import {
 
 // Screens that are a focused task (or have their own navigation)
 // An open chat ("/chats/<id>") uses the whole screen, like WhatsApp
-const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth", "/chats/"];
+const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/forgot-password", "/reset-password", "/auth", "/chats/"];
 const FOCUSED = ["/checkout", "/orders/waiting"];
 
 // Desktop category strip → shop list filtered by category. A category
@@ -100,7 +100,7 @@ const Navbar = () => {
   // Shop-owner and admin screens: no shopping chrome (area, search, cart)
   const adminArea = pathname.startsWith("/admin");
   const sellerArea = pathname.startsWith("/vendor") || adminArea;
-  const authPage = ["/sign-in", "/sign-up", "/phone-signin"].some((p) => pathname.startsWith(p));
+  const authPage = ["/sign-in", "/sign-up", "/phone-signin", "/forgot-password", "/reset-password"].some((p) => pathname.startsWith(p));
   const shopping = !sellerArea && !focused && !authPage;
   const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0];
 

@@ -132,6 +132,16 @@ const Footer = () => {
                 About LocalMart
               </Link>
             </li>
+            <li>
+              <Link href="/terms" className={linkClass}>
+                Terms of use
+              </Link>
+            </li>
+            <li>
+              <Link href="/privacy" className={linkClass}>
+                Privacy policy
+              </Link>
+            </li>
           </Column>
         </div>
 

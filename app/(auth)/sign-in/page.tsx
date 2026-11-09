@@ -117,7 +117,15 @@ function SignInForm() {
             />
           </label>
           <label className="block">
-            <span className="text-[14px] font-semibold text-label">Password</span>
+            <span className="flex items-center justify-between">
+              <span className="text-[14px] font-semibold text-label">Password</span>
+              <Link
+                href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : "/forgot-password"}
+                className="text-[14px] font-semibold text-tint hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </span>
             <input
               type="password"
               autoComplete="current-password"
@@ -144,6 +152,18 @@ function SignInForm() {
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
+
+        <p className="mb-4 text-center text-[13px] leading-snug text-label-3">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="font-semibold text-label-2 underline">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-semibold text-label-2 underline">
+            Privacy policy
+          </Link>
+          .
+        </p>
 
         <p className="mt-6 text-center text-[15px] text-label-2">
           New to LocalMart?{" "}

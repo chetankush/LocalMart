@@ -181,6 +181,18 @@ function SignUpForm() {
           </button>
         </form>
 
+        <p className="mt-4 text-center text-[13px] leading-snug text-label-3">
+          By continuing you agree to our{" "}
+          <Link href="/terms" className="font-semibold text-label-2 underline">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-semibold text-label-2 underline">
+            Privacy policy
+          </Link>
+          .
+        </p>
+
         <p className="mt-6 text-center text-[15px] text-label-2">
           Already have an account?{" "}
           <Link href={signInLink} className="font-semibold text-tint hover:underline">
