@@ -13,6 +13,8 @@ import { shopType } from "./shopTypes";
 
 export interface MapShop {
   id: string;
+  /** The shop's link name: its page is localmart.in/<handle> */
+  handle?: string | null;
   businessName: string;
   businessType: string;
   lat: number;

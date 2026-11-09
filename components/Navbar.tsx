@@ -1,5 +1,6 @@
 "use client";
 
+import { isShopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
@@ -285,7 +286,7 @@ const Navbar = () => {
 
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: pathname === "/" },
-    { href: "/stores", label: "Shops", icon: Store, active: pathname.startsWith("/stores") },
+    { href: "/stores", label: "Shops", icon: Store, active: pathname.startsWith("/stores") || isShopPath(pathname) },
     { href: "/map", label: "Map", icon: MapIcon, active: pathname.startsWith("/map") },
     { href: "/my-orders", label: "Orders", icon: Package, active: pathname.startsWith("/my-orders") || pathname.startsWith("/orders") },
   ];

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import AllReviewsList from "./AllReviewsList";
 
@@ -60,7 +61,7 @@ export default async function ProductReviewsPage({ params }: ProductReviewsPageP
             <li className="text-gray-400">/</li>
             <li>
               <Link
-                href={`/stores/${product.vendor.id}`}
+                href={shopPath(product.vendor)}
                 className="text-blue-600 hover:text-blue-700"
               >
                 {product.vendor.businessName}

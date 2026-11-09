@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { CalendarCheck, ChevronRight } from "lucide-react";
 
 /**
  * "Book a visit" on a shop page — only for shops that take visits. A card
  * under the shop's content, plus a button that stays in reach on phones.
  */
-export default function BookVisitCta({ shopId, shopName }: { shopId: string; shopName: string }) {
+export default function BookVisitCta({ shopId, shopName, shopHandle }: { shopId: string; shopName: string; shopHandle?: string | null }) {
   const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export default function BookVisitCta({ shopId, shopName }: { shopId: string; sho
   }, [shopId]);
 
   if (!enabled) return null;
-  const href = `/stores/${shopId}/visit`;
+  const href = shopPath({ id: shopId, handle: shopHandle }, "/visit");
 
   return (
     <>

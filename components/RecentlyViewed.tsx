@@ -1,5 +1,6 @@
 "use client";
 
+import { shopPath } from "@/lib/shopHandle";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -269,7 +270,7 @@ export default function RecentlyViewed() {
                         >
                           <X className="w-3.5 h-3.5 text-ink-2 hover:text-red-600" />
                         </button>
-                        <Link href={`/stores/${store.id}`} className="block">
+                        <Link href={shopPath(store)} className="block">
                           <div className="relative aspect-square w-full bg-gray-100">
                             {store.storeLogo ? (
                               <Image

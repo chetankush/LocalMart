@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { shopPath } from "@/lib/shopHandle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 const SITE = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -17,7 +18,7 @@ async function list<T>(path: string): Promise<T[]> {
   }
 }
 
-type Row = { id: string; updatedAt?: string; isActive?: boolean; status?: string };
+type Row = { id: string; handle?: string | null; updatedAt?: string; isActive?: boolean; status?: string };
 
 /** Every live shop and product, so Google can find them */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -29,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...shops
       .filter((s) => s.isActive !== false)
       .map((s) => ({
-        url: `${SITE}/stores/${s.id}`,
+        url: `${SITE}${shopPath(s)}`, // the shop's name link: /<name>
         lastModified: s.updatedAt ? new Date(s.updatedAt) : now,
         changeFrequency: "daily" as const,
         priority: 0.9,

@@ -1,6 +1,7 @@
 "use client";
 
 import { refreshShopPage } from "@/lib/refreshShopPage";
+import { shopPath } from "@/lib/shopHandle";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -83,10 +84,12 @@ const BUSINESS_TYPES: Record<string, { label: string; Icon: typeof Store }> = {
 
 export function ShopShortcuts({
   storeId,
+  storeHandle,
   storeName,
   storeDescription,
 }: {
   storeId: string;
+  storeHandle?: string | null;
   storeName: string;
   storeDescription?: string | null;
 }) {
@@ -104,7 +107,7 @@ export function ShopShortcuts({
           chevron
         />
         <Row
-          href={`/stores/${storeId}`}
+          href={shopPath({ id: storeId, handle: storeHandle })}
           leading={<IconBox tone="brand" size={40}><Eye className={icon} /></IconBox>}
           title="See my shop"
           subtitle="How customers see it"

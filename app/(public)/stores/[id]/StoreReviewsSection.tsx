@@ -1,5 +1,6 @@
 "use client";
 
+import { shopPath } from "@/lib/shopHandle";
 import ReviewsPanel from "@/components/reviews/ReviewsPanel";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,8 @@ interface Review {
 
 interface StoreReviewsSectionProps {
   vendorId: string;
+  /** The shop's link name, for the "write a review" link */
+  vendorHandle?: string | null;
   averageRating: number | null;
   reviewCount: number;
   reviews: Review[];
@@ -30,6 +33,7 @@ interface StoreReviewsSectionProps {
 
 export default function StoreReviewsSection({
   vendorId,
+  vendorHandle,
   averageRating,
   reviewCount,
   reviews,
@@ -96,7 +100,7 @@ export default function StoreReviewsSection({
         ratingsCount={reviewCount}
         distribution={ratingDistribution}
         totalReviews={reviewCount}
-        writeHref={`/stores/${vendorId}/write-review`}
+        writeHref={shopPath({ id: vendorId, handle: vendorHandle }, "/write-review")}
         writeLabel="Rate this shop"
         emptyHint="Bought from this shop? Tell others how it went."
         onDelete={handleDeleteReview}

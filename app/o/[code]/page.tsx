@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import Image from "next/image";
 import { Clock, Link2, Store } from "lucide-react";
@@ -66,7 +67,7 @@ export default async function OrderLinkPage({ params }: { params: Promise<{ code
     );
   }
 
-  const shopHref = link.shop.handle ? `/${link.shop.handle}` : `/stores/${link.shop.id}`;
+  const shopHref = shopPath(link.shop);
   const open = link.state === "OPEN";
   const canOrder = open && link.allAvailable && link.items.length > 0;
   const soldOut = link.items.filter((i) => !i.available);

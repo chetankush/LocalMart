@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { shopPath } from "@/lib/shopHandle";
 import { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useLocation } from "@/context/LocationContext";
@@ -19,7 +20,7 @@ export function AdBannerCard({ ad, active }: { ad: ServedAd; active?: boolean })
   return (
     <Link
       ref={active === undefined ? seen : undefined}
-      href={`/stores/${ad.vendor.id}`}
+      href={shopPath(ad.vendor)}
       onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
       className="group flex h-full overflow-hidden rounded-3xl bg-[#F6F1EA] transition-transform active:scale-[0.99]"
     >
@@ -54,7 +55,7 @@ function Slide({ ad, active }: { ad: ServedAd; active: boolean }) {
   }, [active, ad.adId]);
   return (
     <Link
-      href={`/stores/${ad.vendor.id}`}
+      href={shopPath(ad.vendor)}
       onClickCapture={() => trackAd(ad.adId, "click", ad.vendor.id)}
       aria-hidden={!active}
       tabIndex={active ? 0 : -1}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil, Plus, Share2, TicketPercent } from "lucide-react";
@@ -78,7 +79,7 @@ export default function DiscountCodesPage() {
     }
   };
 
-  const shopUrl = shop ? (shop.handle ? `${siteOrigin()}/${shop.handle}` : `${siteOrigin()}/stores/${shop.id}`) : "";
+  const shopUrl = shop ? `${siteOrigin()}${shopPath(shop)}` : "";
 
   return (
     <Page>

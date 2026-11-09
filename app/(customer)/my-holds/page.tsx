@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -127,7 +128,7 @@ function HoldCard({ h, onCancel }: { h: Hold; onCancel: (h: Hold) => void }) {
     <article className="overflow-hidden rounded-2xl bg-card">
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">
-          <Link href={h.shop.handle ? `/${h.shop.handle}` : `/stores/${h.shop.id}`} className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-label">
+          <Link href={shopPath(h.shop)} className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-label">
             <Store className="h-4 w-4 shrink-0 text-label-2" aria-hidden />
             <span className="truncate">{h.shop.name}</span>
           </Link>
@@ -172,7 +173,7 @@ function HoldCard({ h, onCancel }: { h: Hold; onCancel: (h: Hold) => void }) {
             </a>
           ) : (
             <Link
-              href={h.shop.handle ? `/${h.shop.handle}` : `/stores/${h.shop.id}`}
+              href={shopPath(h.shop)}
               className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full border border-label/20 text-[15px] font-semibold text-label"
             >
               <MessageCircle className="h-4 w-4" aria-hidden /> Shop page

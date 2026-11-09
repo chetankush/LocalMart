@@ -1,6 +1,6 @@
 import { updateSession } from "@/lib/supabase/middleware";
 import { NextResponse, type NextRequest } from "next/server";
-import { handleFromPath, itemFromPath } from "@/lib/shopHandle";
+import { itemFromPath, shopFromPath } from "@/lib/shopHandle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 // handle → shop id (or null), remembered briefly: short links are opened a lot,
@@ -9,10 +9,14 @@ const shortLinks = new Map<string, { id: string | null; at: number }>();
 const FOUND_TTL_MS = 60 * 1000; // an old link keeps working for at most a minute
 const NOT_FOUND_TTL_MS = 10 * 1000; // a brand-new link works within seconds
 
-/** Short link → shop or item id, via the API; remembered (found: a minute, not found: seconds) */
-async function idFor(path: string): Promise<string | null> {
+/**
+ * Link → shop or item id, via the API; remembered (found: a minute, not found:
+ * seconds). `known` is false when the API couldn't answer at all (nothing is
+ * remembered then, so one bad moment never turns into a wrong "not found").
+ */
+async function lookup(path: string): Promise<{ id: string | null; known: boolean }> {
   const hit = shortLinks.get(path);
-  if (hit && Date.now() - hit.at < (hit.id ? FOUND_TTL_MS : NOT_FOUND_TTL_MS)) return hit.id;
+  if (hit && Date.now() - hit.at < (hit.id ? FOUND_TTL_MS : NOT_FOUND_TTL_MS)) return { id: hit.id, known: true };
   let id: string | null = null;
   try {
     const key = process.env.INTERNAL_API_KEY;
@@ -20,14 +24,16 @@ async function idFor(path: string): Promise<string | null> {
       headers: key ? { "x-localmart-internal": key } : undefined,
     });
     if (res.ok) id = ((await res.json()) as { data?: { id?: string } })?.data?.id ?? null;
-    else if (res.status !== 404) return null; // API trouble: don't remember a wrong answer
+    else if (res.status !== 404) return { id: null, known: false }; // API trouble: don't remember a wrong answer
   } catch {
-    return null;
+    return { id: null, known: false };
   }
   if (shortLinks.size > 5000) shortLinks.clear();
   shortLinks.set(path, { id, at: Date.now() });
-  return id;
+  return { id, known: true };
 }
+
+const idFor = async (path: string) => (await lookup(path)).id;
 
 /** Off to the shop / item page, marked as the shop's own link (for "where orders came from") */
 function toPage(request: NextRequest, pathname: string) {
@@ -37,16 +43,62 @@ function toPage(request: NextRequest, pathname: string) {
   return NextResponse.redirect(url, 307);
 }
 
-export async function middleware(request: NextRequest) {
-  // A shop's short link: /radhe-saree → its shop page; an item link:
-  // /radhe-saree/silk-saree-3f9a2c1d → the item. The site's own pages always
-  // win (shops can't take those names); unknown links fall through to 404.
-  const handle = handleFromPath(request.nextUrl.pathname);
-  if (handle) {
-    const id = await idFor(encodeURIComponent(handle));
-    if (id) return toPage(request, `/stores/${id}`);
+/** A full page load (typed, tapped in WhatsApp…), not an in-app tap or a prefetch */
+function isPageLoad(request: NextRequest): boolean {
+  const h = request.headers;
+  if (h.get("next-router-prefetch") || h.get("purpose") === "prefetch" || h.get("rsc")) return false;
+  const dest = h.get("sec-fetch-dest");
+  return dest ? dest === "document" : (h.get("accept") ?? "").includes("text/html");
+}
+
+/** Did the visitor come from a page of this site? */
+function fromThisSite(request: NextRequest): boolean {
+  const ref = request.headers.get("referer");
+  if (!ref) return false;
+  try {
+    return new URL(ref).origin === request.nextUrl.origin;
+  } catch {
+    return false;
   }
-  const item = handle ? null : itemFromPath(request.nextUrl.pathname);
+}
+
+/**
+ * Serve a shop's page at its name: /radhe-saree (and /radhe-saree/visit,
+ * /write-review) is answered by the shop page tree under /stores/<name>, and
+ * the address bar keeps the name: no redirect, no id.
+ */
+async function rewriteToShop(request: NextRequest, shop: { handle: string; sub: string }) {
+  // Keep the signed-in session fresh: the shop's own sub-pages read it on the server
+  const session = await updateSession(request);
+  const url = request.nextUrl.clone();
+  url.pathname = `/stores/${shop.handle}${shop.sub}`;
+  const res = NextResponse.rewrite(url, { request: { headers: request.headers } });
+  session.cookies.getAll().forEach((c) => res.cookies.set(c));
+
+  if (shop.sub) return res; // visit / write-review: per person, never cached
+  // Someone opening the shop's own link (not tapping around inside LocalMart):
+  // note it, so an order they place later shows as "from your link"
+  // (this used to be the ?src=link of the old redirect). The shop page reads and clears it.
+  if (!request.nextUrl.searchParams.has("src") && isPageLoad(request) && !fromThisSite(request)) {
+    res.cookies.set("lm_via_link", shop.handle, { maxAge: 120, path: "/", sameSite: "lax" });
+    res.headers.set("Cache-Control", "private, no-cache");
+  } else {
+    res.headers.set("Cache-Control", "public, s-maxage=120, stale-while-revalidate=240");
+  }
+  return res;
+}
+
+export async function middleware(request: NextRequest) {
+  // A shop's page: /radhe-saree. An item link: /radhe-saree/silk-saree-3f9a2c1d
+  // → the item. The site's own pages always win (shops can't take those
+  // names); an unknown name falls through to the normal 404.
+  const shop = shopFromPath(request.nextUrl.pathname);
+  if (shop) {
+    const found = await lookup(encodeURIComponent(shop.handle));
+    // If the API can't answer right now, let the page try: it shows the 404 itself if there is no such shop
+    if (found.id || !found.known) return rewriteToShop(request, shop);
+  }
+  const item = shop ? null : itemFromPath(request.nextUrl.pathname);
   if (item) {
     const id = await idFor(`${encodeURIComponent(item.handle)}/items/${encodeURIComponent(item.slug)}`);
     if (id) return toPage(request, `/products/${id}`);

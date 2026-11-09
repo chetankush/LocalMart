@@ -1,5 +1,6 @@
 "use client";
 
+import { isShopPath } from "@/lib/shopHandle";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ArrowLeft, Loader2, LocateFixed, MapPin, Search, X } from "lucide-react";
@@ -44,7 +45,7 @@ export default function LocationSelectorModal({ isOpen, onClose }: LocationSelec
   // Pages that follow the chosen area stay put and redraw (a search keeps its
   // words); the shop list gets the new PIN; anywhere else shows that area's shops
   const goAfterPick = (pin: string) => {
-    const stay = ["/", "/search", "/map", "/cart", "/checkout"].includes(pathname) || /^\/(products|stores)\/[^/]+/.test(pathname);
+    const stay = ["/", "/search", "/map", "/cart", "/checkout"].includes(pathname) || /^\/(products|stores)\/[^/]+/.test(pathname) || isShopPath(pathname);
     if (stay) router.refresh();
     else if (pathname === "/stores") {
       const params = new URLSearchParams(window.location.search);

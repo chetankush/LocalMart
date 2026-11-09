@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,6 +22,7 @@ interface Notification {
   };
   vendor?: {
     id: string;
+    handle?: string | null;
     businessName: string;
     storeLogo: string | null;
   };
@@ -255,7 +257,7 @@ export default function NotificationBell() {
       return `/products/${notification.product.id}`;
     }
     if (notification.vendor?.id) {
-      return `/stores/${notification.vendor.id}`;
+      return shopPath(notification.vendor);
     }
     return "#";
   };

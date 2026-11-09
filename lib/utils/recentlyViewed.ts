@@ -10,6 +10,8 @@ export interface RecentlyViewedProduct {
 
 export interface RecentlyViewedStore {
   id: string;
+  /** The shop's link name (localmart.in/<handle>); older saved entries don't have it */
+  handle?: string | null;
   businessName: string;
   storeLogo: string | null;
   viewedAt: number;
@@ -90,6 +92,7 @@ export function addRecentlyViewedProduct(product: {
 // Add a store to recently viewed
 export function addRecentlyViewedStore(store: {
   id: string;
+  handle?: string | null;
   businessName: string;
   storeLogo: string | null;
 }): void {

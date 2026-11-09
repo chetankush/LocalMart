@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { useRouter } from "next/navigation";
 import { signInHref } from "@/lib/auth/returnTo";
@@ -23,6 +24,7 @@ interface Notification {
   };
   vendor?: {
     id: string;
+    handle?: string | null;
     businessName: string;
     storeLogo: string | null;
   };
@@ -203,7 +205,7 @@ export default function NotificationsPage() {
       return `/products/${notification.product.id}`;
     }
     if (notification.vendor?.id) {
-      return `/stores/${notification.vendor.id}`;
+      return shopPath(notification.vendor);
     }
     return "#";
   };

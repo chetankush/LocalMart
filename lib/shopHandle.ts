@@ -14,6 +14,8 @@ const RESERVED = new Set([
   "public", "register", "robots", "search", "seed-categories", "settings", "shop", "shops", "sign-in", "sign-up",
   "sitemap", "static", "stores", "subscription", "support", "sw", "terms", "test-db", "unauthorized", "undefined",
   "vendor", "vendors", "www", "auth",
+  // Pages the site is about to need: a shop must never hide them (keep in step with the API list)
+  "components", "delivery", "forgot-password", "plans", "pricing", "refund-policy", "refunds", "reset-password", "returns",
 ]);
 
 /** A word that can be a shop's handle (not one of the site's own pages) */
@@ -31,6 +33,44 @@ function asHandle(segment: string): string | null {
 export function handleFromPath(pathname: string): string | null {
   const m = /^\/([^/]+)\/?$/.exec(pathname);
   return m ? asHandle(m[1]) : null;
+}
+
+/** Pages of a shop besides its main page: /<handle>/visit, /<handle>/write-review */
+export const SHOP_SUBPAGES = ["visit", "write-review"] as const;
+
+/**
+ * "/radhe-saree" → { handle: "radhe-saree", sub: "" }
+ * "/radhe-saree/visit" → { handle: "radhe-saree", sub: "/visit" }
+ * Anything else (the site's own pages, item links, other depths) → null.
+ */
+export function shopFromPath(pathname: string): { handle: string; sub: string } | null {
+  const m = /^\/([^/]+?)(?:\/(visit|write-review))?\/?$/.exec(pathname);
+  const handle = m ? asHandle(m[1]) : null;
+  return m && handle ? { handle, sub: m[2] ? `/${m[2]}` : "" } : null;
+}
+
+/** A shop id looks like this; a link name never can (it has at most 30 characters) */
+const SHOP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isShopId = (value: string) => SHOP_ID.test(value);
+
+/**
+ * Where a shop's page is: its name, straight after the domain
+ * (/shreya-sarees-girls-wear). The one place that builds a shop link, so
+ * every screen agrees. A shop that has no name-link yet falls back to its id.
+ */
+export function shopPath(shop: { id: string; handle?: string | null }, sub = ""): string {
+  return shop.handle ? `/${shop.handle}${sub}` : `/stores/${shop.id}${sub}`;
+}
+
+/** shopPath with the site's address in front (for sharing, Google, sitemaps) */
+export function shopUrl(shop: { id: string; handle?: string | null }, sub = "", origin = siteOrigin()): string {
+  return `${origin}${shopPath(shop, sub)}`;
+}
+
+/** Is this address a shop's page (its name link, or the old /stores/… address)? */
+export function isShopPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return pathname.startsWith("/stores/") || shopFromPath(pathname) !== null;
 }
 
 /** The item code at the end of an item link: the first 8 characters of its id */

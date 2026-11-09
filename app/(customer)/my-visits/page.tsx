@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarCheck, CalendarPlus, MessageCircle, Navigation, Phone } from "lucide-react";
@@ -48,7 +49,7 @@ function VisitCard({ v, upcoming, onCancel }: { v: MyVisit; upcoming: boolean; o
 
       <div className="mt-3 flex flex-wrap gap-2">
         {rebook && (
-          <Button size="md" href={`/stores/${v.shopId}/visit`}>
+          <Button size="md" href={shopPath({ id: v.shopId, handle: v.shopHandle }, "/visit")}>
             <CalendarCheck className="h-4 w-4" aria-hidden /> Pick a new time
           </Button>
         )}

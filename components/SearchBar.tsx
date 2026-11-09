@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -180,7 +181,7 @@ export function SearchBar({
 
       case "store":
         handleSubmit(item.data.businessName);
-        router.push(`/stores/${item.data.id}`);
+        router.push(shopPath(item.data));
         break;
 
       case "product":

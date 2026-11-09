@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { Eye, MapPin, Settings, Store } from "lucide-react";
 import { Pill } from "@/components/app/ui";
@@ -102,7 +103,7 @@ export default function VendorStoreCard({
 
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Link
-            href={`/stores/${store.id}`}
+            href={shopPath(store)}
             onClick={(e) => e.stopPropagation()}
             className="flex h-11 items-center justify-center gap-2 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label hover:bg-fill"
           >

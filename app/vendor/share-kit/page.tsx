@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -289,7 +290,7 @@ export default function ShareKitPage() {
   const link = handle ? `${siteHost()}/${handle}` : null;
   const fullLink = link ? `https://${link}` : null;
   // Without a short link, the share picture and message use the long one
-  const shareLink = fullLink ?? (shop ? `https://${siteHost()}/stores/${shop.id}` : "");
+  const shareLink = fullLink ?? (shop ? `https://${siteHost()}${shopPath({ id: shop.id })}` : "");
 
   // QR for the poster as an SVG, so it stays sharp at any paper size
   useEffect(() => {

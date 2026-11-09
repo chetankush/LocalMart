@@ -14,8 +14,9 @@ export default function SourceTracker() {
   useEffect(() => {
     const src = new URLSearchParams(window.location.search).get("src");
     if (!src) return;
-    const m = /^\/(stores|products)\/([^/?#]+)/.exec(pathname ?? "");
-    if (m) rememberSource(m[1] === "stores" ? "store" : "product", decodeURIComponent(m[2]), src);
+    // Shop pages note it themselves (ShopSourceNote: they know the shop's id, the address has only its name)
+    const m = /^\/products\/([^/?#]+)/.exec(pathname ?? "");
+    if (m) rememberSource("product", decodeURIComponent(m[1]), src);
   }, [pathname]);
   return null;
 }

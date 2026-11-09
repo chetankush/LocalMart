@@ -102,6 +102,7 @@ function featuredShops(shops: MapShopFull[], max: number, skip: Set<string>): Fe
     .filter((s) => s.shopPhoto && (s.productCount ?? 0) > 0 && !skip.has(s.id))
     .map((s) => ({
       id: s.id,
+      handle: s.handle ?? null,
       businessName: s.businessName,
       businessType: s.businessType,
       photo: s.shopPhoto ?? null,
