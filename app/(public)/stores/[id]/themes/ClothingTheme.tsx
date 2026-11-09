@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
+import { hasSizes, type Size } from "@/lib/sizes";
 import AddToCartButton from "../AddToCartButton";
 import {
   Star,
@@ -38,6 +39,10 @@ interface Product {
   averageRating: any;
   reviewCount: number;
   createdAt: Date;
+  /** The shop API sends { name, slug } */
+  category?: { name: string; slug?: string } | string | null;
+  /** Sizes: picked on the item's page, so the card shows no size button */
+  variants?: Size[] | null;
 }
 
 interface ClothingThemeProps {
@@ -51,15 +56,10 @@ interface ClothingThemeProps {
 
 const ACCENT = "#ff3f6c";
 
-const CATEGORIES = [
-  "All",
-  "Men",
-  "Women",
-  "Kids",
-  "Accessories",
-  "Ethnic Wear",
-  "Western Wear",
-];
+function categoryName(p: Product): string | null {
+  const name = typeof p.category === "string" ? p.category : p.category?.name;
+  return name?.trim() || null;
+}
 
 const SORT_OPTIONS = [
   { label: "Newest", value: "newest" },
@@ -69,7 +69,18 @@ const SORT_OPTIONS = [
   { label: "Popularity", value: "popularity" },
 ];
 
-const GENDER_OPTIONS = ["Men", "Women", "Kids", "Unisex"];
+// Whole words only ("Men" must not match "Women"). A group shows up in the
+// filter only when at least one item of the shop is about it.
+const GENDER_PATTERNS: { label: string; re: RegExp }[] = [
+  { label: "Men", re: /\b(men|mens|men's|boys?|gents)\b/i },
+  { label: "Women", re: /\b(women|womens|women's|ladies|girls?)\b/i },
+  { label: "Kids", re: /\b(kids?|toddlers?|infants?|babies|baby|\d+(-\d+)? ?(yrs?|years?))\b/i },
+  { label: "Unisex", re: /\bunisex\b/i },
+];
+
+function productText(p: Product): string {
+  return `${p.name} ${p.description ?? ""} ${categoryName(p) ?? ""}`;
+}
 
 const PRICE_RANGES = [
   { label: "Under \u20B9500", min: 0, max: 500 },
@@ -159,6 +170,22 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
   // Store images
   const storeImages = useMemo(() => getStoreImages(vendor), [vendor]);
 
+  // Tabs come from the shop's own categories, most items first
+  const categoryTabs = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of products) {
+      const c = categoryName(p);
+      if (c) counts.set(c, (counts.get(c) ?? 0) + 1);
+    }
+    return ["All", ...Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([n]) => n)];
+  }, [products]);
+
+  // Gender filter: only the groups this shop actually has items for
+  const genderOptions = useMemo(
+    () => GENDER_PATTERNS.filter((g) => products.some((p) => g.re.test(productText(p)))).map((g) => g.label),
+    [products],
+  );
+
   // Active filter count
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -189,21 +216,13 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
 
     // Category filter
     if (activeCategory !== "All") {
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(activeCategory.toLowerCase()) ||
-          p.description.toLowerCase().includes(activeCategory.toLowerCase())
-      );
+      result = result.filter((p) => categoryName(p) === activeCategory);
     }
 
     // Gender filter
     if (selectedGenders.length > 0) {
       result = result.filter((p) =>
-        selectedGenders.some(
-          (g) =>
-            p.name.toLowerCase().includes(g.toLowerCase()) ||
-            p.description.toLowerCase().includes(g.toLowerCase())
-        )
+        selectedGenders.some((g) => GENDER_PATTERNS.find((x) => x.label === g)?.re.test(productText(p)))
       );
     }
 
@@ -262,11 +281,12 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
   // ----- Filter sidebar content (shared between desktop and mobile) -----
   const filterContent = (
     <div className="space-y-6">
-      {/* Gender */}
+      {/* Gender (only when the shop has items for at least two groups) */}
+      {genderOptions.length >= 2 && (
       <div>
         <h4 className="text-sm font-bold uppercase text-gray-700 mb-3">Gender</h4>
         <div className="space-y-2">
-          {GENDER_OPTIONS.map((g) => (
+          {genderOptions.map((g) => (
             <label key={g} className="flex items-center gap-3 cursor-pointer group">
               <div
                 className={`w-4 h-4 border rounded flex items-center justify-center transition-colors ${
@@ -284,6 +304,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
           ))}
         </div>
       </div>
+      )}
 
       {/* Price Range */}
       <div className="border-t border-gray-100 pt-6">
@@ -444,10 +465,11 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
       {/* ============================================================== */}
       {/* 3. Category Navigation                                          */}
       {/* ============================================================== */}
+      {categoryTabs.length > 1 && (
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-0">
-            {CATEGORIES.map((cat) => (
+            {categoryTabs.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
@@ -463,6 +485,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
           </div>
         </div>
       </nav>
+      )}
 
       {/* ============================================================== */}
       {/* 4. Sort & Filter Controls + Product Grid                       */}
@@ -604,12 +627,9 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
                       className="group flex flex-col bg-white rounded-lg overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow duration-300"
                     >
                       {/* Image container */}
-                      <Link
-                        href={`/products/${product.id}`}
-                        className="relative block overflow-hidden"
-                        style={{ aspectRatio: "3/4" }}
-                      >
-                        <div className="relative w-full h-full bg-gray-100">
+                      <div className="relative block overflow-hidden" style={{ aspectRatio: "3/4" }}>
+                        <Link href={`/products/${product.id}`} className="absolute inset-0 z-0" aria-label={product.name} />
+                        <div className="pointer-events-none relative w-full h-full bg-gray-100">
                           {firstImage ? (
                             <Image
                               src={firstImage}
@@ -639,9 +659,9 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
                             </div>
                           )}
 
-                          {/* Add to cart overlay on hover */}
-                          {!isOutOfStock && (
-                            <div className="absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+                          {/* Add to cart overlay on hover (items with sizes are opened to pick a size) */}
+                          {!isOutOfStock && !hasSizes(product) && (
+                            <div className="pointer-events-auto absolute inset-x-0 bottom-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
                               <div className="bg-white rounded-lg shadow-lg p-2">
                                 <AddToCartButton
                                   product={product}
@@ -662,7 +682,7 @@ export default function ClothingTheme({ vendor, products }: ClothingThemeProps) 
                             </div>
                           )}
                         </div>
-                      </Link>
+                      </div>
 
                       {/* Product info */}
                       <div className="p-3 flex-1 flex flex-col">

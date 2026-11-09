@@ -1,26 +1,41 @@
 "use client";
 
+/**
+ * The default shop page: an online-shop layout (category strip, banner
+ * carousel, spotlight deals, category bands, product grid) in the LocalMart
+ * look.
+ *
+ * Everything on it comes from the shop's own data. Nothing is made up: a
+ * rating shows only once someone has rated, "Open now" only if the shop set
+ * its hours, "Home delivery" only if it delivers, a discount only on items the
+ * shop marked down, "Only 3 left" only when the shop counts its stock.
+ * Anything missing is simply left out.
+ */
+
 import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { UNIT, type RentUnit } from "@/lib/rentals";
+import type { Size } from "@/lib/sizes";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Store,
-  Star,
-  MapPin,
+  ChevronLeft,
+  ChevronRight,
   Clock,
-  Truck,
-  ShieldCheck,
   Globe,
-  MessageCircle,
-  Send,
   Instagram,
   Facebook,
+  MapPin,
+  MessageCircle,
   Package,
-  ArrowRight,
   Search,
-  ChevronDown,
+  Send,
+  ShieldCheck,
+  ShoppingBag,
+  Star,
+  Store,
+  Truck,
+  Wallet,
   X,
 } from "lucide-react";
 import { useStoreBranding } from "@/context/StoreBrandingContext";
@@ -28,6 +43,8 @@ import NotifyMeButton from "@/components/NotifyMeButton";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import { MessageShopButton } from "@/components/contact/MessageShop";
 import { waText, whatsappLinkProps } from "@/lib/contact";
+import { nearLandmark } from "@/lib/landmark";
+import AddToCartButton from "../AddToCartButton";
 
 interface Product {
   /** "Verified Chanderi handloom" (only once LocalMart checked) */
@@ -37,13 +54,19 @@ interface Product {
   name: string;
   description: string;
   price: number | string;
+  /** The MRP the shop crossed out (a deal only when higher than the price) */
+  compareAtPrice?: number | string | null;
   images: unknown;
   stockQuantity: number;
+  /** Only when true does the shop count its stock (so "Only 3 left" is real) */
+  trackStock?: boolean | null;
   vendorId: string;
   averageRating: number | string | null;
   reviewCount: number;
-  createdAt: Date;
+  createdAt: Date | string;
   tags?: string[] | null;
+  isFeatured?: boolean | null;
+  variants?: Size[] | null;
   // The shop API sends { name, slug }; older data may be plain text
   category?: string | { name: string; slug?: string } | null;
   listingType?: "SALE" | "RENT" | null;
@@ -61,31 +84,46 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "rating", label: "Highest rated" },
 ];
 
+const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
+
+const WRAP = "mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8";
+const NEW_DAYS = 7;
+
 function categoryName(p: Product): string | null {
   const name = typeof p.category === "string" ? p.category : p.category?.name;
   return name?.trim() || null;
 }
 
-function deriveCategories(products: Product[]): string[] {
-  const set = new Set<string>();
-  for (const p of products) {
-    const name = categoryName(p);
-    if (name) set.add(name);
-    if (Array.isArray(p.tags)) {
-      for (const t of p.tags) {
-        if (typeof t === "string" && t.trim().length > 0) set.add(t.trim());
-      }
-    }
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
+function imagesOf(p: Product): string[] {
+  return Array.isArray(p.images) ? (p.images as unknown[]).filter((x): x is string => typeof x === "string" && x.length > 0) : [];
 }
 
-function productMatchesCategory(p: Product, cat: string): boolean {
-  const c = cat.toLowerCase();
-  if (categoryName(p)?.toLowerCase() === c) return true;
-  if (Array.isArray(p.tags) && p.tags.some((t) => t?.toLowerCase() === c))
-    return true;
-  return false;
+/** Percent off, only when the shop really marked the price down */
+function percentOff(p: Product): number {
+  const price = Number(p.price);
+  const mrp = Number(p.compareAtPrice ?? 0);
+  if (!(mrp > price) || !(price >= 0)) return 0;
+  return Math.round(((mrp - price) / mrp) * 100);
+}
+
+function isNew(p: Product): boolean {
+  const t = new Date(p.createdAt).getTime();
+  return Number.isFinite(t) && Date.now() - t < NEW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/** "Only 3 left", only when the shop counts its stock and it is running low */
+function lowStock(p: Product): number | null {
+  return p.trackStock && p.stockQuantity > 0 && p.stockQuantity <= 5 ? p.stockQuantity : null;
+}
+
+const rupee = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+
+/** "09:30" → "9:30 am" */
+function clock(t: string | undefined): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t ?? "");
+  if (!m) return t ?? "";
+  const h = Number(m[1]);
+  return `${h % 12 || 12}${m[2] === "00" ? "" : `:${m[2]}`} ${h < 12 ? "am" : "pm"}`;
 }
 
 interface DefaultThemeProps {
@@ -115,6 +153,7 @@ interface DefaultThemeProps {
     instagramHandle?: string;
     facebookPage?: string;
     websiteUrl?: string;
+    upiId?: string | null;
     canDeliver?: boolean | null;
     maxDeliveryDistance?: number | null;
     businessHours?: BusinessHours | null;
@@ -122,41 +161,38 @@ interface DefaultThemeProps {
   products: Product[];
 }
 
-function getAddressLine(vendor: DefaultThemeProps["vendor"]): string {
-  if (typeof vendor.businessAddress === "string") {
-    return vendor.businessAddress;
+function addressLine(vendor: DefaultThemeProps["vendor"]): string {
+  const a = vendor.businessAddress;
+  const parts: string[] = [];
+  const add = (s?: string | null) => {
+    const v = s?.trim();
+    if (v && !parts.join(", ").toLowerCase().includes(v.toLowerCase())) parts.push(v);
+  };
+  if (typeof a === "string") add(a);
+  else if (a && typeof a === "object") {
+    add(a.address);
+    add(a.street);
+    if (a.landmark) add(nearLandmark(a.landmark));
   }
-  if (vendor.businessAddress && typeof vendor.businessAddress === "object") {
-    const parts = [
-      vendor.businessAddress.address,
-      vendor.businessAddress.street,
-      vendor.businessAddress.landmark
-        ? `Near ${vendor.businessAddress.landmark}`
-        : null,
-    ].filter(Boolean);
-    if (parts.length > 0) return parts.join(", ");
-  }
-  return [vendor.locality, vendor.city].filter(Boolean).join(", ");
-}
-
-function getRegionLine(vendor: DefaultThemeProps["vendor"]): string {
-  return [vendor.locality, vendor.city, vendor.state, vendor.pincode]
-    .filter(Boolean)
-    .join(" · ");
+  add(vendor.locality);
+  add(vendor.city);
+  return parts.join(", ");
 }
 
 export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
   const { setBranding } = useStoreBranding();
-  const [activeImage, setActiveImage] = useState(0);
-  const [heroSlide, setHeroSlide] = useState(0);
+  const [slide, setSlide] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("featured");
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [showInStockOnly, setShowInStockOnly] = useState(false);
   // null = the shop hasn't set its hours. Worked out after mount so the
   // server (UTC) and phone (IST) agree during hydration.
   const [openNow, setOpenNow] = useState<boolean | null>(null);
+  // Where the sticky category strip sits: right under the site header
+  const [stickyTop, setStickyTop] = useState(0);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const productsRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     const hours = vendor.businessHours;
     setOpenNow(hours && Object.keys(hours).length ? isStoreOpen(hours) : null);
@@ -171,851 +207,669 @@ export default function DefaultTheme({ vendor, products }: DefaultThemeProps) {
     return () => setBranding(null);
   }, [vendor.businessName, vendor.storeLogo, vendor.id, setBranding]);
 
-  const storeImages: string[] = Array.isArray(vendor.storeImages)
-    ? (vendor.storeImages as string[])
-    : [];
-  const heroImages: string[] =
-    storeImages.length > 0
-      ? storeImages
-      : vendor.storeLogo
-      ? [vendor.storeLogo]
-      : [];
-
-  // Hero carousel: slot 0 = dark title card, slots 1..N = store images
-  const totalHeroSlides = 1 + heroImages.length;
-
-  // Auto-advance every 5.5s (skip if no images to rotate to)
+  // Follow the site header's height (it changes on scroll and on resize)
   useEffect(() => {
-    if (totalHeroSlides <= 1) return;
-    const id = window.setInterval(() => {
-      setHeroSlide((s) => (s + 1) % totalHeroSlides);
-    }, 5500);
-    return () => window.clearInterval(id);
-  }, [totalHeroSlides]);
+    const header = document.querySelector("header");
+    if (!header) return;
+    const measure = () => setStickyTop(Math.round(header.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(header);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
 
-  // No phone number on the page: buyers message the shop here (a lead) or on WhatsApp
-  const wa = whatsappLinkProps({ number: vendor.whatsappNumber, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
-  const messageTarget = { vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber }, source: "SHOP" as const };
-
-  const rating =
-    vendor.averageRating != null ? Number(vendor.averageRating) : null;
-  const reviewCount = vendor.reviewCount ?? 0;
-
-  const hasSocial = !!(
-    vendor.whatsappNumber ||
-    vendor.telegramLink ||
-    vendor.instagramHandle ||
-    vendor.facebookPage ||
-    vendor.websiteUrl
+  const photos = useMemo<string[]>(
+    () =>
+      Array.isArray(vendor.storeImages)
+        ? (vendor.storeImages as unknown[]).filter((x): x is string => typeof x === "string" && x.length > 0)
+        : [],
+    [vendor.storeImages],
   );
 
-  const productCount = products.length;
+  const wa = whatsappLinkProps({ number: vendor.whatsappNumber, text: waText.shop(vendor.businessName), vendorId: vendor.id, source: "SHOP" });
+  const messageTarget = {
+    vendor: { id: vendor.id, businessName: vendor.businessName, whatsappNumber: vendor.whatsappNumber },
+    source: "SHOP" as const,
+  };
 
-  // Derive categories + per-category counts
-  const categories = deriveCategories(products);
-  const categoryCounts = new Map<string, number>();
-  for (const cat of categories) {
-    categoryCounts.set(
-      cat,
-      products.filter((p) => productMatchesCategory(p, cat)).length
-    );
-  }
+  const rating = vendor.averageRating != null ? Number(vendor.averageRating) : null;
+  const reviewCount = vendor.reviewCount ?? 0;
+  const address = addressLine(vendor);
+  const hours = vendor.businessHours && Object.keys(vendor.businessHours).length ? vendor.businessHours : null;
+  const hasSocial = !!(vendor.telegramLink || vendor.instagramHandle || vendor.facebookPage || vendor.websiteUrl);
+  const deliveryText = vendor.canDeliver
+    ? vendor.maxDeliveryDistance
+      ? `Home delivery within ${vendor.maxDeliveryDistance} km`
+      : "Home delivery"
+    : null;
 
-  // Apply filters + sort
-  const trimmedQuery = searchQuery.trim().toLowerCase();
-  const filteredProducts = products
-    .filter((p) => {
-      if (activeCategory && !productMatchesCategory(p, activeCategory)) return false;
-      if (showInStockOnly && p.stockQuantity <= 0) return false;
-      if (trimmedQuery) {
-        const hay = `${p.name} ${p.description ?? ""}`.toLowerCase();
-        if (!hay.includes(trimmedQuery)) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === "price-asc") return Number(a.price) - Number(b.price);
-      if (sortBy === "price-desc") return Number(b.price) - Number(a.price);
-      if (sortBy === "rating")
-        return Number(b.averageRating ?? 0) - Number(a.averageRating ?? 0);
-      if (sortBy === "new")
-        return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-      return 0;
-    });
+  // Categories come from the shop's own products; the picture is one of its items
+  const categories = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; image: string | null }>();
+    for (const p of products) {
+      const c = categoryName(p);
+      if (!c) continue;
+      const e = map.get(c) ?? { name: c, count: 0, image: null };
+      e.count += 1;
+      e.image = e.image ?? imagesOf(p)[0] ?? null;
+      map.set(c, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [products]);
 
-  const filtersActive =
-    activeCategory !== null ||
-    trimmedQuery.length > 0 ||
-    showInStockOnly ||
-    sortBy !== "featured";
+  const query = searchQuery.trim().toLowerCase();
+  const filtersActive = activeCategory !== null || query.length > 0 || sortBy !== "featured";
+
+  const shown = useMemo(() => {
+    return products
+      .filter((p) => {
+        if (activeCategory && categoryName(p) !== activeCategory) return false;
+        if (query && !`${p.name} ${p.description ?? ""}`.toLowerCase().includes(query)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "price-asc") return Number(a.price) - Number(b.price);
+        if (sortBy === "price-desc") return Number(b.price) - Number(a.price);
+        if (sortBy === "rating") return Number(b.averageRating ?? 0) - Number(a.averageRating ?? 0);
+        if (sortBy === "new") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return 0;
+      });
+  }, [products, activeCategory, query, sortBy]);
+
+  const deals = useMemo(
+    () =>
+      products
+        .filter((p) => percentOff(p) > 0 && p.stockQuantity !== 0)
+        .sort((a, b) => percentOff(b) - percentOff(a))
+        .slice(0, 12),
+    [products],
+  );
+  const picks = useMemo(() => products.filter((p) => p.isFeatured && p.stockQuantity !== 0).slice(0, 12), [products]);
+  const topOff = deals.length ? percentOff(deals[0]) : 0;
+
+  // Category bands: a few categories with enough items to fill a row of tiles
+  const bands = useMemo(() => {
+    if (categories.length < 2) return [];
+    return categories
+      .filter((c) => c.count >= 3)
+      .slice(0, 3)
+      .map((c) => ({ ...c, items: products.filter((p) => categoryName(p) === c.name && p.stockQuantity !== 0).slice(0, 4) }))
+      .filter((b) => b.items.length >= 3);
+  }, [categories, products]);
+
+  // Banner slides: the shop's own photos, else cards made from true facts
+  const slides = useMemo(() => {
+    if (photos.length > 0) return photos.map((src) => ({ kind: "photo" as const, src }));
+    const out: { kind: "card"; title: string; line: string; tone: number }[] = [
+      {
+        kind: "card",
+        title: vendor.businessName,
+        line: [products.length ? `${products.length} ${products.length === 1 ? "item" : "items"}` : null, deliveryText].filter(Boolean).join(" · "),
+        tone: 0,
+      },
+    ];
+    if (topOff > 0) out.push({ kind: "card", title: `Up to ${topOff}% off`, line: `${deals.length} ${deals.length === 1 ? "item" : "items"} marked down by the shop`, tone: 1 });
+    return out;
+  }, [photos, vendor.businessName, products.length, deliveryText, topOff, deals.length]);
+
+  const goToProducts = (category: string | null) => {
+    setActiveCategory(category);
+    // Jump to the grid when a category is picked
+    if (category && productsRef.current) {
+      const top = productsRef.current.getBoundingClientRect().top + window.scrollY - stickyTop - 64;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    }
+  };
 
   const clearFilters = () => {
     setActiveCategory(null);
     setSearchQuery("");
-    setShowInStockOnly(false);
     setSortBy("featured");
   };
 
-  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? "Featured";
+  const onBannerScroll = () => {
+    const el = bannerRef.current;
+    const first = el?.firstElementChild as HTMLElement | null;
+    if (el && first) setSlide(Math.round(el.scrollLeft / (first.offsetWidth + 12)));
+  };
+  const scrollBanner = (dir: 1 | -1) => {
+    const el = bannerRef.current;
+    const first = el?.firstElementChild as HTMLElement | null;
+    if (el && first) el.scrollBy({ left: dir * (first.offsetWidth + 12), behavior: "smooth" });
+  };
+
+  const showHome = !filtersActive;
 
   return (
-    <div className="min-h-screen bg-ivory">
-      {/* ── Editorial Hero ─────────────────────────────────────── */}
-      <section className="relative bg-ink overflow-hidden">
-        {/* Carousel layers (crossfade) */}
-        <div className="absolute inset-0">
-          {/* Slide 0: Dark title card — always rendered, kept for legibility */}
-          <div
-            className={`absolute inset-0 transition-opacity duration-1000 ease-out ${
-              heroSlide === 0 ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            <div className="w-full h-full bg-gradient-to-br from-ink via-ink to-accent-dark/30" />
-          </div>
-
-          {/* Slides 1..N: Store images */}
-          {heroImages.map((img, i) => (
-            <div
-              key={`hero-${img}-${i}`}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-out ${
-                heroSlide === i + 1 ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <Image
-                src={img}
-                alt=""
-                fill
-                priority={i === 0}
-                sizes="100vw"
-                className="object-cover opacity-70"
-              />
-            </div>
-          ))}
-
-          {/* Always-on text legibility overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/30 pointer-events-none" />
-        </div>
-
-        <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 lg:pt-40 pb-12 sm:pb-16 lg:pb-20">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-3 mb-5">
-            <span className="h-px w-8 bg-accent" aria-hidden />
-            <span className="font-heading text-[10px] sm:text-[11px] font-semibold text-accent tracking-[0.22em] uppercase">
-              {vendor.businessType?.replace(/_/g, " ") || "Local store"}
-              {vendor.city ? ` · ${vendor.city}` : ""}
-            </span>
-          </div>
-
-          {/* Display name */}
-          <h1 className="font-heading text-white text-[34px] sm:text-[52px] lg:text-[72px] font-semibold leading-[0.98] tracking-tight max-w-3xl">
-            {vendor.businessName}
-          </h1>
-
-          {/* Description teaser */}
-          {vendor.storeDescription && (
-            <p className="mt-5 text-base sm:text-lg text-white/70 max-w-2xl leading-relaxed line-clamp-2">
-              {vendor.storeDescription}
-            </p>
-          )}
-
-          {/* Inline meta */}
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-white/80 text-sm">
-            {rating != null && reviewCount > 0 ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Star className="w-4 h-4 fill-accent text-accent" />
-                <span className="font-semibold text-white">
-                  {rating.toFixed(1)}
-                </span>
-                <span className="text-white/60">({reviewCount} reviews)</span>
-              </span>
-            ) : (
-              <span className="text-white/60 text-xs uppercase tracking-[0.18em]">
-                New store
-              </span>
-            )}
-
-            <span className="hidden sm:inline-block w-px h-4 bg-white/20" aria-hidden />
-
-            <span className="inline-flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-white/50" />
-              {productCount} {productCount === 1 ? "product" : "products"}
-            </span>
-
-            {(vendor.locality || vendor.city) && (
-              <>
-                <span className="hidden sm:inline-block w-px h-4 bg-white/20" aria-hidden />
-                <span className="inline-flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-white/50" />
-                  {[vendor.locality, vendor.city].filter(Boolean).join(", ")}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Primary actions */}
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <NotifyMeButton vendorId={vendor.id} size="md" />
-            <MessageShopButton
-              target={messageTarget}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-full text-sm font-medium hover:bg-white/20 transition-colors cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Message store
-            </MessageShopButton>
-          </div>
-
-          {/* Slide indicator dots */}
-          {totalHeroSlides > 1 && (
-            <div className="mt-12 sm:mt-16 flex items-center gap-2">
-              {Array.from({ length: totalHeroSlides }).map((_, i) => (
-                <button
-                  key={`dot-${i}`}
-                  onClick={() => setHeroSlide(i)}
-                  aria-label={
-                    i === 0 ? "Show title slide" : `Show photo ${i}`
-                  }
-                  className={`h-1 rounded-full transition-all duration-500 cursor-pointer ${
-                    heroSlide === i
-                      ? "w-10 bg-white"
-                      : "w-5 bg-white/30 hover:bg-white/60"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ── Sticky meta bar ───────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-ivory/90 backdrop-blur-md border-b border-sand">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-cream border border-sand overflow-hidden shrink-0 flex items-center justify-center">
+    <div className="pb-28 lg:pb-10">
+      {/* ── The shop: who, where, and how to reach it ─────────── */}
+      <section className={`${WRAP} pt-3`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-hairline bg-fill sm:h-16 sm:w-16">
               {vendor.storeLogo ? (
-                <Image
-                  src={vendor.storeLogo}
-                  alt=""
-                  width={36}
-                  height={36}
-                  className="w-full h-full object-cover"
-                />
+                <Image src={vendor.storeLogo} alt="" fill sizes="64px" className="object-cover" />
               ) : (
-                <Store className="w-4 h-4 text-ink-3" />
+                <span className="flex h-full w-full items-center justify-center text-label-3">
+                  <Store className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+                </span>
               )}
             </div>
             <div className="min-w-0">
-              <p className="font-heading text-ink text-sm font-semibold truncate">
-                {vendor.businessName}
-              </p>
-              {(vendor.locality || vendor.city) && (
-                <p className="text-[11px] text-ink-3 truncate">
-                  {[vendor.locality, vendor.city].filter(Boolean).join(", ")}
-                </p>
-              )}
+              <h1 className="truncate text-[21px] font-bold leading-tight tracking-[-0.01em] text-label sm:text-[26px]">{vendor.businessName}</h1>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-label-2">
+                {rating != null && reviewCount > 0 ? (
+                  <a href="#reviews" className="inline-flex items-center gap-1 rounded-md bg-ok px-1.5 py-0.5 text-[12px] font-bold text-white">
+                    {rating.toFixed(1)} <Star className="h-3 w-3 fill-white" aria-hidden />
+                    <span className="font-medium opacity-90">({reviewCount})</span>
+                  </a>
+                ) : (
+                  <span className="rounded-full bg-fill px-2 py-0.5 text-[12px] font-semibold text-label-2">New shop</span>
+                )}
+                {openNow !== null && (
+                  <span className={`inline-flex items-center gap-1 font-semibold ${openNow ? "text-ok" : "text-bad"}`}>
+                    <Clock className="h-3.5 w-3.5" aria-hidden />
+                    {openNow ? "Open now" : "Closed now"}
+                  </span>
+                )}
+                {address && (
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span className="truncate">{address}</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <a
-            href="#products"
-            className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark transition-colors"
-          >
-            See products
-            <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
-      </div>
 
-      {/* ── About / Story ─────────────────────────────────────── */}
-      {vendor.storeDescription && (
-        <section className="bg-ivory">
-          <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-            <span className="block h-px w-12 bg-accent mb-6" aria-hidden />
-            <p className="font-heading text-ink text-xl sm:text-2xl lg:text-[28px] font-medium leading-[1.4] tracking-tight">
-              {vendor.storeDescription}
-            </p>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <MessageShopButton
+              target={messageTarget}
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-cta px-4 text-[14px] font-semibold text-white transition-colors hover:bg-cta-hover active:scale-[0.98]"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              Message
+            </MessageShopButton>
+            {wa && (
+              <a
+                {...wa}
+                className="inline-flex h-10 items-center rounded-full border border-hairline bg-card px-4 text-[14px] font-semibold text-label transition-colors hover:bg-fill"
+              >
+                WhatsApp
+              </a>
+            )}
+            <NotifyMeButton vendorId={vendor.id} size="sm" className="!border !border-hairline !bg-card !text-label hover:!bg-fill" />
+          </div>
+        </div>
+
+        {/* Facts about this shop, only the ones that are true */}
+        <ul className="mt-3 flex flex-wrap gap-2 text-[12.5px] font-medium text-label">
+          <li className="inline-flex items-center gap-1.5 rounded-full bg-fill px-3 py-1.5">
+            <ShieldCheck className="h-4 w-4 text-ok" aria-hidden /> Checked by LocalMart
+          </li>
+          {deliveryText && (
+            <li className="inline-flex items-center gap-1.5 rounded-full bg-fill px-3 py-1.5">
+              <Truck className="h-4 w-4 text-label-2" aria-hidden /> {deliveryText}
+            </li>
+          )}
+          {vendor.upiId && (
+            <li className="inline-flex items-center gap-1.5 rounded-full bg-fill px-3 py-1.5">
+              <Wallet className="h-4 w-4 text-label-2" aria-hidden /> Pay by UPI
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {/* ── Category strip (sticks under the site header) ─────── */}
+      {categories.length >= 2 && (
+        <div className="sticky z-40 mt-3 border-y border-hairline bg-card" style={{ top: stickyTop }}>
+          <div className={`${WRAP}`}>
+            <div className="flex gap-1 overflow-x-auto py-1.5" style={{ scrollbarWidth: "none" }} role="tablist" aria-label="Categories">
+              <CategoryTab label="All" count={products.length} active={activeCategory === null} onClick={() => goToProducts(null)}>
+                <ShoppingBag className="h-6 w-6" strokeWidth={1.6} aria-hidden />
+              </CategoryTab>
+              {categories.map((c) => (
+                <CategoryTab key={c.name} label={c.name} active={activeCategory === c.name} onClick={() => goToProducts(activeCategory === c.name ? null : c.name)}>
+                  {c.image ? (
+                    <Image src={c.image} alt="" fill sizes="48px" className="object-cover" />
+                  ) : (
+                    <Package className="h-6 w-6" strokeWidth={1.5} aria-hidden />
+                  )}
+                </CategoryTab>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Banner carousel: slides peek in from the side ─────── */}
+      {showHome && slides.length > 0 && (
+        <section className={`${WRAP} pt-4`} aria-label="Shop highlights">
+          <div className="relative">
+            <div
+              ref={bannerRef}
+              onScroll={onBannerScroll}
+              className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-0"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {slides.map((s, i) => (
+                <div
+                  key={s.kind === "photo" ? `${s.src}-${i}` : `card-${i}`}
+                  className={`relative aspect-[16/8] shrink-0 snap-start overflow-hidden rounded-2xl bg-fill ${
+                    slides.length === 1 ? "w-full" : "w-[88%] sm:w-[62%] lg:w-[48%]"
+                  }`}
+                >
+                  {s.kind === "photo" ? (
+                    <Image src={s.src} alt={i === 0 ? vendor.businessName : ""} fill priority={i === 0} sizes="(max-width: 640px) 88vw, (max-width: 1024px) 62vw, 48vw" className="object-cover" />
+                  ) : (
+                    <div
+                      className={`flex h-full w-full flex-col justify-center p-6 text-white sm:p-8 ${
+                        s.tone === 0 ? "bg-gradient-to-br from-label via-label to-cta" : "bg-gradient-to-br from-cta to-orange-500"
+                      }`}
+                    >
+                      <p className="line-clamp-2 text-[24px] font-extrabold leading-tight tracking-[-0.02em] sm:text-[34px]">{s.title}</p>
+                      {s.line && <p className="mt-2 text-[14px] font-medium text-white/85 sm:text-[16px]">{s.line}</p>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {slides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => scrollBanner(-1)}
+                  aria-label="Previous"
+                  className="absolute left-2 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/95 text-label shadow-md hover:bg-white lg:flex"
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollBanner(1)}
+                  aria-label="Next"
+                  className="absolute right-2 top-1/2 hidden h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/95 text-label shadow-md hover:bg-white lg:flex"
+                >
+                  <ChevronRight className="h-5 w-5" aria-hidden />
+                </button>
+                <div className="mt-2.5 flex justify-center gap-1.5" aria-hidden>
+                  {slides.map((_, i) => (
+                    <span key={i} className={`h-1.5 rounded-full transition-all ${i === slide ? "w-5 bg-label" : "w-1.5 bg-label/25"}`} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </section>
       )}
 
-      {/* ── Visit & Info ──────────────────────────────────────── */}
-      <section className="bg-ivory border-y border-sand">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
-            {/* ── Left: Store gallery ──────────────────────── */}
-            <div className="lg:col-span-7">
-              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
-              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight mb-6 sm:mb-8">
-                Inside the store
-              </h2>
+      {/* ── In the spotlight: deals and the shop's picks ──────── */}
+      {showHome && picks.length > 0 && (
+        <Spotlight title="Shop's picks" items={picks} strip="pick" />
+      )}
+      {showHome && deals.length > 0 && (
+        <Spotlight title="Deals" subtitle="Marked down by the shop" items={deals} strip="deal" />
+      )}
 
-              {heroImages.length > 0 ? (
-                <div className="space-y-3">
-                  {/* Primary photo */}
-                  <div className="relative aspect-[4/3] sm:aspect-[16/10] bg-cream rounded-2xl overflow-hidden border border-sand">
-                    <Image
-                      src={heroImages[activeImage] ?? heroImages[0]}
-                      alt={`${vendor.businessName} storefront`}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 60vw"
-                      className="object-cover"
-                    />
-                  </div>
-
-                  {/* Thumbnail strip */}
-                  {heroImages.length > 1 && (
-                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                      {heroImages.slice(0, 5).map((img, i) => (
-                        <button
-                          key={`${img}-${i}`}
-                          onClick={() => setActiveImage(i)}
-                          aria-label={`Show photo ${i + 1}`}
-                          className={`relative aspect-square rounded-xl overflow-hidden border transition-all ${
-                            activeImage === i
-                              ? "border-accent ring-2 ring-accent/30"
-                              : "border-sand hover:border-ink"
-                          }`}
-                        >
-                          <Image
-                            src={img}
-                            alt=""
-                            fill
-                            sizes="120px"
-                            className="object-cover"
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="aspect-[16/10] bg-cream rounded-2xl border border-sand flex flex-col items-center justify-center text-ink-3">
-                  <Store className="w-10 h-10 mb-2" strokeWidth={1.25} />
-                  <p className="text-sm">No store photos yet</p>
-                </div>
-              )}
-            </div>
-
-            {/* ── Right: Visit details ──────────────────────── */}
-            <div className="lg:col-span-5">
-              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
-              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight mb-6 sm:mb-8">
-                Visit &amp; order
-              </h2>
-
-              {/* Info list */}
-              <dl className="divide-y divide-sand border-y border-sand">
-                {/* Address */}
-                <div className="py-5 flex items-start gap-4">
-                  <MapPin
-                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
-                    strokeWidth={1.5}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
-                      Address
-                    </dt>
-                    <dd className="text-[15px] text-ink leading-relaxed">
-                      {getAddressLine(vendor) || "Not provided"}
-                    </dd>
-                    {getRegionLine(vendor) && (
-                      <dd className="text-xs text-ink-3 mt-1">
-                        {getRegionLine(vendor)}
-                      </dd>
-                    )}
-                  </div>
-                </div>
-
-                {/* Hours / Status */}
-                <div className="py-5 flex items-start gap-4">
-                  <Clock
-                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
-                    strokeWidth={1.5}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
-                      Hours
-                    </dt>
-                    {/* Only what the shop told us — never a made-up "Open now" */}
-                    <dd className="text-[15px] text-ink leading-relaxed inline-flex items-center gap-2">
-                      {openNow !== null && (
-                        <span className={`w-1.5 h-1.5 rounded-full ${openNow ? "bg-accent" : "bg-ink-3"}`} aria-hidden />
-                      )}
-                      {openNow === null ? "Message the shop for timings" : openNow ? "Open now" : "Closed now"}
-                    </dd>
-                  </div>
-                </div>
-
-                {/* Delivery */}
-                <div className="py-5 flex items-start gap-4">
-                  <Truck
-                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
-                    strokeWidth={1.5}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
-                      Delivery
-                    </dt>
-                    <dd className="text-[15px] text-ink leading-relaxed">
-                      {vendor.canDeliver === false
-                        ? "Pick up from the shop"
-                        : vendor.maxDeliveryDistance
-                          ? `Home delivery within ${vendor.maxDeliveryDistance} km`
-                          : `Home delivery in ${vendor.city || "town"}`}
-                    </dd>
-                    <dd className="text-xs text-ink-3 mt-1">
-                      {vendor.canDeliver === false ? "No home delivery" : "Delivered by the shop itself"}
-                    </dd>
-                  </div>
-                </div>
-
-                {/* Verified */}
-                <div className="py-5 flex items-start gap-4">
-                  <ShieldCheck
-                    className="w-5 h-5 text-ink shrink-0 mt-0.5"
-                    strokeWidth={1.5}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <dt className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-1">
-                      Verification
-                    </dt>
-                    <dd className="text-[15px] text-ink leading-relaxed">
-                      Approved by LocalMart
-                    </dd>
-                    <dd className="text-xs text-ink-3 mt-1">
-                      Checked by our team before the shop went live
-                    </dd>
-                  </div>
-                </div>
-              </dl>
-
-              {/* Social channels */}
-              {hasSocial && (
-                <div className="mt-8">
-                  <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-3">
-                    Connect
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {wa && (
-                      <a
-                        {...wa}
-                        aria-label="WhatsApp"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
-                    {vendor.telegramLink && (
-                      <a
-                        href={vendor.telegramLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Telegram"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <Send className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
-                    {vendor.instagramHandle && (
-                      <a
-                        href={`https://instagram.com/${vendor.instagramHandle.replace("@", "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Instagram"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <Instagram className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
-                    {vendor.facebookPage && (
-                      <a
-                        href={vendor.facebookPage}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Facebook"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <Facebook className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
-                    {vendor.websiteUrl && (
-                      <a
-                        href={vendor.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Website"
-                        className="w-10 h-10 rounded-full bg-white border border-sand flex items-center justify-center text-ink-2 hover:text-ink hover:border-ink transition-all"
-                      >
-                        <Globe className="w-4 h-4" strokeWidth={1.5} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Primary CTA */}
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href="#products"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-full text-sm font-semibold hover:bg-accent-dark transition-colors shadow-sm hover:shadow-md"
+      {/* ── Category bands: a coloured header, a row of tiles ─── */}
+      {showHome &&
+        bands.map((b, i) => (
+          <section key={b.name} className={`${WRAP} pt-6`}>
+            <div className={`overflow-hidden rounded-2xl ${i % 2 === 0 ? "bg-gradient-to-r from-cta to-orange-500" : "bg-gradient-to-r from-label to-cta"}`}>
+              <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-4 sm:px-5">
+                <h2 className="min-w-0 truncate text-[20px] font-extrabold tracking-[-0.01em] text-white sm:text-[24px]">{b.name}</h2>
+                <button
+                  type="button"
+                  onClick={() => goToProducts(b.name)}
+                  aria-label={`See all in ${b.name}`}
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-white text-label shadow hover:bg-white/90"
                 >
-                  Browse products
-                  <ArrowRight className="w-4 h-4" strokeWidth={1.75} />
-                </a>
-                <MessageShopButton
-                  target={messageTarget}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-white border border-sand text-ink rounded-full text-sm font-semibold hover:border-ink transition-colors cursor-pointer"
-                >
-                  <MessageCircle className="w-4 h-4" strokeWidth={1.5} />
-                  Message store
-                </MessageShopButton>
+                  <ChevronRight className="h-5 w-5" aria-hidden />
+                </button>
+              </div>
+              <div className={`mx-2.5 mb-2.5 grid grid-cols-2 gap-2 rounded-xl bg-card p-2 ${b.items.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
+                {b.items.map((p) => {
+                  const img = imagesOf(p)[0];
+                  const off = percentOff(p);
+                  return (
+                    <Link key={p.id} href={`/products/${p.id}`} className="min-w-0 rounded-lg p-1 hover:bg-fill">
+                      <span className="relative block aspect-square overflow-hidden rounded-lg bg-fill">
+                        {img ? (
+                          <Image src={img} alt="" fill sizes="(max-width: 640px) 45vw, 22vw" className="object-cover" />
+                        ) : (
+                          <span className="absolute inset-0 flex items-center justify-center text-label-3">
+                            <Package className="h-8 w-8" strokeWidth={1.25} aria-hidden />
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-1.5 block truncate text-[13.5px] font-medium text-label">{p.name}</span>
+                      <span className="block text-[14px] font-bold text-label">
+                        {rupee(Number(p.price))}
+                        {off > 0 && <span className="ml-1.5 text-[12px] font-semibold text-ok">{off}% off</span>}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
+          </section>
+        ))}
+
+      {/* ── All products ─────────────────────────────────────── */}
+      <section id="products" ref={productsRef} className={`${WRAP} pt-6`}>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[20px] font-extrabold leading-tight tracking-[-0.01em] text-label sm:text-[24px]">{activeCategory ?? "All products"}</h2>
+            <p className="mt-0.5 text-[13px] text-label-2">
+              {shown.length} {shown.length === 1 ? "item" : "items"}
+              {filtersActive && shown.length !== products.length ? ` of ${products.length}` : ""}
+            </p>
           </div>
-        </div>
-      </section>
-
-      {/* ── Products ──────────────────────────────────────────── */}
-      <section id="products" className="bg-ivory">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-          {/* Section header */}
-          <div className="flex items-end justify-between mb-8 sm:mb-10">
-            <div>
-              <span className="block h-px w-8 bg-accent mb-4" aria-hidden />
-              <h2 className="font-heading text-ink text-2xl sm:text-3xl lg:text-[40px] font-semibold tracking-tight leading-tight">
-                {activeCategory ?? "All products"}
-              </h2>
-              {productCount > 0 && (
-                <p className="text-ink-2 text-sm mt-2">
-                  {filteredProducts.length}{" "}
-                  {filteredProducts.length === 1 ? "item" : "items"}
-                  {filteredProducts.length !== productCount && ` of ${productCount}`}
-                </p>
-              )}
-            </div>
-
-            {/* Mobile filter toggle */}
-            {productCount > 0 && (
-              <button
-                onClick={() => setSortMenuOpen((v) => !v)}
-                className="lg:hidden inline-flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-accent-dark transition-colors"
-                aria-expanded={sortMenuOpen}
+          {products.length > 1 && (
+            <label className="shrink-0 text-[13px] text-label-2">
+              <span className="sr-only">Sort items</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                className="h-10 rounded-full border border-hairline bg-card px-3 text-[14px] font-medium text-label outline-none focus:border-label/40"
               >
-                Filter &amp; Sort
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${sortMenuOpen ? "rotate-180" : ""}`}
-                  strokeWidth={1.75}
-                />
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {products.length > 6 && (
+          <div className="relative mb-4">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-label-3" aria-hidden />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search in ${vendor.businessName}`}
+              aria-label={`Search in ${vendor.businessName}`}
+              className="h-11 w-full rounded-full border-2 border-hairline bg-card pl-10 pr-10 text-[16px] text-label outline-none placeholder:text-label-3 focus:border-cta"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-label-2 hover:bg-fill"
+              >
+                <X className="h-4 w-4" aria-hidden />
               </button>
             )}
           </div>
+        )}
 
-          {productCount === 0 ? (
-            <div className="border border-dashed border-sand rounded-2xl bg-white/40 px-6 py-16 sm:py-20 text-center max-w-2xl mx-auto">
-              <span className="inline-flex w-12 h-12 rounded-full bg-cream items-center justify-center mb-5">
-                <Package className="w-5 h-5 text-ink-3" strokeWidth={1.5} />
-              </span>
-              <h3 className="font-heading text-ink text-lg sm:text-xl font-semibold mb-2">
-                No products yet
-              </h3>
-              <p className="text-ink-2 text-sm leading-relaxed max-w-md mx-auto">
-                {vendor.businessName} is preparing their catalogue. Check back soon
-                — or follow this store to be notified when new items go live.
-              </p>
-              <div className="mt-6">
-                <NotifyMeButton vendorId={vendor.id} size="md" />
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-              {/* ── Sidebar (Nike-style) ─────────────────────── */}
-              <aside
-                className={`lg:col-span-3 lg:block ${sortMenuOpen ? "block" : "hidden"}`}
-              >
-                <div className="lg:sticky lg:top-20 space-y-10">
-                  {/* Search */}
-                  <div>
-                    <label className="block font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-3">
-                      Search
-                    </label>
-                    <div className="relative">
-                      <Search
-                        className="w-4 h-4 text-ink-3 absolute left-3 top-1/2 -translate-y-1/2"
-                        strokeWidth={1.75}
-                      />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Find a product"
-                        className="w-full bg-white border border-sand rounded-full pl-9 pr-9 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none focus:border-ink transition-colors"
-                      />
-                      {searchQuery && (
-                        <button
-                          onClick={() => setSearchQuery("")}
-                          aria-label="Clear search"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink"
-                        >
-                          <X className="w-4 h-4" strokeWidth={1.75} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+        {products.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-hairline bg-card px-6 py-14 text-center">
+            <ShoppingBag className="mx-auto h-9 w-9 text-label-3" strokeWidth={1.4} aria-hidden />
+            <h3 className="mt-3 text-[17px] font-bold text-label">No items yet</h3>
+            <p className="mx-auto mt-1 max-w-xs text-[14px] text-label-2">This shop is still adding its items. Message the shop to ask what&apos;s available.</p>
+          </div>
+        ) : shown.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-hairline bg-card px-6 py-12 text-center">
+            <h3 className="text-[17px] font-bold text-label">Nothing matches</h3>
+            <p className="mt-1 text-[14px] text-label-2">Try another word or category.</p>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="mt-4 inline-flex h-11 cursor-pointer items-center rounded-full bg-cta px-5 text-[15px] font-semibold text-white hover:bg-cta-hover"
+            >
+              Show everything
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 xl:grid-cols-5">
+            {shown.map((p) => (
+              <ProductCard key={p.id} product={p} vendorName={vendor.businessName} topOff={topOff} />
+            ))}
+          </div>
+        )}
+      </section>
 
-                  {/* Categories */}
-                  <div>
-                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
-                      Categories
-                    </p>
-                    <ul className="space-y-3">
-                      <li>
-                        <button
-                          onClick={() => setActiveCategory(null)}
-                          className={`flex items-center justify-between w-full text-left text-[15px] transition-colors ${
-                            activeCategory === null
-                              ? "text-ink font-semibold"
-                              : "text-ink-2 hover:text-ink"
-                          }`}
-                        >
-                          <span>All products</span>
-                          <span className="text-ink-3 text-xs tabular-nums">
-                            {productCount}
-                          </span>
-                        </button>
-                      </li>
-                      {categories.length === 0 ? (
-                        <li className="text-xs text-ink-3 leading-relaxed">
-                          This store has no category tags yet.
-                        </li>
-                      ) : (
-                        categories.map((cat) => {
-                          const isActive = activeCategory === cat;
-                          return (
-                            <li key={cat}>
-                              <button
-                                onClick={() =>
-                                  setActiveCategory(isActive ? null : cat)
-                                }
-                                className={`flex items-center justify-between w-full text-left text-[15px] transition-colors ${
-                                  isActive
-                                    ? "text-ink font-semibold"
-                                    : "text-ink-2 hover:text-ink"
-                                }`}
-                              >
-                                <span className="truncate">{cat}</span>
-                                <span className="text-ink-3 text-xs tabular-nums shrink-0 ml-2">
-                                  {categoryCounts.get(cat) ?? 0}
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })
-                      )}
-                    </ul>
-                  </div>
-
-                  {/* Filter by */}
-                  <div>
-                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
-                      Filter by
-                    </p>
-                    <label className="flex items-center justify-between cursor-pointer group">
-                      <span
-                        className={`text-[15px] transition-colors ${
-                          showInStockOnly
-                            ? "text-ink font-semibold"
-                            : "text-ink-2 group-hover:text-ink"
-                        }`}
-                      >
-                        In stock only
-                      </span>
-                      <span
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                          showInStockOnly ? "bg-accent" : "bg-sand"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showInStockOnly}
-                          onChange={(e) => setShowInStockOnly(e.target.checked)}
-                          className="sr-only"
-                        />
-                        <span
-                          className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
-                            showInStockOnly ? "translate-x-4" : "translate-x-0.5"
-                          }`}
-                        />
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Sort */}
-                  <div>
-                    <p className="font-heading text-[10px] font-semibold text-ink-3 tracking-[0.18em] uppercase mb-4">
-                      Sort by
-                    </p>
-                    <ul className="space-y-3">
-                      {SORT_OPTIONS.map((opt) => {
-                        const isActive = sortBy === opt.key;
-                        return (
-                          <li key={opt.key}>
-                            <button
-                              onClick={() => setSortBy(opt.key)}
-                              className={`text-left text-[15px] transition-colors ${
-                                isActive
-                                  ? "text-ink font-semibold"
-                                  : "text-ink-2 hover:text-ink"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-
-                  {filtersActive && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-sm font-semibold text-accent-dark hover:text-ink transition-colors inline-flex items-center gap-1.5"
-                    >
-                      Reset filters
-                      <X className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    </button>
-                  )}
-                </div>
-              </aside>
-
-              {/* ── Grid ──────────────────────────────────────── */}
-              <div className="lg:col-span-9">
-                {/* Toolbar (desktop) */}
-                <div className="hidden lg:flex items-center justify-between mb-6 pb-4 border-b border-sand">
-                  <p className="text-sm text-ink-2">
-                    {filteredProducts.length}{" "}
-                    {filteredProducts.length === 1 ? "product" : "products"}
-                  </p>
-                  <p className="text-sm text-ink-2">
-                    Sorted by{" "}
-                    <span className="text-ink font-semibold">{sortLabel}</span>
-                  </p>
-                </div>
-
-                {filteredProducts.length === 0 ? (
-                  <div className="border border-dashed border-sand rounded-2xl bg-white/40 px-6 py-16 text-center">
-                    <h3 className="font-heading text-ink text-lg font-semibold mb-2">
-                      No products match these filters
-                    </h3>
-                    <p className="text-ink-2 text-sm mb-5">
-                      Try removing a filter or clearing your search.
-                    </p>
-                    <button
-                      onClick={clearFilters}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink text-white rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors"
-                    >
-                      Reset filters
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-10 sm:gap-x-6 sm:gap-y-12">
-                    {filteredProducts.map((product) => {
-                      const images = Array.isArray(product.images)
-                        ? (product.images as string[])
-                        : [];
-                      const firstImage = images.length > 0 ? images[0] : null;
-                      const price = Number(product.price);
-                      const productRating =
-                        product.averageRating != null
-                          ? Number(product.averageRating)
-                          : null;
-                      const productCategory =
-                        categoryName(product) ||
-                        (Array.isArray(product.tags) && product.tags[0]) ||
-                        null;
-
+      {/* ── About and opening hours ──────────────────────────── */}
+      {(vendor.storeDescription || hours || hasSocial || address) && (
+        <section className={`${WRAP} pt-8`}>
+          <div className="rounded-2xl border border-hairline bg-card p-4 sm:p-5">
+            <h2 className="text-[18px] font-bold text-label">About this shop</h2>
+            {vendor.storeDescription && <p className="mt-2 text-[15px] leading-relaxed text-label-2">{vendor.storeDescription}</p>}
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              {hours && (
+                <div>
+                  <h3 className="text-[13px] font-semibold uppercase tracking-wide text-label-3">Opening hours</h3>
+                  <dl className="mt-2 space-y-1.5 text-[15px]">
+                    {DAYS.map((d) => {
+                      const h = hours[d] ?? hours[d.charAt(0).toUpperCase() + d.slice(1)];
+                      if (!h) return null;
                       return (
-                        <Link
-                          key={product.id}
-                          href={`/products/${product.id}`}
-                          className="group block"
-                        >
-                          <div className="relative aspect-square bg-cream rounded-2xl overflow-hidden border border-sand">
-                            {firstImage ? (
-                              <Image
-                                src={firstImage}
-                                alt={product.name}
-                                fill
-                                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                                className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
-                              />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center text-ink-3">
-                                <Package
-                                  className="w-10 h-10"
-                                  strokeWidth={1.25}
-                                />
-                              </div>
-                            )}
-
-                            {product.stockQuantity <= 0 && (
-                              <div className="absolute inset-0 bg-ink/60 flex items-center justify-center">
-                                <span className="bg-laal text-white text-[10px] font-semibold tracking-wider uppercase px-3 py-1 rounded-full">
-                                  Out of stock
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="pt-4">
-                            <h3 className="font-heading text-ink text-sm sm:text-[15px] font-semibold leading-snug line-clamp-2 group-hover:text-accent-dark transition-colors">
-                              {product.name}
-                            </h3>
-                            {product.handloomStatus === "VERIFIED" && (
-                              <div className="mt-1">
-                                <HandloomBadge product={product} size="sm" />
-                              </div>
-                            )}
-                            {productCategory && (
-                              <p className="text-xs text-ink-3 mt-1">
-                                {productCategory}
-                              </p>
-                            )}
-
-                            <div className="mt-2 flex items-baseline justify-between gap-2">
-                              <span className="font-heading text-ink text-base sm:text-lg font-semibold tabular-nums">
-                                ₹{price.toFixed(0)}
-                                {product.listingType === "RENT" && (
-                                  <span className="ml-1 font-sans text-[12px] font-normal text-ink-3">
-                                    {product.rentUnitLabel ? `a ${product.rentUnitLabel} ` : ""}
-                                    {UNIT[(product.rentUnit ?? "DAY") as RentUnit].per}
-                                  </span>
-                                )}
-                              </span>
-                              {productRating != null &&
-                                product.reviewCount > 0 && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] text-ink-3">
-                                    <Star
-                                      className="w-3 h-3 fill-accent text-accent"
-                                      strokeWidth={1.5}
-                                    />
-                                    <span className="font-medium text-ink-2 tabular-nums">
-                                      {productRating.toFixed(1)}
-                                    </span>
-                                    <span>({product.reviewCount})</span>
-                                  </span>
-                                )}
-                            </div>
-                          </div>
-                        </Link>
+                        <div key={d} className="flex justify-between gap-4">
+                          <dt className="capitalize text-label-2">{d}</dt>
+                          <dd className="font-medium text-label">{h.isOpen ? `${clock(h.open)} – ${clock(h.close)}` : "Closed"}</dd>
+                        </div>
                       );
                     })}
-                  </div>
-                )}
-              </div>
+                  </dl>
+                </div>
+              )}
+              {(address || hasSocial) && (
+                <div>
+                  <h3 className="text-[13px] font-semibold uppercase tracking-wide text-label-3">Find us</h3>
+                  {address && <p className="mt-2 text-[15px] text-label">{address}</p>}
+                  {hasSocial && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {vendor.instagramHandle && (
+                        <SocialLink href={`https://instagram.com/${vendor.instagramHandle.replace("@", "")}`} label="Instagram">
+                          <Instagram className="h-4 w-4" aria-hidden />
+                        </SocialLink>
+                      )}
+                      {vendor.facebookPage && (
+                        <SocialLink href={vendor.facebookPage} label="Facebook">
+                          <Facebook className="h-4 w-4" aria-hidden />
+                        </SocialLink>
+                      )}
+                      {vendor.telegramLink && (
+                        <SocialLink href={vendor.telegramLink} label="Telegram">
+                          <Send className="h-4 w-4" aria-hidden />
+                        </SocialLink>
+                      )}
+                      {vendor.websiteUrl && (
+                        <SocialLink href={vendor.websiteUrl} label="Website">
+                          <Globe className="h-4 w-4" aria-hidden />
+                        </SocialLink>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
     </div>
+  );
+}
+
+/** One tab in the category strip: a picture, a label, an underline when picked */
+function CategoryTab({
+  label,
+  count,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className="group relative flex w-[76px] shrink-0 cursor-pointer flex-col items-center gap-1 px-1 pb-2 pt-1 sm:w-[92px]"
+    >
+      <span
+        className={`relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl transition-colors sm:h-14 sm:w-14 ${
+          active ? "bg-cta/10 text-cta ring-2 ring-cta" : "bg-fill text-label-2 group-hover:bg-fill/70"
+        }`}
+      >
+        {children}
+      </span>
+      <span className={`w-full truncate text-center text-[12.5px] sm:text-[13.5px] ${active ? "font-bold text-label" : "font-medium text-label-2"}`}>
+        {label}
+        {count != null && <span className="text-label-3"> {count}</span>}
+      </span>
+      <span className={`absolute inset-x-2 bottom-0 h-[3px] rounded-full bg-cta transition-opacity ${active ? "opacity-100" : "opacity-0"}`} />
+    </button>
+  );
+}
+
+/** A sideways row of picture cards with a price strip under each */
+function Spotlight({ title, subtitle, items, strip }: { title: string; subtitle?: string; items: Product[]; strip: "deal" | "pick" }) {
+  return (
+    <section className={`${WRAP} pt-6`}>
+      <div className="mb-3">
+        <h2 className="text-[20px] font-extrabold leading-tight tracking-[-0.01em] text-label sm:text-[24px]">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-[13px] text-label-2">{subtitle}</p>}
+      </div>
+      <div
+        className="-mx-4 grid auto-cols-[62%] grid-flow-col gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:auto-cols-[34%] sm:px-0 lg:auto-cols-[23%]"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {items.map((p) => {
+          const img = imagesOf(p)[0];
+          const off = percentOff(p);
+          return (
+            <Link key={p.id} href={`/products/${p.id}`} className="group relative block snap-start overflow-hidden rounded-2xl bg-fill">
+              <span className="relative block aspect-[4/3]">
+                {img ? (
+                  <Image src={img} alt="" fill sizes="(max-width: 640px) 62vw, 23vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center text-label-3">
+                    <Package className="h-10 w-10" strokeWidth={1.25} aria-hidden />
+                  </span>
+                )}
+              </span>
+              <span className="flex items-center justify-between gap-2 bg-gradient-to-r from-amber-200 to-amber-100 px-3 py-2 text-[13.5px] font-bold text-label">
+                <span className="truncate">{strip === "deal" && off > 0 ? `${off}% off` : p.name}</span>
+                <span className="shrink-0 tabular-nums">{rupee(Number(p.price))}</span>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SocialLink({ href, label, children }: { href: string; label: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex h-10 items-center gap-2 rounded-full border border-hairline bg-card px-4 text-[14px] font-medium text-label hover:bg-fill"
+    >
+      {children}
+      {label}
+    </a>
+  );
+}
+
+/** A product: tall picture with a badge and rating chip, then name, price, Add */
+function ProductCard({ product, vendorName, topOff }: { product: Product; vendorName: string; topOff: number }) {
+  const image = imagesOf(product)[0] ?? null;
+  const price = Number(product.price);
+  const mrp = Number(product.compareAtPrice ?? 0);
+  const off = percentOff(product);
+  const rating = product.averageRating != null ? Number(product.averageRating) : null;
+  const rent = product.listingType === "RENT";
+  const soldOut = product.stockQuantity === 0;
+  const left = lowStock(product);
+
+  // One badge at most, and only a true one
+  const badge = soldOut
+    ? null
+    : product.isFeatured
+      ? { text: "Shop's pick", cls: "bg-indigo-600" }
+      : off > 0
+        ? { text: off === topOff && off >= 10 ? "Top discount" : `${off}% off`, cls: off === topOff && off >= 10 ? "bg-indigo-600" : "bg-cta" }
+        : isNew(product)
+          ? { text: "New", cls: "bg-ok" }
+          : null;
+
+  return (
+    <article className="flex min-w-0 flex-col">
+      <Link href={`/products/${product.id}`} className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-fill" aria-label={product.name}>
+        {image ? (
+          <Image src={image} alt="" fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw" className="object-cover" />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center text-label-3">
+            <Package className="h-10 w-10" strokeWidth={1.25} aria-hidden />
+          </span>
+        )}
+        {badge && <span className={`absolute left-2 top-2 rounded-md px-2 py-1 text-[11.5px] font-bold text-white ${badge.cls}`}>{badge.text}</span>}
+        {rating != null && product.reviewCount > 0 && (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-white/95 px-1.5 py-0.5 text-[12px] font-bold text-label shadow-sm">
+            {rating.toFixed(1)} <Star className="h-3 w-3 fill-ok text-ok" aria-hidden />
+            <span className="font-medium text-label-2">({product.reviewCount})</span>
+          </span>
+        )}
+        {soldOut && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/45">
+            <span className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-label">Out of stock</span>
+          </span>
+        )}
+      </Link>
+
+      <div className="flex flex-1 flex-col pt-2">
+        <Link href={`/products/${product.id}`} className="line-clamp-2 text-[14px] font-semibold leading-snug text-label">
+          {product.name}
+        </Link>
+        {product.handloomStatus === "VERIFIED" && (
+          <div className="mt-1">
+            <HandloomBadge product={product} size="sm" />
+          </div>
+        )}
+
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          {off > 0 && <span className="text-[13px] tabular-nums text-label-3 line-through">{rupee(mrp)}</span>}
+          <span className="text-[16px] font-bold tabular-nums text-label">
+            {rupee(price)}
+            {rent && (
+              <span className="ml-1 text-[12px] font-normal text-label-2">
+                {product.rentUnitLabel ? `a ${product.rentUnitLabel} ` : ""}
+                {UNIT[(product.rentUnit ?? "DAY") as RentUnit].per}
+              </span>
+            )}
+          </span>
+          {off > 0 && <span className="text-[13px] font-semibold text-ok">{off}% off</span>}
+        </div>
+        {left != null && <p className="mt-0.5 text-[12.5px] font-semibold text-orange-600">Only {left} left</p>}
+
+        <div className="mt-auto pt-2.5">
+          <AddToCartButton
+            product={product}
+            vendorName={vendorName}
+            label="Add to cart"
+            className="border border-cta bg-card text-cta hover:bg-cta/5 active:scale-95"
+          />
+        </div>
+      </div>
+    </article>
   );
 }
