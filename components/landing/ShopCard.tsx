@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { shopPath } from "@/lib/shopHandle";
 import type { ReactNode } from "react";
 import { ChevronRight, MapPin } from "lucide-react";
 import { RatingBadge } from "@/components/reviews/ReviewsPanel";
@@ -116,7 +117,7 @@ export default function ShopCard({
           {body}
         </button>
       ) : (
-        <Link href={`/stores/${shop.id}`} className={cls} prefetch={priority}>
+        <Link href={shopPath(shop)} className={cls} prefetch={priority}>
           {body}
         </Link>
       )}

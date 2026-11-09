@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { ChevronRight, MapPin } from "lucide-react";
 import ShopCover from "./ShopCover";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import {
 
 export interface Vendor {
   id: string;
+  /** The shop's link name: its page is localmart.in/<handle> */
+  handle?: string | null;
   businessName: string;
   businessType: string;
   storeDescription: string | null;
@@ -147,7 +150,7 @@ export default function StoresNearYouSection({
             const km =
               hasUserCoords && c ? Math.round(calculateDistanceKm(userLat!, userLng!, c.lat, c.lng) * 10) / 10 : null;
             const rating = Number(v.averageRating) || 0;
-            const busy = loadingLink === `/stores/${v.id}`;
+            const busy = loadingLink === shopPath(v);
             const place = [v.businessAddress?.street, v.locality, v.city]
               .filter(Boolean)
               .filter((x, i, a) => !a.slice(0, i).some((y) => String(y).includes(String(x))))

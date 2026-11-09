@@ -6,6 +6,7 @@
  * while you touch or hover it, and for people who turn motion off).
  */
 import Link from "next/link";
+import { shopPath } from "@/lib/shopHandle";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, LocateFixed, Map as MapIcon, Pause, Play, Star } from "lucide-react";
 import { useMounted } from "@/hooks/useMounted";
@@ -159,6 +160,7 @@ export default function HeroCarousel({ slides }: { slides: CarouselSlide[] }) {
 
 export interface FeaturedShop {
   id: string;
+  handle?: string | null;
   businessName: string;
   businessType: string;
   photo: string | null;
@@ -178,7 +180,7 @@ export function ShopSlide({ shop }: { shop: FeaturedShop }) {
   const distance = formatDistance(shop.distanceKm);
   const rating = shop.averageRating ?? 0;
   return (
-    <Link href={`/stores/${shop.id}`} className="group relative block h-full overflow-hidden rounded-3xl bg-[#1F1F1F]">
+    <Link href={shopPath(shop)} className="group relative block h-full overflow-hidden rounded-3xl bg-[#1F1F1F]">
       {shop.photo && (
         // eslint-disable-next-line @next/next/no-img-element
         <img

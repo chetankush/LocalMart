@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import {
@@ -44,6 +45,7 @@ type VendorStatus = "NOT_STARTED" | "PENDING" | "APPROVED" | "PENDING_APPROVAL" 
 
 interface StoreInfo {
   id: string;
+  handle?: string | null;
   businessName: string;
   status: string;
   isActive: boolean;
@@ -377,7 +379,7 @@ export default function BecomeVendorPage() {
         }
       } else {
         // New vendor request
-        const data = await apiClient.createVendorRequest(formData);
+        const data = await apiClient.createVendorRequest({ ...formData, email: user?.email || formData.email });
 
         if (data.success) {
           setVendorData({ status: "PENDING", businessName: formData.businessName });
@@ -800,7 +802,11 @@ export default function BecomeVendorPage() {
                     <Field
                       label="Email"
                       htmlFor="bv-email"
-                      hint="We tell you here when your shop is approved"
+                      hint={
+                        user?.email
+                          ? "This is the email you signed in with. Your shop will be on this account"
+                          : "We tell you here when your shop is approved"
+                      }
                       error={fieldErrors.email}
                     >
                       <input
@@ -808,11 +814,12 @@ export default function BecomeVendorPage() {
                         type="email"
                         inputMode="email"
                         name="email"
-                        value={formData.email}
+                        value={user?.email || formData.email}
                         onChange={handleChange}
+                        readOnly={!!user?.email}
                         aria-invalid={!!fieldErrors.email}
                         autoComplete="email"
-                        className={inputClass}
+                        className={`${inputClass} ${user?.email ? "bg-fill text-label-2" : ""}`}
                         placeholder="you@example.com"
                       />
                     </Field>
@@ -1015,7 +1022,7 @@ export default function BecomeVendorPage() {
           Go to my shop
         </Button>
         {vendorData.vendorId && (
-          <Button href={`/stores/${vendorData.vendorId}`} variant="secondary" full>
+          <Button href={shopPath(vendorData.stores?.find((s) => s.id === vendorData.vendorId) ?? { id: vendorData.vendorId })} variant="secondary" full>
             See it as customers do
           </Button>
         )}
@@ -1033,7 +1040,7 @@ export default function BecomeVendorPage() {
               return (
                 <Row
                   key={store.id}
-                  href={live ? `/stores/${store.id}` : undefined}
+                  href={live ? shopPath(store) : undefined}
                   leading={
                     <IconBox tone="brand" size={40}>
                       <Store className="h-5 w-5" />

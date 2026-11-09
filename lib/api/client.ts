@@ -516,6 +516,7 @@ class ApiClient {
         hasVendor: boolean;
         stores: Array<{
           id: string;
+          handle?: string | null;
           businessName: string;
           businessType?: string;
           status: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { HandloomBadge } from "@/components/products/HandloomBadge";
+import { shopPath } from "@/lib/shopHandle";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -245,7 +246,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
   return (
     <div className="px-4 pt-4 lg:px-0 lg:pt-0">
       <Link
-        href={`/stores/${vendor.id}`}
+        href={shopPath(vendor)}
         className="inline-flex max-w-full items-center gap-1 text-[14px] font-medium text-label-2 hover:text-label"
       >
         <Store className="h-4 w-4 shrink-0" aria-hidden />
@@ -384,7 +385,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
       {/* The shop */}
       <div className="mt-4 rounded-2xl bg-fill p-4">
         <p className="text-[13px] text-label-2">Sold and delivered by</p>
-        <Link href={`/stores/${vendor.id}`} className="mt-2 flex items-center gap-3">
+        <Link href={shopPath(vendor)} className="mt-2 flex items-center gap-3">
           <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
             {vendor.storeLogo ? (
               <Image src={vendor.storeLogo} alt="" fill sizes="48px" className="object-cover" />
@@ -417,7 +418,7 @@ export default function ProductInfo({ product, vendor }: ProductInfoProps) {
             </a>
           ) : (
             <Link
-              href={`/stores/${vendor.id}`}
+              href={shopPath(vendor)}
               className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-label/20 bg-card text-[15px] font-semibold text-label"
             >
               <Store className="h-4 w-4" aria-hidden /> Visit shop

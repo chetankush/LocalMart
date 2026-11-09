@@ -1,6 +1,7 @@
 "use client";
 
 import type { RentUnit } from "@/lib/rentals";
+import { shopPath } from "@/lib/shopHandle";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -270,7 +271,7 @@ function SearchResultsContent() {
                   return (
                     <li key={s.id}>
                       <Link
-                        href={`/stores/${s.id}`}
+                        href={shopPath(s)}
                         className="flex items-center gap-3 rounded-2xl border border-hairline bg-card p-3 transition-shadow hover:shadow-[0_6px_20px_rgba(16,24,40,0.08)]"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}

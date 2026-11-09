@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { shopPath } from "@/lib/shopHandle";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -75,7 +76,7 @@ export default function FavoriteStoresClient({
                 key={vendor.id}
                 className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group relative"
               >
-                <Link href={`/stores/${vendor.id}`} className="block cursor-pointer">
+                <Link href={shopPath(vendor)} className="block cursor-pointer">
                   <div className="h-36 sm:h-44 lg:h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center relative overflow-hidden">
                     {vendor.storeLogo ? (
                       <Image

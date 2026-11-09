@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import Image from "next/image";
 import { Clock, Store, Tag } from "lucide-react";
@@ -58,7 +59,7 @@ export default async function SalePage({
       </Page>
     );
   }
-  const shopHref = sale.shop.handle ? `/${sale.shop.handle}` : `/stores/${sale.shop.id}`;
+  const shopHref = shopPath(sale.shop);
   // From the shop's phone alert or its shared link — orders count as the shop's
   const from = src === "alert" ? "alert" : "link";
 
@@ -109,7 +110,7 @@ export default async function SalePage({
         ))}
       </ul>
 
-      <Link href={`${shopHref}${shopHref.startsWith("/stores/") ? `?src=${from}` : ""}`} className={`${buttonClass("secondary", "lg", true)} mt-6`}>
+      <Link href={`${shopHref}?src=${from}`} className={`${buttonClass("secondary", "lg", true)} mt-6`}>
         <Store className="h-5 w-5" aria-hidden /> See all of {sale.shop.name}
       </Link>
     </Page>

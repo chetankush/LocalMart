@@ -22,6 +22,8 @@ export interface VisitSlot {
 export interface MyVisit {
   id: string;
   shopId: string;
+  /** The shop's link name (localmart.in/<handle>) */
+  shopHandle?: string | null;
   shopName: string;
   type: string;
   startsAt: string;

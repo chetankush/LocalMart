@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { shopUrl } from "@/lib/shopHandle";
 import { Copy, Check, Share2, QrCode, Download, MessageCircle, Facebook, Printer, Twitter } from "lucide-react";
 import { Sheet } from "@/components/app/Sheet";
 import { Segmented } from "@/components/app/form";
@@ -85,7 +86,7 @@ export default function ShareStoreModal({
   if (!isOpen) return null;
 
   const origin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
-  const storeUrl = handle ? `${origin}/${handle}` : `${origin}/stores/${storeId}`;
+  const storeUrl = shopUrl({ id: storeId, handle }, "", origin);
 
   const shareText = `Check out ${storeName} on LocalMart! Shop local products and get them delivered.`;
   const whatsappText = encodeURIComponent(`${shareText}\n\n${storeUrl}`);

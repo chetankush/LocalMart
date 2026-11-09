@@ -10,6 +10,8 @@ import { signInHref } from "@/lib/auth/returnTo";
 
 interface ReviewFormProps {
   vendorId: string;
+  /** Where the shop's page is (its name link), to go back to after posting */
+  shopHref: string;
   vendorName: string;
   existingReview?: { rating?: number; comment?: string | null; images?: string[] | null } | null;
 }
@@ -29,7 +31,7 @@ const QUICK_BAD = ["Late delivery", "Quality not as shown", "Wrong item", "Too c
 
 const MAX_PHOTOS = 5;
 
-export default function ReviewForm({ vendorId, vendorName, existingReview }: ReviewFormProps) {
+export default function ReviewForm({ vendorId, shopHref, vendorName, existingReview }: ReviewFormProps) {
   const router = useRouter();
   const [rating, setRating] = useState(existingReview?.rating ?? 0);
   const [comment, setComment] = useState(existingReview?.comment ?? "");
@@ -92,12 +94,12 @@ export default function ReviewForm({ vendorId, vendorName, existingReview }: Rev
       });
       if (!data.success) throw new Error(data.message || "Couldn't post your review.");
       toast.success(existingReview ? "Review updated. Thank you!" : "Thanks! Your review is live.");
-      router.push(`/stores/${vendorId}`);
+      router.push(shopHref);
       router.refresh();
     } catch (err) {
       const e2 = err as Error & { status?: number; isAuthError?: boolean };
       if (e2.status === 401 || e2.isAuthError) {
-        router.push(signInHref(`/stores/${vendorId}/write-review`));
+        router.push(signInHref(`${shopHref}/write-review`));
         return;
       }
       setError(

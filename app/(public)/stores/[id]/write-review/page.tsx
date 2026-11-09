@@ -5,6 +5,8 @@ import Image from "next/image";
 import ReviewForm from "./ReviewForm";
 import { signInHref } from "@/lib/auth/returnTo";
 import { Button, LargeTitle, Page } from "@/components/app/ui";
+import { isShopId, shopPath } from "@/lib/shopHandle";
+import { resolveShopId } from "@/lib/shopRef";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
@@ -42,23 +44,26 @@ async function getVendorWriteReviewData(vendorId: string, authToken: string) {
 export default async function WriteReviewPage({
   params,
 }: WriteReviewPageProps) {
-  const { id } = await params;
+  // The address has the shop's link name (or, for a shop without one, its id)
+  const { id: ref } = await params;
+  const shopHref = (sub = "") => shopPath({ id: ref, handle: isShopId(ref) ? null : ref }, sub);
   const user = await getCurrentUser();
 
   // Require authentication
   if (!user) {
-    redirect(signInHref(`/stores/${id}/write-review`));
+    redirect(signInHref(shopHref("/write-review")));
   }
 
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    redirect(signInHref(`/stores/${id}/write-review`));
+    redirect(signInHref(shopHref("/write-review")));
   }
 
-  // Get vendor and review data
-  const data = await getVendorWriteReviewData(id, session.access_token);
+  // Get vendor and review data (the API works with the shop's id)
+  const vendorId = await resolveShopId(ref);
+  const data = vendorId ? await getVendorWriteReviewData(vendorId, session.access_token) : null;
 
   if (!data) {
     notFound();
@@ -73,12 +78,12 @@ export default async function WriteReviewPage({
   if (isOwnStore) {
     return (
       <Page>
-        <LargeTitle title="This is your shop" back={{ href: `/stores/${id}`, label: "Shop" }} />
+        <LargeTitle title="This is your shop" back={{ href: shopHref(), label: "Shop" }} />
         <div className="rounded-2xl bg-card p-6 text-center">
           <p className="text-[16px] text-label-2">
             Ratings come from your customers. Share your shop link with them after a delivery to get more reviews.
           </p>
-          <Button href={`/stores/${id}`} className="mt-5" full>
+          <Button href={shopHref()} className="mt-5" full>
             Back to my shop
           </Button>
         </div>
@@ -91,7 +96,7 @@ export default async function WriteReviewPage({
       <LargeTitle
         title={existingReview ? "Update your review" : "Rate this shop"}
         subtitle="Your rating helps other shoppers nearby."
-        back={{ href: `/stores/${id}`, label: "Shop" }}
+        back={{ href: shopHref(), label: "Shop" }}
       />
 
       <div className="mb-3 flex items-center gap-3 rounded-2xl bg-card p-4">
@@ -107,7 +112,7 @@ export default async function WriteReviewPage({
         <p className="min-w-0 text-[16px] font-semibold leading-snug text-label">{vendor.businessName}</p>
       </div>
 
-      <ReviewForm vendorId={id} vendorName={vendor.businessName} existingReview={existingReview} />
+      <ReviewForm vendorId={vendorId!} shopHref={shopHref()} vendorName={vendor.businessName} existingReview={existingReview} />
     </Page>
   );
 }

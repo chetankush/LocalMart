@@ -102,6 +102,7 @@ function featuredShops(shops: MapShopFull[], max: number, skip: Set<string>): Fe
     .filter((s) => s.shopPhoto && (s.productCount ?? 0) > 0 && !skip.has(s.id))
     .map((s) => ({
       id: s.id,
+      handle: s.handle ?? null,
       businessName: s.businessName,
       businessType: s.businessType,
       photo: s.shopPhoto ?? null,
@@ -434,6 +435,7 @@ function MapPanel({ shops, user, place }: { shops: MapShopFull[]; user: { lat: n
           shops={shops}
           user={user}
           interactive={false}
+          alwaysLabels
           fitKey={`${count}|${user?.lat ?? ""}|${panelPad}`}
           padding={{ top: 56, bottom: 72, left: panelPad || 48, right: 56 }}
         />

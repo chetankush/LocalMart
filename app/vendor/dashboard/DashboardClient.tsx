@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { Bell, CalendarCheck, Link2, TicketPercent, Tags, Check, ChevronRight, Clock, Eye, Layers, Megaphone, TrendingUp, Package, Palette, Plus, ReceiptText, Send, Share2, ShieldAlert, Store, CalendarClock, BarChart3, QrCode, BadgeCheck, ClipboardCheck } from "lucide-react";
 import ShareStoreModal from "@/components/ShareStoreModal";
@@ -23,6 +24,7 @@ import TodayCard from "./TodayCard";
 
 interface StoreInfo {
   id: string;
+  handle?: string | null;
   businessName: string;
   status: string;
   isActive: boolean;
@@ -138,7 +140,7 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
           </div>
         </div>
         <div className="hidden gap-2 sm:flex">
-          <Button href={`/stores/${storeId}`} variant="secondary" size="md">
+          <Button href={shopPath({ id: storeId, handle: stores.find((s) => s.id === storeId)?.handle })} variant="secondary" size="md">
             <Eye className="h-[18px] w-[18px]" aria-hidden />
             See my shop
           </Button>
@@ -482,7 +484,7 @@ export default function DashboardClient({ stores, initialStoreData, firstName }:
                 chevron
               />
               <Row
-                href={`/stores/${storeId}`}
+                href={shopPath({ id: storeId, handle: stores.find((s) => s.id === storeId)?.handle })}
                 leading={<IconBox tone="brand" size={40}><Eye className="h-5 w-5" /></IconBox>}
                 title="See my shop"
                 subtitle="How customers see it"

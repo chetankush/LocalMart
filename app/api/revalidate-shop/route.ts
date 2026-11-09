@@ -36,10 +36,18 @@ export async function POST(request: NextRequest) {
   ]);
   const json = check?.ok ? await check.json().catch(() => null) : null;
   const who = me?.ok ? await me.json().catch(() => null) : null;
-  const owns = (json?.data?.stores ?? []).some((s: { id?: string }) => s?.id === vendorId);
-  if (!owns && who?.data?.role !== "ADMIN") return NextResponse.json({ error: "Not your shop" }, { status: 403 });
+  const mine = (json?.data?.stores ?? []).find((s: { id?: string }) => s?.id === vendorId) as { handle?: string | null } | undefined;
+  if (!mine && who?.data?.role !== "ADMIN") return NextResponse.json({ error: "Not your shop" }, { status: 403 });
 
+  // The shop page is served at the shop's name (localmart.in/<name>); its cached copy is kept under
+  // /stores/<name>. Staff refreshing someone else's shop: look the name up.
+  let handle: string | null = mine?.handle ?? null;
+  if (!mine) {
+    const shop = await fetch(`${API_BASE_URL}/vendors/${vendorId}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    handle = shop?.data?.handle ?? null;
+  }
   revalidatePath(`/stores/${vendorId}`);
+  if (handle) revalidatePath(`/stores/${handle}`);
   for (const id of productIds) revalidatePath(`/products/${id}`);
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 
@@ -95,6 +96,9 @@ export default function LandingPageClient({
 
   // No pop-up on arrival: the page asks once ("Choose your area" under the
   // heading) and people can look around first — the town's shops show anyway.
+
+  // The shops on this page know their link name; callbacks hand over only an id
+  const shopLink = (id: string, sub = "") => shopPath(vendors.find((v) => v.id === id) ?? { id }, sub);
 
   const handleNavigate = (href: string) => {
     if (pathname === href) {
@@ -235,7 +239,7 @@ export default function LandingPageClient({
     // "Collection" and "pieces" are clothes words; other shops just added items
     const clothes = vendors.find((v) => v.id === id)?.businessType === "FASHION";
     promos.push({
-      href: `/stores/${id}?show=new`,
+      href: `${shopLink(id)}?show=new`,
       eyebrow: clothes ? "New collection arrived" : "Just added",
       shopId: id,
       title: shop.name,
@@ -315,7 +319,7 @@ export default function LandingPageClient({
           subtitle={located ? "Shops that deliver to you · आपके पास की दुकानें" : `Every shop in ${town} · ${town} की सभी दुकानें`}
           userLat={outOfArea ? undefined : location?.latitude}
           userLng={outOfArea ? undefined : location?.longitude}
-          onOpen={(id) => handleNavigate(`/stores/${id}`)}
+          onOpen={(id) => handleNavigate(shopLink(id))}
           title={outOfArea ? `Shops in ${liveTowns.join(", ") || "LocalMart"}` : located ? undefined : `Shops in ${town}`}
         />
 
@@ -366,7 +370,7 @@ export default function LandingPageClient({
             vendors={vendors}
             userLat={location?.latitude}
             userLng={location?.longitude}
-            onNavigate={(id) => handleNavigate(`/stores/${id}`)}
+            onNavigate={(id) => handleNavigate(shopLink(id))}
             loadingLink={loadingLink}
           />
         )}

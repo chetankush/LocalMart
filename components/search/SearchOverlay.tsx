@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import { useRouter } from "next/navigation";
 import { ArrowUpLeft, ChevronLeft, Clock, Loader2, Mic, Search, Store, TrendingUp, X } from "lucide-react";
 import { apiClient, type SearchResponse } from "@/lib/api/client";
@@ -428,7 +429,7 @@ export default function SearchOverlay({
                     {results.stores.map((s) => (
                       <li key={s.id}>
                         <button
-                          onClick={() => go(`/stores/${s.id}`, q)}
+                          onClick={() => go(shopPath(s), q)}
                           className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-fill cursor-pointer"
                         >
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-fill">

@@ -1,5 +1,7 @@
 "use client";
 
+import { isShopId, shopPath } from "@/lib/shopHandle";
+import { resolveShopId } from "@/lib/shopRef";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -53,9 +55,12 @@ const chip = (on: boolean) =>
  * and the shop is told straight away. Booked visits show in My visits.
  */
 export default function BookVisitPage() {
-  const { id: shopId } = useParams<{ id: string }>();
+  // The address has the shop's link name (or, for a shop without one, its id); the API wants the id
+  const { id: shopParam } = useParams<{ id: string }>();
+  const [resolvedId, setResolvedId] = useState<string | null>(isShopId(shopParam) ? shopParam : null);
+  const shopId = resolvedId ?? "";
   const router = useRouter();
-  const draftKey = `visit-draft:${shopId}`;
+  const draftKey = `visit-draft:${shopParam}`;
   const [info, setInfo] = useState<VisitShopInfo | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -66,6 +71,20 @@ export default function BookVisitPage() {
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
   useEffect(() => {
+    if (resolvedId) return;
+    let stale = false;
+    resolveShopId(shopParam).then((id) => {
+      if (stale) return;
+      if (id) setResolvedId(id);
+      else setLoadError("Couldn't find this shop.");
+    });
+    return () => {
+      stale = true;
+    };
+  }, [shopParam, resolvedId]);
+
+  useEffect(() => {
+    if (!shopId) return;
     (async () => {
       const { apiClient } = await import("@/lib/api/client");
       try {
@@ -103,6 +122,7 @@ export default function BookVisitPage() {
 
   const loadSlots = useCallback(
     async (date: string) => {
+      if (!shopId) return;
       setSlots(null);
       try {
         const { apiClient } = await import("@/lib/api/client");
@@ -154,7 +174,7 @@ export default function BookVisitPage() {
         } catch {
           // they'll fill it again
         }
-        router.push(`/sign-in?redirect=${encodeURIComponent(`/stores/${shopId}/visit`)}`);
+        router.push(`/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`);
         return;
       }
       toast.error(e.message || "Couldn't book the visit. Please try again.");
@@ -164,7 +184,7 @@ export default function BookVisitPage() {
     }
   };
 
-  const back = { href: `/stores/${shopId}`, label: info?.shopName ?? "Shop" };
+  const back = { href: shopPath({ id: shopId, handle: isShopId(shopParam) ? null : shopParam }), label: info?.shopName ?? "Shop" };
 
   if (loadError) {
     return (

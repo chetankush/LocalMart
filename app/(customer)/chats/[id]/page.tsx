@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Store } from "lucide-react";
@@ -50,7 +51,7 @@ export default function BuyerChatPage({ params }: { params: Promise<{ id: string
               <span className="block text-[13px] text-label-2">Replies show here and on your phone</span>
             </span>
             <Link
-              href={d.conversation.shop.handle ? `/${d.conversation.shop.handle}` : `/stores/${d.conversation.shop.id}`}
+              href={shopPath(d.conversation.shop)}
               className="flex min-h-[40px] items-center rounded-full bg-fill px-3 text-[14px] font-semibold text-label"
             >
               Shop

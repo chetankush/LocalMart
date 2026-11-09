@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Check, Minus, Plus, Store } from "lucide-react";
@@ -178,11 +179,11 @@ export default function ChoicesPicker({ link }: { link: PublicOrderLink }) {
         <p className="mt-0.5 text-[14px] leading-snug text-label-2">Come to {link.shop.name} and see the sarees in person · दुकान आकर देखिए</p>
         <div className="mt-3 grid gap-2">
           {link.shop.takesVisits && (
-            <Link href={`/stores/${link.shop.id}/visit`} className={buttonClass("secondary", "lg", true)}>
+            <Link href={shopPath(link.shop, "/visit")} className={buttonClass("secondary", "lg", true)}>
               <CalendarCheck className="h-5 w-5" aria-hidden /> Book a visit to the shop
             </Link>
           )}
-          <Link href={link.shop.handle ? `/${link.shop.handle}` : `/stores/${link.shop.id}`} className={buttonClass("plain", "lg", true)}>
+          <Link href={shopPath(link.shop)} className={buttonClass("plain", "lg", true)}>
             <Store className="h-5 w-5" aria-hidden /> See {link.shop.name}
           </Link>
         </div>

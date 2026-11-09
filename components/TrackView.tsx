@@ -18,6 +18,7 @@ interface TrackProductViewProps {
 interface TrackStoreViewProps {
   store: {
     id: string;
+    handle?: string | null;
     businessName: string;
     storeLogo: string | null;
   };
@@ -43,10 +44,11 @@ export function TrackStoreView({ store }: TrackStoreViewProps) {
   useEffect(() => {
     addRecentlyViewedStore({
       id: store.id,
+      handle: store.handle ?? null,
       businessName: store.businessName,
       storeLogo: store.storeLogo,
     });
-  }, [store.id, store.businessName, store.storeLogo]);
+  }, [store.id, store.handle, store.businessName, store.storeLogo]);
 
   return null;
 }

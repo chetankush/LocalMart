@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { shopPath } from "@/lib/shopHandle";
 import { Navigation, Star } from "lucide-react";
 import { isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
 import { rupees } from "@/components/app/ui";
@@ -8,6 +9,8 @@ import { directionsUrl, formatDistance, shopType } from "./shopTypes";
 
 export interface MapShopDetails {
   id: string;
+  /** The shop's link name: its page is localmart.in/<handle> */
+  handle?: string | null;
   businessName: string;
   businessType: string;
   storeLogo: string | null;
@@ -129,7 +132,7 @@ export default function MapShopCard({
 
       <div className={cx("flex gap-2", compact ? "mt-2.5" : "mt-3")}>
         <Link
-          href={`/stores/${shop.id}`}
+          href={shopPath(shop)}
           onClick={(e) => e.stopPropagation()}
           className={cx(
             "flex flex-1 items-center justify-center rounded-full bg-cta font-semibold text-white hover:bg-cta-hover",

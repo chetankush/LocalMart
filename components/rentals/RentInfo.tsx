@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { shopPath } from "@/lib/shopHandle";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -280,7 +281,7 @@ export default function RentInfo({ product, vendor }: Props) {
 
   return (
     <div className="px-4 pt-4 lg:px-0 lg:pt-0">
-      <Link href={`/stores/${vendor.id}`} className="inline-flex max-w-full items-center gap-1 text-[14px] font-medium text-label-2 hover:text-label">
+      <Link href={shopPath(vendor)} className="inline-flex max-w-full items-center gap-1 text-[14px] font-medium text-label-2 hover:text-label">
         <Store className="h-4 w-4 shrink-0" aria-hidden />
         <span className="truncate">{vendor.businessName}</span>
         <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
@@ -421,7 +422,7 @@ export default function RentInfo({ product, vendor }: Props) {
       {/* The shop */}
       <div className="mt-4 rounded-2xl bg-fill p-4">
         <p className="text-[13px] text-label-2">Rented out by</p>
-        <Link href={`/stores/${vendor.id}`} className="mt-2 flex items-center gap-3">
+        <Link href={shopPath(vendor)} className="mt-2 flex items-center gap-3">
           <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-card">
             {vendor.storeLogo ? <Image src={vendor.storeLogo} alt="" fill sizes="48px" className="object-cover" /> : <Store className="h-5 w-5 text-label-2" aria-hidden />}
           </span>

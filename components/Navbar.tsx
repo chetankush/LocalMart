@@ -1,5 +1,6 @@
 "use client";
 
+import { isShopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
@@ -39,7 +40,7 @@ import {
 
 // Screens that are a focused task (or have their own navigation)
 // An open chat ("/chats/<id>") uses the whole screen, like WhatsApp
-const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/auth", "/chats/"];
+const NO_TAB_BAR = ["/checkout", "/orders/waiting", "/vendor", "/admin", "/sign-in", "/sign-up", "/phone-signin", "/forgot-password", "/reset-password", "/auth", "/chats/"];
 const FOCUSED = ["/checkout", "/orders/waiting"];
 
 // Desktop category strip → shop list filtered by category. A category
@@ -99,7 +100,7 @@ const Navbar = () => {
   // Shop-owner and admin screens: no shopping chrome (area, search, cart)
   const adminArea = pathname.startsWith("/admin");
   const sellerArea = pathname.startsWith("/vendor") || adminArea;
-  const authPage = ["/sign-in", "/sign-up", "/phone-signin"].some((p) => pathname.startsWith(p));
+  const authPage = ["/sign-in", "/sign-up", "/phone-signin", "/forgot-password", "/reset-password"].some((p) => pathname.startsWith(p));
   const shopping = !sellerArea && !focused && !authPage;
   const firstName = (user?.user_metadata?.full_name as string | undefined)?.split(" ")[0];
 
@@ -285,7 +286,7 @@ const Navbar = () => {
 
   const tabs = [
     { href: "/", label: "Home", icon: Home, active: pathname === "/" },
-    { href: "/stores", label: "Shops", icon: Store, active: pathname.startsWith("/stores") },
+    { href: "/stores", label: "Shops", icon: Store, active: pathname.startsWith("/stores") || isShopPath(pathname) },
     { href: "/map", label: "Map", icon: MapIcon, active: pathname.startsWith("/map") },
     { href: "/my-orders", label: "Orders", icon: Package, active: pathname.startsWith("/my-orders") || pathname.startsWith("/orders") },
   ];

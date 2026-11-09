@@ -1,5 +1,6 @@
 "use client";
 
+import { nearLandmark } from "@/lib/landmark";
 import { HandloomBadge } from "@/components/products/HandloomBadge";
 import { shopPromises } from "@/lib/store/shopPromises";
 import Image from "next/image";
@@ -211,7 +212,7 @@ function getAddressLine(vendor: SareeVendor): string {
   const candidates = [
     addr?.address,
     addr?.street,
-    addr?.landmark ? `Near ${addr.landmark}` : null,
+    addr?.landmark ? nearLandmark(addr.landmark) : null,
     vendor.locality,
     vendor.city,
     vendor.pincode,
@@ -356,8 +357,8 @@ function NewCollectionBanner({ items, count, onOpen }: { items: Product[]; count
             )}
             {photos.length > 1 && (
               <div className="hidden grid-rows-2 gap-1 sm:grid">
-                {photos.slice(1, 3).map((src) => (
-                  <div key={src} className="relative">
+                {photos.slice(1, 3).map((src, i) => (
+                  <div key={`${src}-${i}`} className="relative">
                     <Image src={src} alt="" fill sizes="180px" className="object-cover object-top" />
                   </div>
                 ))}
@@ -1355,9 +1356,37 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* ============================================================== */}
       <section
         id="saree-catalog"
-        className="max-w-[1440px] mx-auto px-4 pt-10 pb-10"
         style={{ scrollMarginTop: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px) + 8px)" }}
       >
+        <div className="flex">
+        {/* Filters: a full-height column attached to the left edge (desktop). It
+            stretches the whole height of the catalog; the content inside stays
+            pinned under the header and scrolls on its own when taller than the screen. */}
+        <aside className="hidden w-[280px] flex-shrink-0 border-r border-[#EADBC8] bg-white lg:block">
+          <div
+            className="sticky overflow-y-auto overscroll-contain"
+            style={{
+              top: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px))",
+              maxHeight: "calc(100vh - var(--header-h, 64px) - var(--shopbar-h, 0px))",
+            }}
+          >
+            <div className="flex items-center justify-between border-b border-[#EADBC8] px-5 py-4">
+              <h3 className={`${serif.className} text-xl font-semibold text-[#4A0D18]`}>Filters</h3>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="cursor-pointer text-xs font-bold uppercase tracking-wider text-[#6E1423] hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+            <div className="px-5 py-5">{filterContent}</div>
+          </div>
+        </aside>
+
+        <div className="mx-auto min-w-0 max-w-[1440px] flex-1 px-4 pb-10 pt-10 lg:px-8">
         {activeFabric === NEW_CHIP ? (
           <SectionHeading eyebrow="Just arrived · नया कलेक्शन" title="The New Collection" />
         ) : (
@@ -1400,18 +1429,6 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         </div>
 
         <div className="flex gap-8">
-          {/* Pinned under the header + chip bar; scrolls on its own when taller than the screen */}
-          <aside
-            className="hidden lg:block w-60 flex-shrink-0 h-fit sticky overflow-y-auto overscroll-contain bg-white rounded-xl border border-[#EADBC8] p-5"
-            style={{
-              top: "calc(var(--header-h, 64px) + var(--shopbar-h, 0px) + 16px)",
-              maxHeight: "calc(100vh - var(--header-h, 64px) - var(--shopbar-h, 0px) - 32px)",
-            }}
-          >
-            <h3 className={`${serif.className} text-xl font-semibold text-[#4A0D18] mb-5`}>Filters</h3>
-            {filterContent}
-          </aside>
-
           {showMobileFilters && (
             <div className="fixed inset-0 z-50 lg:hidden">
               <div className="absolute inset-0 bg-black/40" onClick={() => setShowMobileFilters(false)} />
@@ -1478,6 +1495,8 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
               </div>
             )}
           </div>
+        </div>
+        </div>
         </div>
       </section>
 

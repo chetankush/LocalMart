@@ -79,6 +79,7 @@ export default async function VendorSettingsPage({
 
       <ShopShortcuts
         storeId={vendor.id}
+        storeHandle={vendor.handle}
         storeName={vendor.businessName}
         storeDescription={vendor.storeDescription}
       />

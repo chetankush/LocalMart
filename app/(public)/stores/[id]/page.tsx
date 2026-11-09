@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { jsonLd, siteUrl } from "@/lib/seo";
+import { nearLandmark } from "@/lib/landmark";
+import { shopPath } from "@/lib/shopHandle";
 import { notFound } from "next/navigation";
-import KiranaTheme from "./themes/KiranaTheme";
-import GroceryTheme from "./themes/GroceryTheme";
 import FashionTheme from "./themes/FashionTheme";
 import ClothingTheme from "./themes/ClothingTheme";
 import ShoesTheme from "./themes/ShoesTheme";
@@ -10,11 +10,11 @@ import SareeTheme from "./themes/SareeTheme";
 import ConstructionTheme from "./themes/ConstructionTheme";
 import DefaultTheme from "./themes/DefaultTheme";
 import ShopBusyBanner from "@/components/store/ShopBusyBanner";
-import PlaceholderTheme from "./themes/PlaceholderTheme";
 import StoreReviewsSection from "./StoreReviewsSection";
 import BookVisitCta from "@/components/visits/BookVisitCta";
 import ShopContactCard from "@/components/contact/ShopContactCard";
 import { TrackStoreView } from "@/components/TrackView";
+import ShopSourceNote from "@/components/store/ShopSourceNote";
 
 // ISR: Revalidate store pages every 2 minutes
 export const revalidate = 120;
@@ -36,8 +36,9 @@ export async function generateStaticParams() {
     const stores = result.data || [];
 
     // Pre-generate top 50 stores
+    // (the address segment is the shop's link name; a shop without one by its id)
     return stores.slice(0, 50).map((store: any) => ({
-      id: store.id,
+      id: store.handle || store.id,
     }));
   } catch (error) {
     console.error("Error generating static params:", error);
@@ -47,13 +48,14 @@ export async function generateStaticParams() {
 
 interface StorePageProps {
   params: Promise<{
+    /** The shop's link name (localmart.in/<name>, served here by the middleware) or, for a shop without one, its id */
     id: string;
   }>;
 }
 
 async function getVendorDetails(id: string) {
   try {
-    const response = await fetch(`${API_BASE_URL}/vendors/${id}/details`, {
+    const response = await fetch(`${API_BASE_URL}/vendors/${encodeURIComponent(id)}/details`, {
       next: { revalidate: 120 },
     });
 
@@ -114,7 +116,7 @@ export async function generateMetadata({ params }: StorePageProps): Promise<Meta
     "Order online — home delivery by the shop, cash on delivery or UPI."
   ).slice(0, 300);
   const ogImage = vendor.storeLogo || vendor.storeImages?.[0];
-  const canonical = siteUrl(`/stores/${vendor.id}`);
+  const canonical = siteUrl(shopPath(vendor));
   return {
     title,
     description,
@@ -150,10 +152,6 @@ export default async function StorePage({ params }: StorePageProps) {
   // Render theme-specific layout based on vendor's storeTheme
   const renderTheme = () => {
     switch (vendorData.storeTheme) {
-      case "KIRANA":
-        return <KiranaTheme vendor={vendorData} products={products || []} />;
-      case "GROCERY":
-        return <GroceryTheme vendor={vendorData} products={products || []} />;
       case "FASHION":
         return <FashionTheme vendor={vendorData} products={products || []} />;
       case "CLOTHING":
@@ -164,17 +162,10 @@ export default async function StorePage({ params }: StorePageProps) {
         return <SareeTheme vendor={vendorData} products={products || []} />;
       case "CONSTRUCTION":
         return <ConstructionTheme vendor={vendorData} products={products || []} />;
-      case "DAIRY":
-      case "ELECTRONICS":
-      case "MOBILES":
-      case "BRAND_SPEC":
-      case "WHOLESALE":
-      case "COSMETICS":
-      case "BEAUTY_PARLOUR":
-      case "AUTOMOTIVE":
-      case "BICYCLE":
-      case "MEDICINE":
-        return <PlaceholderTheme vendor={vendorData} products={products || []} />;
+      // Everything without its own special design gets the e-commerce page
+      // (it shows only what the shop itself has: no made-up ratings or times)
+      case "KIRANA":
+      case "GROCERY":
       case "DEFAULT":
       case "OTHER":
       default:
@@ -183,10 +174,7 @@ export default async function StorePage({ params }: StorePageProps) {
   };
 
   // These designs have no contact buttons of their own: add "Message the shop" under them
-  const needsContactCard = [
-    "KIRANA", "FASHION", "CLOTHING", "SHOES", "DAIRY", "ELECTRONICS", "MOBILES", "BRAND_SPEC",
-    "WHOLESALE", "COSMETICS", "BEAUTY_PARLOUR", "AUTOMOTIVE", "BICYCLE", "MEDICINE",
-  ].includes(vendorData.storeTheme);
+  const needsContactCard = ["FASHION", "CLOTHING", "SHOES"].includes(vendorData.storeTheme);
 
   // Google: the shop as a local business (name, landmark address, map pin)
   const addr = vendorData.businessAddress as Addr;
@@ -195,12 +183,12 @@ export default async function StorePage({ params }: StorePageProps) {
     "@type": SCHEMA_TYPE[vendorData.businessType] ?? "Store",
     name: vendorData.businessName,
     description: vendorData.storeDescription || undefined,
-    url: siteUrl(`/stores/${vendorData.id}`),
+    url: siteUrl(shopPath(vendorData)),
     image: vendorData.storeLogo || vendorData.storeImages?.[0] || undefined,
     priceRange: "₹₹",
     address: {
       "@type": "PostalAddress",
-      streetAddress: [addr?.street, addr?.landmark && `Near ${addr.landmark}`].filter(Boolean).join(", ") || vendorData.locality || undefined,
+      streetAddress: [addr?.street, addr?.landmark && nearLandmark(addr.landmark)].filter(Boolean).join(", ") || vendorData.locality || undefined,
       addressLocality: vendorData.city,
       addressRegion: vendorData.state || undefined,
       postalCode: vendorData.pincode || addr?.zip || undefined,
@@ -223,10 +211,12 @@ export default async function StorePage({ params }: StorePageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(localBusiness)} />
+      <ShopSourceNote shopId={vendorData.id} handle={vendorData.handle} />
       {/* Track store view */}
       <TrackStoreView
         store={{
           id: vendorData.id,
+          handle: vendorData.handle,
           businessName: vendorData.businessName,
           storeLogo: vendorData.storeLogo,
         }}
@@ -239,17 +229,20 @@ export default async function StorePage({ params }: StorePageProps) {
       )}
 
       {/* "Book a visit" — only shows for shops that take visits */}
-      <BookVisitCta shopId={vendorData.id} shopName={vendorData.businessName} />
+      <BookVisitCta shopId={vendorData.id} shopName={vendorData.businessName} shopHandle={vendorData.handle} />
 
       {/* Reviews Section - Shared across all themes */}
+      <div id="reviews">
       <StoreReviewsSection
         vendorId={vendorData.id}
+        vendorHandle={vendorData.handle}
         averageRating={vendorData.averageRating}
         reviewCount={vendorData.reviewCount}
         reviews={reviewsData.slice(0, 10)}
         ratingDistribution={ratingDistribution || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }}
         theme={vendorData.storeTheme || "DEFAULT"}
       />
+      </div>
     </>
   );
 }

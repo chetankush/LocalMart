@@ -1,6 +1,7 @@
 "use client";
 
 import { refreshShopPage } from "@/lib/refreshShopPage";
+import { shopPath } from "@/lib/shopHandle";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Camera, Check, Eye, ImageIcon, Images, Loader2, RotateCcw, X } from "lucide-react";
@@ -30,6 +31,7 @@ interface Product {
 
 interface Shop {
   id: string;
+  handle?: string | null;
   businessName: string;
   storeTheme: string;
   storeImages: unknown;
@@ -193,7 +195,7 @@ export default function ShopPageEditor({ shop, products }: { shop: Shop; product
   return (
     <div className="pb-6">
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <Button href={`/stores/${shop.id}`} variant="secondary" size="md">
+        <Button href={shopPath(shop)} variant="secondary" size="md">
           <Eye className="h-[18px] w-[18px]" aria-hidden />
           See my shop page
         </Button>

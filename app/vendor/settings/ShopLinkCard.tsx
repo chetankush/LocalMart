@@ -178,6 +178,11 @@ export default function ShopLinkCard({ storeId }: { storeId: string }) {
               <span className="text-label-2">Small letters, numbers and dashes — like your shop name</span>
             )}
           </p>
+          {handle && (
+            <p className="mt-2 text-[14px] leading-snug text-label-2">
+              This is your shop&apos;s page address. If you change it, links with the old name that you already shared will stop working.
+            </p>
+          )}
           <div className="mt-3 flex gap-2">
             <button
               type="button"

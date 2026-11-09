@@ -1,6 +1,7 @@
 'use client';
 
 import { shortOrderNo } from "@/components/app/ui";
+import { shopPath } from "@/lib/shopHandle";
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-provider';
 import { useRouter } from 'next/navigation';
@@ -57,6 +58,7 @@ interface Order {
     zipCode: string;
   };
   vendor: {
+    handle?: string | null;
     businessName: string;
     contactPhone: string;
     city: string;
@@ -351,7 +353,7 @@ export default function MyOrdersPage() {
                 </Button>
               )}
               {order.status === 'DELIVERED' && order.vendorId && (
-                <Button href={`/stores/${order.vendorId}/write-review`} size="md" className="flex-1">
+                <Button href={shopPath({ id: order.vendorId, handle: order.vendor?.handle }, "/write-review")} size="md" className="flex-1">
                   <Star className="h-[18px] w-[18px]" aria-hidden />
                   Rate shop
                 </Button>

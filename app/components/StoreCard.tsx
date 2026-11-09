@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { shopPath } from "@/lib/shopHandle";
 import Link from "next/link";
 import { Store } from "lucide-react";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -23,7 +24,7 @@ interface StoreCardProps {
 export default function StoreCard({ store }: StoreCardProps) {
   return (
     <Link
-      href={`/stores/${store.id}`}
+      href={shopPath(store)}
       className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg hover:border-blue-300 transition-all duration-300 group"
     >
       {/* Store Image */}

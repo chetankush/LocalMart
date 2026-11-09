@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shopPath } from "@/lib/shopHandle";
 import { notFound } from "next/navigation";
 import ImageGallery from "./ImageGallery";
 import ProductInfo from "./ProductInfo";
@@ -131,7 +132,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         availability: product.stockQuantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
         itemCondition: "https://schema.org/NewCondition",
         url: siteUrl(`/products/${product.id}`),
-        seller: { "@type": "Store", name: v.businessName, url: siteUrl(`/stores/${v.id}`) },
+        seller: { "@type": "Store", name: v.businessName, url: siteUrl(shopPath(v)) },
       },
       ...(product.reviewCount > 0 && product.averageRating
         ? {
@@ -148,7 +149,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: siteUrl("/") },
-        { "@type": "ListItem", position: 2, name: v.businessName, item: siteUrl(`/stores/${v.id}`) },
+        { "@type": "ListItem", position: 2, name: v.businessName, item: siteUrl(shopPath(v)) },
         { "@type": "ListItem", position: 3, name: product.name },
       ],
     },
@@ -218,7 +219,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         {more.length > 0 && (
-          <HomeSection title={`More from ${v.businessName}`} href={`/stores/${v.id}`} linkLabel="Visit shop">
+          <HomeSection title={`More from ${v.businessName}`} href={shopPath(v)} linkLabel="Visit shop">
             <ProductRow>
               {more.map((p) => (
                 <ProductCard key={p.id} product={p} showStoreBadge={false} />
