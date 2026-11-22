@@ -16,10 +16,15 @@ export default function VideoLinkField({
   value,
   onChange,
   error,
+  single,
+  onSingleChange,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
+  /** This video is of just this one item, so a Buy button may show under it */
+  single?: boolean;
+  onSingleChange?: (single: boolean) => void;
   /** From the form's Save check */
   error?: string;
 }) {
@@ -57,7 +62,7 @@ export default function VideoLinkField({
       >
         <Video className="h-5 w-5 shrink-0 text-tint" aria-hidden />
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold leading-snug text-label">Add a video from Instagram</span>
+          <span className="block text-[15px] font-semibold leading-snug text-label">Add a video</span>
           <span className="block text-[13px] leading-snug text-label-2">Optional · buyers trust a video more · वीडियो जोड़ें</span>
         </span>
       </button>
@@ -66,11 +71,11 @@ export default function VideoLinkField({
 
   return (
     <Field
-      label="Video from Instagram · वीडियो"
+      label="Video · वीडियो"
       optional
       htmlFor={id}
       error={problem}
-      hint={link ? undefined : "On Instagram: open your reel → Share → Copy link, then tap Paste here."}
+      hint={link ? undefined : "Instagram: open your reel → Share → Copy link, then tap Paste. Or paste a direct link to a video file (.mp4)."}
     >
       <div className="flex gap-2">
         <input
@@ -83,7 +88,7 @@ export default function VideoLinkField({
           autoComplete="off"
           spellCheck={false}
           aria-invalid={!!problem || undefined}
-          placeholder="https://www.instagram.com/reel/…"
+          placeholder="https://www.instagram.com/reel/…  or  https://…/video.mp4"
           className={inputClass}
         />
         {value ? (
@@ -111,6 +116,25 @@ export default function VideoLinkField({
           )
         )}
       </div>
+      {link && !problem && onSingleChange && (
+        <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-hairline bg-card px-3.5 py-3">
+          <input
+            type="checkbox"
+            checked={!!single}
+            onChange={(e) => onSingleChange(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--tint,#c8102e)]"
+          />
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold leading-snug text-label">
+              This video shows only this one item · सिर्फ़ यही आइटम
+            </span>
+            <span className="block text-[13px] leading-snug text-label-2">
+              Tick it to show a Buy button under the video. Leave it empty if the video shows several items — buyers will
+              just watch it.
+            </span>
+          </span>
+        </label>
+      )}
       {link && !problem && (
         <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[14px] leading-snug text-ok">
           <Check className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />

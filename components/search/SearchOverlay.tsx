@@ -13,11 +13,11 @@ import { rupees } from "@/components/app/ui";
 // One-tap ideas for first-time shoppers (Hindi + English)
 const STARTERS = [
   { label: "साड़ी · Saree", q: "saree" },
-  { label: "दूध · Milk", q: "milk" },
-  { label: "आटा · Atta", q: "atta" },
-  { label: "दवाई · Medicine", q: "medicine" },
-  { label: "सब्ज़ी · Vegetables", q: "vegetables" },
-  { label: "मोबाइल · Mobile", q: "mobile" },
+  { label: "लहंगा · Lehenga", q: "lehenga" },
+  { label: "कुर्ती · Kurti", q: "kurti" },
+  { label: "जूते · Shoes", q: "shoes" },
+  { label: "चप्पल · Sandals", q: "sandals" },
+  { label: "दुपट्टा · Dupatta", q: "dupatta" },
 ];
 
 /** Bold the parts of a result that match what was searched */
@@ -184,7 +184,7 @@ export default function SearchOverlay({
               enterKeyHint="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={voice.listening ? "Listening…" : "Search saree, atta, medicine…"}
+              placeholder={voice.listening ? "Listening…" : "Search saree, lehenga, shoes…"}
               aria-label="Search shops and products"
               autoComplete="off"
               className="h-11 w-full rounded-lg bg-white pl-10 pr-20 text-[16px] text-label placeholder:text-label-3 outline-none focus:ring-2 focus:ring-saffron"
@@ -238,7 +238,7 @@ export default function SearchOverlay({
                 <>
                   <p className="text-[22px] font-bold text-label">{voice.interim || "Listening…"}</p>
                   <p className="mt-1 text-[16px] text-label-2">
-                    {voice.lang === "hi-IN" ? "बोलिए — जैसे “लाल साड़ी” या “दूध”" : "Speak now — e.g. “red saree” or “milk”"}
+                    {voice.lang === "hi-IN" ? "बोलिए — जैसे “लाल साड़ी” या “जूते”" : "Speak now — e.g. “red saree” or “shoes”"}
                   </p>
                 </>
               ) : (

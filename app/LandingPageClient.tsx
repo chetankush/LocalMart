@@ -28,7 +28,8 @@ import VendorCtaSection from "@/components/landing/VendorCtaSection";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
 import type { PopularStore } from "@/components/landing/PopularStoresGlobal";
 import type { ProductCardProduct } from "@/components/landing/ProductCard";
-import { isStoreOpen, calculateDistanceKm } from "@/lib/landing/distance";
+import { shopKind, type ShopKind } from "@/components/landing/CategoryGrid";
+import { isStoreOpen, calculateDistanceKm, shopCoords } from "@/lib/landing/distance";
 
 interface Props {
   user: { id: string } | null;
@@ -47,15 +48,7 @@ interface Props {
 }
 
 const CATEGORY_TITLES: Record<string, string> = {
-  GROCERY: "Kirana & daily needs",
-  RESTAURANT: "Food & sweets",
-  PHARMACY: "Medicines & health",
-  ELECTRONICS: "Mobiles & electronics",
-  FASHION: "Sarees & fashion",
-  HOME_SERVICES: "Home & Kitchen",
-  COSMETICS: "Beauty & Cosmetics",
-  DAIRY: "Milk & Dairy",
-  SPORTS: "Sports & Fitness",
+  FASHION: "Sarees, clothes & shoes",
   OTHER: "More from local shops",
 };
 
@@ -137,7 +130,7 @@ export default function LandingPageClient({
 
   const enrich = (p: ProductCardProduct) => {
     const v = p.vendor as Vendor & ProductCardProduct["vendor"];
-    const coords = v.businessAddress?.coordinates;
+    const coords = shopCoords(v);
     const distanceKm =
       coords && location?.latitude !== undefined && location?.longitude !== undefined
         ? Math.round(
@@ -196,7 +189,7 @@ export default function LandingPageClient({
   const nearWord = located ? "near you" : `in ${town}`;
   // Paid "Featured shops" aren't repeated in "Shops near you"
   const [featuredShopIds, setFeaturedShopIds] = useState<string[]>([]);
-  const shopTypesHere = useMemo(() => [...new Set(vendors.map((v) => v.businessType))], [vendors]);
+  const shopTypesHere = useMemo(() => [...new Set(vendors.map((v) => shopKind(v)).filter((k): k is ShopKind => !!k))], [vendors]);
   // Paid picture banners for this area — shown as a card beside the hero, not a full-width strip
   const servedBanners = useAds({
     placement: "HOME_BANNER",
@@ -304,7 +297,7 @@ export default function LandingPageClient({
           ads={bannerAds}
         />
 
-        <CategoryShowcase shopTypes={vendors.map((v) => v.businessType)} located={located} place={liveTowns[0]} />
+        <CategoryShowcase shopTypes={shopTypesHere} located={located} place={liveTowns[0]} />
 
         {!outOfArea && (
           <SponsoredShops

@@ -104,7 +104,8 @@ export async function generateMetadata({ params }: StorePageProps): Promise<Meta
   const { id } = await params;
   const vendor = await getVendorDetails(id);
   if (!vendor) {
-    return { title: "Shop not found | LocalMart" };
+    // Any unknown address lands here, not only shop links
+    return { title: "Page not found | LocalMart", robots: { index: false } };
   }
   const kind = KIND[vendor.businessType] ?? "Shop";
   const where = [vendor.locality, vendor.city].filter(Boolean).join(", ");

@@ -32,6 +32,22 @@ export function isStoreOpen(businessHours: BusinessHours | null | undefined): bo
   return currentTime >= openTime && currentTime <= closeTime;
 }
 
+/**
+ * A shop's real map position, or undefined when it has none. A missing
+ * location is often saved as 0,0 (the sea off Africa), which would show a
+ * shop in Guna as "8,700 km away", so treat it as "unknown", not a place.
+ */
+export function shopCoords(
+  v: { businessAddress?: { coordinates?: { lat?: unknown; lng?: unknown } } | null } | null | undefined
+): { lat: number; lng: number } | undefined {
+  const c = v?.businessAddress?.coordinates;
+  const lat = Number(c?.lat);
+  const lng = Number(c?.lng);
+  if (!c || !Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (lat === 0 && lng === 0) return undefined;
+  return { lat, lng };
+}
+
 export function calculateDistanceKm(
   lat1: number,
   lon1: number,

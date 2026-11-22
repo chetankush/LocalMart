@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s",
   },
   description:
-    "Order sarees, groceries, medicines and more from real shops in your town. Delivered by the shop itself — pay cash on delivery or UPI.",
+    "Order sarees, lehengas, clothes and shoes from real shops in your town. Delivered by the shop itself — pay cash on delivery or UPI.",
   applicationName: "LocalMart",
   openGraph: {
     type: "website",

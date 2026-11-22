@@ -174,6 +174,7 @@ export default function AddProductForm({
     isActive: true,
     // The shop's Instagram reel of it (optional)
     videoUrl: "",
+    videoSingleProduct: false,
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -1196,9 +1197,12 @@ export default function AddProductForm({
           <VideoLinkField
             value={formData.videoUrl}
             onChange={(v) => {
-              setFormData((prev) => ({ ...prev, videoUrl: v }));
+              // No video = no buy button on it
+              setFormData((prev) => ({ ...prev, videoUrl: v, videoSingleProduct: v.trim() ? prev.videoSingleProduct : false }));
               clearError("videoUrl");
             }}
+            single={formData.videoSingleProduct}
+            onSingleChange={(single) => setFormData((prev) => ({ ...prev, videoSingleProduct: single }))}
             error={errors.videoUrl}
           />
         </FormCard>

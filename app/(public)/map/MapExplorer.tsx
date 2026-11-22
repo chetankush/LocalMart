@@ -17,7 +17,7 @@ const ShopMap = dynamic(() => import("@/components/map/ShopMap"), {
 });
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
-const TRY_WORDS = ["saree", "atta", "medicine", "milk", "mobile cover", "chappal"];
+const TRY_WORDS = ["saree", "lehenga", "kurti", "shoes", "chappal"];
 
 const cx = (...p: (string | false | null | undefined)[]) => p.filter(Boolean).join(" ");
 

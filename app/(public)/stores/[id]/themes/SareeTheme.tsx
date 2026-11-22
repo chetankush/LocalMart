@@ -15,6 +15,7 @@ import SaveShopButton from "@/components/contact/SaveShopButton";
 import { waText, whatsappLinkProps } from "@/lib/contact";
 import { allSizesSoldOut, hasSizes, type Size } from "@/lib/sizes";
 import StoreHeroCarousel, { type HeroSlide } from "./StoreHeroCarousel";
+import WatchAndBuy from "./WatchAndBuy";
 import { SAREE_FABRICS, SAREE_OCCASIONS, fabricSpot, occasionSpot, pageImagesOf } from "@/lib/shop-page";
 import {
   ArrowRight,
@@ -51,6 +52,10 @@ interface Product {
   createdAt: Date | string;
   tags?: string[];
   isFeatured?: boolean;
+  /** The shop's Instagram reel of this item */
+  videoUrl?: string | null;
+  /** The video is of just this one item, so it may show a Buy button */
+  videoSingleProduct?: boolean;
   category?: { name: string; slug: string } | null;
   listingType?: "SALE" | "RENT" | null;
   variants?: Size[] | null;
@@ -1068,7 +1073,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
           <div className="mx-auto flex h-[52px] max-w-[1440px] items-center gap-2 px-4">
             <div className="-ml-4 flex min-w-0 flex-1 gap-2 overflow-x-auto pl-4 scrollbar-hide lg:justify-center">
               {[
-                { key: null as string | null, label: "All sarees" },
+                { key: null as string | null, label: "All items" },
                 ...(newArrivalCount > 0 ? [{ key: NEW_CHIP, label: "New arrivals" }] : []),
                 ...fabricCollections,
               ].map((f) => (
@@ -1160,7 +1165,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                   {f.cover ? (
                     <Image
                       src={f.cover}
-                      alt={`${f.label} sarees`}
+                      alt={f.label}
                       fill
                       sizes="(max-width: 1024px) 192px, 20vw"
                       className="object-cover group-hover:scale-105 transition-transform duration-700"
@@ -1175,7 +1180,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                       {f.label}
                     </p>
                     <p className="text-[#E9C979] text-[11px] uppercase tracking-[0.2em] mt-0.5">
-                      {f.count} {f.count === 1 ? "saree" : "sarees"}
+                      {f.count} {f.count === 1 ? "item" : "items"}
                     </p>
                   </div>
                 </div>
@@ -1190,7 +1195,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
       {/* ============================================================== */}
       {bento.length >= 3 && (
         <section className="max-w-[1440px] mx-auto px-4 pt-10 pb-2">
-          <SectionHeading eyebrow="Find the perfect drape" title="The Saree Store" />
+          <SectionHeading eyebrow="Find the perfect drape" title="The Collection" />
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:h-[560px] lg:grid-cols-3 lg:grid-rows-2">
             {bento.map((t, i) => {
               const shape =
@@ -1220,13 +1225,21 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
                       {t.label}
                     </span>
                     <span className="mt-0.5 block text-[12px] font-medium text-white/85">
-                      {t.count} {t.count === 1 ? "saree" : "sarees"}
+                      {t.count} {t.count === 1 ? "item" : "items"}
                     </span>
                   </span>
                 </button>
               );
             })}
           </div>
+        </section>
+      )}
+
+      {/* "Watch and Buy" — the shop's own Instagram reels, with Add under the video */}
+      {products.some((p) => p.videoUrl && p.listingType !== "RENT") && (
+        <section className="max-w-[1440px] mx-auto px-4 pt-12 pb-2" aria-labelledby="watch-and-buy-title">
+          <SectionHeading eyebrow="See it before you buy" title="Watch and Buy" />
+          <WatchAndBuy products={products} vendorName={vendor.businessName} />
         </section>
       )}
 
@@ -1244,7 +1257,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
               <p className="mt-2 text-[14px] text-white/80 sm:text-[16px]">
                 {(vendor.reviewCount ?? 0) > 0 && vendor.averageRating
                   ? `★ ${Number(vendor.averageRating).toFixed(1)} from ${vendor.reviewCount} ${vendor.reviewCount === 1 ? "review" : "reviews"}`
-                  : "The sarees our shoppers pick most"}
+                  : "What our shoppers pick most"}
               </p>
             </div>
             {toImageList(loved[0].images)[0] && (
@@ -1327,7 +1340,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
             className="relative flex min-h-[150px] w-full overflow-hidden rounded-2xl bg-[#2E0710] text-left cursor-pointer sm:min-h-[200px]"
           >
             <span className="relative z-10 flex flex-1 flex-col justify-center px-6 py-6 sm:px-10">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#E9C979]">Everyday sarees</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#E9C979]">Everyday wear</span>
               <span className={`${serif.className} mt-1 block text-[30px] font-semibold leading-[1.05] text-white sm:text-[46px]`}>
                 Under <span className="text-[#F3D27A]">₹999</span>
               </span>
@@ -1390,13 +1403,13 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
         {activeFabric === NEW_CHIP ? (
           <SectionHeading eyebrow="Just arrived · नया कलेक्शन" title="The New Collection" />
         ) : (
-          <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "saree" : "sarees"} in store`} title="All Sarees" />
+          <SectionHeading eyebrow={`${products.length} ${products.length === 1 ? "item" : "items"} in store`} title="All Items" />
         )}
 
         <div className="mb-6 flex items-center justify-between gap-3 border-y border-[#EADBC8] py-2.5">
           <p className="text-sm text-gray-600">
             Showing <span className="font-bold text-[#4A0D18]">{filteredProducts.length}</span>{" "}
-            {filteredProducts.length === 1 ? "saree" : "sarees"}
+            {filteredProducts.length === 1 ? "item" : "items"}
           </p>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-2 text-sm">
@@ -1467,11 +1480,11 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-xl border border-[#EADBC8]">
                 <Search className="w-14 h-14 text-[#B8862B]/40 mb-4" />
                 <h3 className={`${serif.className} text-2xl font-semibold text-[#4A0D18] mb-2`}>
-                  {products.length === 0 ? "New collection coming soon" : "No sarees match these filters"}
+                  {products.length === 0 ? "New collection coming soon" : "Nothing matches these filters"}
                 </h3>
                 <p className="text-sm text-gray-500 max-w-sm mb-6">
                   {products.length === 0
-                    ? "The store is adding its sarees. Message them to see what's in stock today."
+                    ? "The store is adding its collection. Message them to see what's in stock today."
                     : "Try removing a filter, or ask the store on WhatsApp — they may have it in stock."}
                 </p>
                 {products.length > 0 ? (
@@ -1526,7 +1539,7 @@ export default function SareeTheme({ vendor, products }: SareeThemeProps) {
             </div>
             <p className="text-white/80 leading-relaxed whitespace-pre-line">
               {vendor.storeDescription ||
-                `Welcome to ${vendor.businessName}. Browse our sarees online, ask us anything, and visit the store to see the colours and fabrics in person.`}
+                `Welcome to ${vendor.businessName}. Browse our collection online, ask us anything, and visit the store to see the colours and fabrics in person.`}
             </p>
             <button
               onClick={scrollToCatalog}
