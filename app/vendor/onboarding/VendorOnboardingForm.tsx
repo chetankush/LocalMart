@@ -13,7 +13,7 @@ export default function VendorOnboardingForm({ userId }: { userId: string }) {
 
   const [formData, setFormData] = useState({
     businessName: '',
-    businessType: 'GROCERY',
+    businessType: 'CLOTHING',
     contactEmail: '',
     contactPhone: '',
     street: '',

@@ -48,13 +48,11 @@ const FOCUSED = ["/checkout", "/orders/waiting"];
 const CATEGORIES: { label: string; href: string; type?: string }[] = [
   { label: "Shops on map", href: "/map" },
   { label: "All shops", href: "/stores" },
-  { label: "Sarees & Fashion", href: "/stores?category=clothing", type: "FASHION" },
-  { label: "Groceries", href: "/stores?category=grocery", type: "GROCERY" },
-  { label: "Pharmacy", href: "/stores?category=medical", type: "PHARMACY" },
-  { label: "Electronics", href: "/stores?category=electronics", type: "ELECTRONICS" },
-  { label: "Home & Kitchen", href: "/stores?category=home-kitchen", type: "HOME_SERVICES" },
+  { label: "Sarees & lehengas", href: "/stores?category=sarees", type: "FASHION" },
+  { label: "Clothes", href: "/stores?category=clothes", type: "FASHION" },
+  { label: "Shoes", href: "/stores?category=shoes", type: "FASHION" },
 ];
-const SEARCH_HINTS = ["saree", "doodh", "atta", "medicine", "kurti", "mobile cover", "chawal"];
+const SEARCH_HINTS = ["saree", "lehenga", "kurti", "shoes", "dupatta", "sandals"];
 
 function placeText(location: { locality?: string; city?: string; pincode?: string } | null) {
   if (!location) return null;
@@ -139,7 +137,7 @@ const Navbar = () => {
     return () => ro.disconnect();
   }, []);
 
-  // Rotating search hint, like the big grocery apps — shows what you can type
+  // Rotating search hint, like the big shopping apps — shows what you can type
   const [hint, setHint] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setHint((i) => (i + 1) % SEARCH_HINTS.length), 2800);

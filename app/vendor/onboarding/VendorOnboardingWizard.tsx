@@ -41,7 +41,7 @@ const STORAGE_KEY = (userId: string) => `vendor-onboarding-wizard:${userId}`;
 
 const INITIAL_FORM = {
   businessName: '',
-  businessType: 'GROCERY',
+  businessType: '',
   contactEmail: '',
   contactPhone: '',
   street: '',
@@ -73,6 +73,9 @@ const ICONS: Record<string, LucideIcon> = {
   PHARMACY: PillIcon,
   ELECTRONICS: Smartphone,
   FASHION: Shirt,
+  SAREES: Shirt,
+  CLOTHING: Shirt,
+  SHOES: Package,
   HOME_SERVICES: Home,
   COSMETICS: Sparkles,
   DAIRY: Milk,

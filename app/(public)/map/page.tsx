@@ -3,7 +3,7 @@ import MapExplorer from "./MapExplorer";
 
 export const metadata: Metadata = {
   title: "Shops near you on the map | LocalMart",
-  description: "See every LocalMart shop around you on the map — sarees, kirana, medicines, mobiles and more. Find who sells what, how far it is, and get directions.",
+  description: "See every LocalMart shop around you on the map — sarees, lehengas, clothes and shoes. Find who sells what, how far it is, and get directions.",
 };
 
 export default async function MapPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {

@@ -64,6 +64,10 @@ const THEME_OPTIONS: {
   { value: "OTHER" as StoreTheme, label: "अन्य", englishLabel: "Other", description: "Any other kind of shop", icon: <MoreHorizontal className={iconCls} /> },
 ];
 
+// LocalMart starts with fashion: new looks to pick are these. A shop already
+// on an older look keeps it shown (so it can see and change it).
+const OFFERED_LOOKS: StoreTheme[] = ["DEFAULT" as StoreTheme, "SAREE" as StoreTheme, "CLOTHING" as StoreTheme, "SHOES" as StoreTheme];
+
 /**
  * "Shop look": shows the current look and opens a sheet to pick another.
  * Tapping a look saves it right away (no extra Save button).
@@ -127,7 +131,7 @@ export default function ThemeSelector({
         wide
       >
         <div role="radiogroup" aria-label="Shop look" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {THEME_OPTIONS.map((option) => {
+          {THEME_OPTIONS.filter((o) => OFFERED_LOOKS.includes(o.value) || o.value === currentTheme).map((option) => {
             const selected = selectedTheme === option.value;
             const saving = isLoading && selected;
             return (

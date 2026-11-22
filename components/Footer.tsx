@@ -15,9 +15,9 @@ const NO_FOOTER = ["/checkout", "/orders/waiting", "/cart", "/my-orders", "/vend
 const SHOP_LINKS = [
   { label: "All shops", href: "/stores" },
   { label: "Shops on the map", href: "/map" },
-  { label: "Sarees & fashion", href: "/stores?category=clothing", type: "FASHION" },
-  { label: "Groceries", href: "/stores?category=grocery", type: "GROCERY" },
-  { label: "Medical stores", href: "/stores?category=medical", type: "PHARMACY" },
+  { label: "Sarees & lehengas", href: "/stores?category=sarees", type: "FASHION" },
+  { label: "Clothes", href: "/stores?category=clothes", type: "FASHION" },
+  { label: "Shoes & footwear", href: "/stores?category=shoes", type: "FASHION" },
 ];
 
 const linkClass = "text-[14px] text-label-2 hover:text-tint transition-colors";

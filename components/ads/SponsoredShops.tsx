@@ -7,13 +7,13 @@ import { Heart } from "lucide-react";
 import { HomeSection } from "@/components/app/commerce";
 import { useLocation } from "@/context/LocationContext";
 import { useMounted } from "@/hooks/useMounted";
-import { calculateDistanceKm, isStoreOpen } from "@/lib/landing/distance";
+import { calculateDistanceKm, isStoreOpen, shopCoords } from "@/lib/landing/distance";
 import { trackAd, useAdImpression, useAds, type AdPlacement, type ServedAd } from "@/lib/ads";
 
 function AdCard({ ad, mounted, wide = false }: { ad: ServedAd; mounted: boolean; wide?: boolean }) {
   const ref = useAdImpression<HTMLLIElement>(ad.adId);
   const { location } = useLocation();
-  const c = ad.vendor.businessAddress?.coordinates;
+  const c = shopCoords(ad.vendor);
   const lat = location?.latitude;
   const lng = location?.longitude;
   const km =

@@ -12,7 +12,7 @@ export interface ShopTypeMeta {
 }
 
 export const SHOP_TYPES: Record<string, ShopTypeMeta> = {
-  FASHION: { label: "Sarees & fashion", color: "#C2185B", Icon: Shirt },
+  FASHION: { label: "Sarees, clothes & shoes", color: "#C2185B", Icon: Shirt },
   GROCERY: { label: "Kirana & dairy", color: "#0B8043", Icon: ShoppingBasket },
   PHARMACY: { label: "Medicines", color: "#D93025", Icon: Pill },
   ELECTRONICS: { label: "Mobiles & electronics", color: "#1A73E8", Icon: Smartphone },

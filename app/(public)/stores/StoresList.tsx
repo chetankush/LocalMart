@@ -9,16 +9,18 @@ import ShopCard from "@/components/landing/ShopCard";
 import SponsoredShops from "@/components/ads/SponsoredShops";
 import MapLinkButton, { FloatingMapButton } from "@/components/map/MapLinkButton";
 import { useMounted } from "@/hooks/useMounted";
-import { calculateDistanceKm, isStoreOpen, type BusinessHours } from "@/lib/landing/distance";
+import { calculateDistanceKm, isStoreOpen, shopCoords, type BusinessHours } from "@/lib/landing/distance";
 import FavoriteButton from "@/components/FavoriteButton";
 import { useLocation } from "@/context/LocationContext";
 import LocationSelectorModal from "@/components/LocationSelectorModal";
+import { shopKind, KIND_BY_SLUG, type ShopKind } from "@/components/landing/CategoryGrid";
 import { apiClient } from "@/lib/api/client";
 
 interface Vendor {
   id: string;
   businessName: string;
   businessType: BusinessType;
+  storeTheme?: string | null;
   storeDescription: string | null;
   storeLogo: string | null;
   city: string;
@@ -40,36 +42,10 @@ interface StoresListProps {
   selectedCity?: string;
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  GROCERY: "Grocery",
-  FASHION: "Fashion",
-  PHARMACY: "Pharmacy",
-  RESTAURANT: "Food",
-  ELECTRONICS: "Electronics",
-  HOME_SERVICES: "Services",
-  OTHER: "Shop",
-};
-
-// Map category slugs from URL to BusinessType or search terms
-const categoryMapping: { [key: string]: BusinessType | "ALL" } = {
-  "daily-needs": "GROCERY",
-  "grocery": "GROCERY",
-  "cosmetics": "FASHION",
-  "medical": "PHARMACY",
-  "dairy": "GROCERY",
-  "dry-fruits": "GROCERY",
-  "clothing": "FASHION",
-  "shoes": "FASHION",
-  "electronics": "ELECTRONICS",
-  "mobiles": "ELECTRONICS",
-  "home-kitchen": "HOME_SERVICES",
-  "beauty": "FASHION",
-  "toys": "OTHER",
-  "books": "OTHER",
-  "sports": "OTHER",
-  "pets": "OTHER",
-  "automotive": "OTHER",
-  "garden": "OTHER",
+const KIND_LABEL: Record<ShopKind, string> = {
+  SAREE: "Sarees & lehengas",
+  CLOTHING: "Clothes",
+  SHOES: "Footwear",
 };
 
 export default function StoresList({
@@ -84,7 +60,7 @@ export default function StoresList({
   const mounted = useMounted();
 
   const [selectedCategory, setSelectedCategory] = useState<
-    BusinessType | "ALL"
+    ShopKind | "ALL"
   >("ALL");
   const [showLocationModal, setShowLocationModal] = useState(false);
   // Shops already shown in the "Featured" row above — not listed twice
@@ -160,12 +136,7 @@ export default function StoresList({
 
   // Set category from URL parameter on mount
   useEffect(() => {
-    if (categoryFromUrl) {
-      const upper = categoryFromUrl.toUpperCase();
-      const isType = ["GROCERY", "RESTAURANT", "PHARMACY", "ELECTRONICS", "FASHION", "HOME_SERVICES", "OTHER"].includes(upper);
-      const mappedCategory = isType ? (upper as BusinessType) : categoryMapping[categoryFromUrl] || "ALL";
-      setSelectedCategory(mappedCategory);
-    }
+    if (categoryFromUrl) setSelectedCategory(KIND_BY_SLUG[categoryFromUrl.toLowerCase()] ?? "ALL");
   }, [categoryFromUrl]);
 
   // Sync URL with location context when location changes
@@ -180,7 +151,7 @@ export default function StoresList({
   // Get friendly category name
   const getFriendlyCategoryName = () => {
     if (!categoryFromUrl) {
-      return selectedCategory === "ALL" ? "All Stores" : selectedCategory.replace("_", " ");
+      return selectedCategory === "ALL" ? "All Stores" : KIND_LABEL[selectedCategory];
     }
     // Convert slug to friendly name
     return categoryFromUrl
@@ -192,23 +163,21 @@ export default function StoresList({
   // Filter vendors based on selected category
   const filteredVendors = vendors.filter((vendor) => {
     if (selectedCategory === "ALL") return true;
-    return vendor.businessType === selectedCategory;
+    return shopKind(vendor) === selectedCategory;
   });
 
 
   // Kinds of shop present here, for the filter chips
-  const typeCounts = Object.entries(
-    vendors.reduce<Record<string, number>>((acc, v) => ({ ...acc, [v.businessType]: (acc[v.businessType] || 0) + 1 }), {}),
-  )
-    .map(([type, count]) => ({ type: type as BusinessType, count }))
-    .sort((a, b) => b.count - a.count);
+  const typeCounts = (Object.keys(KIND_LABEL) as ShopKind[])
+    .map((type) => ({ type, count: vendors.filter((v) => shopKind(v) === type).length }))
+    .filter((t) => t.count > 0);
 
   // Nearest first when we know where the shopper is
   const hasCoords = typeof location?.latitude === "number" && typeof location?.longitude === "number" && location.latitude !== 0;
   const sortedVendors = hasCoords
     ? [...filteredVendors].sort((a, b) => {
-        const ca = a.businessAddress?.coordinates;
-        const cb = b.businessAddress?.coordinates;
+        const ca = shopCoords(a);
+        const cb = shopCoords(b);
         if (!ca || !cb) return ca ? -1 : cb ? 1 : 0;
         return (
           calculateDistanceKm(location!.latitude!, location!.longitude!, ca.lat, ca.lng) -
@@ -239,7 +208,7 @@ export default function StoresList({
       {/* Phones: the map button up top (the cart bar sits at the bottom) */}
       {filteredVendors.length > 0 && (
         <div className="mb-4 lg:hidden">
-          <MapLinkButton type={selectedCategory === "ALL" ? null : selectedCategory} label="See these shops on the map" />
+          <MapLinkButton type={selectedCategory === "ALL" ? null : "FASHION"} label="See these shops on the map" />
         </div>
       )}
 
@@ -258,18 +227,18 @@ export default function StoresList({
                   on ? "border-label bg-label text-white" : "border-hairline bg-card text-label hover:border-label/40"
                 }`}
               >
-                {type === "ALL" ? "All" : CATEGORY_LABEL[type] ?? "Other"} <span className={on ? "text-white/70" : "text-label-3"}>{count}</span>
+                {type === "ALL" ? "All" : KIND_LABEL[type]} <span className={on ? "text-white/70" : "text-label-3"}>{count}</span>
               </button>
             );
           })}
         </div>
       )}
 
-      {filteredVendors.length > 0 && <FloatingMapButton type={selectedCategory === "ALL" ? null : selectedCategory} />}
+      {filteredVendors.length > 0 && <FloatingMapButton type={selectedCategory === "ALL" ? null : "FASHION"} />}
 
       <SponsoredShops
         placement="SHOP_LIST"
-        category={selectedCategory === "ALL" ? null : selectedCategory}
+        category={selectedCategory === "ALL" ? null : "FASHION"}
         pincode={areaPincode}
         city={selectedCity}
         title="Featured"
@@ -280,7 +249,7 @@ export default function StoresList({
       {filteredVendors.length > 0 ? (
         <ul className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:pb-16">
           {sortedVendors.filter((v) => !featuredIds.includes(v.id)).map((vendor) => {
-            const c = vendor.businessAddress?.coordinates;
+            const c = shopCoords(vendor);
             const km = hasCoords && c ? calculateDistanceKm(location!.latitude!, location!.longitude!, c.lat, c.lng) : null;
             const open = mounted && vendor.businessHours ? isStoreOpen(vendor.businessHours) : null;
             return (

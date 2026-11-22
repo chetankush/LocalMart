@@ -28,30 +28,47 @@ export default function ProductVideo({ videoUrl, productName }: { videoUrl?: str
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[16px] font-semibold leading-snug text-label">Watch the video · वीडियो देखें</span>
-          <span className="block text-[13px] leading-snug text-label-2">From the shop’s Instagram</span>
+          <span className="block text-[13px] leading-snug text-label-2">
+            {link.kind === "instagram" ? "From the shop’s Instagram" : "From the shop"}
+          </span>
         </span>
       </button>
 
       <Sheet open={open} onClose={() => setOpen(false)} title="Video" description={productName}>
         <div className="mx-auto w-full max-w-[400px] overflow-hidden rounded-2xl bg-fill">
-          <iframe
-            src={link.embedUrl}
-            title={`Video of ${productName}`}
-            className="block h-[min(64vh,620px)] w-full"
-            allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
+          {link.kind === "file" ? (
+            <video
+              src={link.url}
+              controls
+              autoPlay
+              loop
+              playsInline
+              className="block h-[min(64vh,620px)] w-full bg-black object-contain"
+            >
+              Your browser can’t play this video.
+            </video>
+          ) : (
+            <iframe
+              src={link.embedUrl ?? undefined}
+              title={`Video of ${productName}`}
+              className="block h-[min(64vh,620px)] w-full"
+              allow="autoplay; encrypted-media; picture-in-picture; clipboard-write"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+            />
+          )}
         </div>
-        <a
-          href={link.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mx-auto mt-3 flex h-12 w-full max-w-[400px] items-center justify-center gap-2 rounded-full bg-fill text-[15px] font-semibold text-label hover:bg-fill-strong"
-        >
-          Open in Instagram
-          <ExternalLink className="h-4 w-4" aria-hidden />
-        </a>
+        {link.kind === "instagram" && (
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mx-auto mt-3 flex h-12 w-full max-w-[400px] items-center justify-center gap-2 rounded-full bg-fill text-[15px] font-semibold text-label hover:bg-fill-strong"
+          >
+            Open in Instagram
+            <ExternalLink className="h-4 w-4" aria-hidden />
+          </a>
+        )}
       </Sheet>
     </>
   );

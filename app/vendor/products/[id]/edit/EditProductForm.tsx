@@ -39,6 +39,8 @@ interface Product {
   images: any;
   /** The shop's Instagram reel of it */
   videoUrl?: string | null;
+  /** The video shows just this one item (Buy button under it) */
+  videoSingleProduct?: boolean;
   price: any;
   compareAtPrice: any;
   sku: string | null;
@@ -113,6 +115,7 @@ export default function EditProductForm({
     weight: product.weight?.toString() || "",
     isActive: product.isActive,
     videoUrl: product.videoUrl || "",
+    videoSingleProduct: product.videoSingleProduct === true,
   });
   const startImages = (): string[] => (Array.isArray(product.images) ? product.images : []);
 
@@ -345,9 +348,12 @@ export default function EditProductForm({
           <VideoLinkField
             value={formData.videoUrl}
             onChange={(v) => {
-              setFormData((prev) => ({ ...prev, videoUrl: v }));
+              // No video = no buy button on it
+              setFormData((prev) => ({ ...prev, videoUrl: v, videoSingleProduct: v.trim() ? prev.videoSingleProduct : false }));
               clearError("videoUrl");
             }}
+            single={formData.videoSingleProduct}
+            onSingleChange={(single) => setFormData((prev) => ({ ...prev, videoSingleProduct: single }))}
             error={errors.videoUrl}
           />
         </FormCard>

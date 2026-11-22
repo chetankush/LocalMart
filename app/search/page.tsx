@@ -46,7 +46,7 @@ interface SearchProduct {
 type SortOption = "relevance" | "price_low" | "price_high" | "rating";
 type TabType = "all" | "stores" | "products";
 
-const TRY_WORDS = ["saree", "atta", "medicine", "mobile cover", "kurti"];
+const TRY_WORDS = ["saree", "lehenga", "kurti", "shoes", "dupatta"];
 const cx = (...p: (string | false | null | undefined)[]) => p.filter(Boolean).join(" ");
 
 function SearchResultsContent() {

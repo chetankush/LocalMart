@@ -1,6 +1,6 @@
 "use client";
 
-import { isStoreOpen, calculateDistanceKm } from "@/lib/landing/distance";
+import { isStoreOpen, calculateDistanceKm, shopCoords } from "@/lib/landing/distance";
 import { useMounted } from "@/hooks/useMounted";
 import { HomeSection } from "@/components/app/commerce";
 import ShopCard from "./ShopCard";
@@ -46,7 +46,7 @@ export default function ShopSpotlight({
       >
         {vendors.slice(0, 10).map((v) => {
           const open = mounted && v.businessHours ? isStoreOpen(v.businessHours) : null;
-          const c = v.businessAddress?.coordinates;
+          const c = shopCoords(v);
           const km = userLat !== undefined && userLng !== undefined && c ? calculateDistanceKm(userLat, userLng, c.lat, c.lng) : null;
           return (
             <li key={v.id} className={one ? "" : "w-[80%] shrink-0 snap-start sm:w-auto"}>

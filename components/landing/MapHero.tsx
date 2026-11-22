@@ -24,7 +24,7 @@ const ShopMap = dynamic(() => import("@/components/map/ShopMap"), {
   loading: () => <div className="h-full w-full animate-pulse bg-fill" />,
 });
 
-const TRY_WORDS = ["saree", "atta", "medicine", "mobile cover"];
+const TRY_WORDS = ["saree", "lehenga", "kurti", "shoes"];
 
 export interface HeroPromo {
   href: string;
@@ -122,14 +122,14 @@ function featuredShops(shops: MapShopFull[], max: number, skip: Set<string>): Fe
     .slice(0, max);
 }
 
-/** One category tile per kind of shop that's open here ("Kirana", "Sarees", "Medicines"…) */
+/** One category tile per kind of shop that's open here ("Sarees", "Clothes", "Footwear") */
 function categoryTiles(shopTypes: string[], max: number): Tile[] {
   const open = new Set(shopTypes);
   const seen = new Set<string>();
   const out: Tile[] = [];
   for (const t of GROUPS.flatMap((g) => g.tiles)) {
-    if (!open.has(t.type) || seen.has(t.type)) continue;
-    seen.add(t.type);
+    if (!open.has(t.kind) || seen.has(t.kind)) continue;
+    seen.add(t.kind);
     out.push(t);
   }
   return out.slice(0, max);
@@ -194,7 +194,7 @@ export default function MapHero({
     }));
     const kinds = noLocation
       ? categoryTiles(shopTypes, 2).map((tile) => ({
-          key: `cat-${tile.type}`,
+          key: `cat-${tile.kind}`,
           label: tile.label,
           node: <CategorySlide tile={tile} place={place} />,
         }))
@@ -460,7 +460,7 @@ function MapPanel({ shops, user, place }: { shops: MapShopFull[]; user: { lat: n
         )}
         <h2 className="mt-3 text-[32px] font-bold leading-[1.1] tracking-[-0.02em] text-label xl:text-[38px]">Find shops near you on the map</h2>
         <p className="mt-2 text-[16px] leading-snug text-label-2">
-          Sarees, kirana, medicines, mobiles — see who sells what, how far it is, and order from home.
+          Sarees, lehengas, clothes, shoes — see who sells what, how far it is, and order from home.
         </p>
 
         <form

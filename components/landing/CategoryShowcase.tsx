@@ -6,18 +6,12 @@ import { GROUPS } from "@/components/landing/CategoryGrid";
 /**
  * "Shop by category" like Zepto / Blinkit: square picture tiles on soft
  * colours, name underneath — only for kinds of shop that are open here.
- * The rest of the row is one calm "Coming soon" card (not a row of faded
- * tiles that all say "not available"), which also invites those shops in.
+ * LocalMart starts in Guna, where it is fully available, so kinds of shop
+ * with no shop open yet are simply not shown (no "coming soon" card).
  */
 
-// Soft tile colour per group (daily needs, fashion, health & home)
-const TILE_BG = ["bg-[#EAF5EC]", "bg-[#FBEFF3]", "bg-[#EDF3FC]"];
-
-// Columns of the grid at each width (must match the classes on the <ul>)
-const COLS = { base: 4, sm: 6, lg: 8, xl: 12 };
-
-/** Columns left on the last row after n tiles (a full row when it's exactly full) */
-const rest = (n: number, cols: number) => cols - (n % cols) || cols;
+// Soft tile colour per kind of shop
+const TILE_BG: Record<string, string> = { SAREE: "bg-[#FBEFF3]", CLOTHING: "bg-[#EDF3FC]", SHOES: "bg-[#FFF3E6]" };
 
 export default function CategoryShowcase({
   shopTypes,
@@ -31,16 +25,11 @@ export default function CategoryShowcase({
   place?: string;
 }) {
   const available = new Set(shopTypes);
-  const tiles = GROUPS.flatMap((g, gi) => g.tiles.map((t) => ({ ...t, bg: TILE_BG[gi % TILE_BG.length] })));
-  const open = tiles.filter((t) => available.has(t.type));
-  // One entry per kind of shop not open yet ("Kirana & grocery", "Medicines"…)
-  const soon = new Map<string, (typeof tiles)[number]>();
-  for (const t of tiles) if (!available.has(t.type) && !soon.has(t.type)) soon.set(t.type, t);
-  const soonTiles = [...soon.values()];
+  const tiles = GROUPS.flatMap((g) => g.tiles.map((t) => ({ ...t, bg: TILE_BG[t.kind] })));
+  const open = tiles.filter((t) => available.has(t.kind));
   const town = place || "your town";
 
-  if (open.length === 0 && soonTiles.length === 0) return null;
-  const n = open.length;
+  if (open.length === 0) return null;
 
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 pt-8 sm:px-6 lg:px-8">
@@ -73,50 +62,6 @@ export default function CategoryShowcase({
             </Link>
           </li>
         ))}
-
-        {soonTiles.length > 0 && (
-          // Fills what's left of the last row (a whole row on phones)
-          <li
-            className="col-span-4 sm:col-span-(--rest-sm) lg:col-span-(--rest-lg) xl:col-span-(--rest-xl)"
-            style={
-              {
-                "--rest-sm": rest(n, COLS.sm),
-                "--rest-lg": rest(n, COLS.lg),
-                "--rest-xl": rest(n, COLS.xl),
-              } as React.CSSProperties
-            }
-          >
-            <div className="flex h-full flex-col justify-center gap-3 rounded-2xl bg-fill px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div className="min-w-0">
-                <p className="text-[15px] font-bold text-label">
-                  Coming soon to {town} <span className="font-medium text-label-2">· जल्द आ रहा है</span>
-                </p>
-                <p className="mt-0.5 text-[13px] leading-snug text-label-2">
-                  {soonTiles.length > 4
-                    ? `${soonTiles
-                        .slice(0, 4)
-                        .map((t) => t.label)
-                        .join(", ")} and more`
-                    : soonTiles.map((t) => t.label).join(", ")}
-                </p>
-                <Link
-                  href="/become-vendor"
-                  className="mt-1.5 inline-flex items-center gap-0.5 text-[13px] font-semibold text-tint underline-offset-4 hover:underline"
-                >
-                  Own one of these shops? Join free <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                </Link>
-              </div>
-              {/* A few of the coming kinds, small and quiet */}
-              <div className="hidden shrink-0 -space-x-2 sm:flex" aria-hidden>
-                {soonTiles.slice(0, 5).map((t) => (
-                  <span key={t.type} className="relative h-11 w-11 overflow-hidden rounded-full ring-2 ring-fill">
-                    <Image src={t.image} alt="" fill sizes="44px" className="object-cover opacity-80 grayscale" />
-                  </span>
-                ))}
-              </div>
-            </div>
-          </li>
-        )}
       </ul>
     </section>
   );

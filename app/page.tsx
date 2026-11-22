@@ -78,9 +78,10 @@ async function getHomepageData(
   const qs = params.toString() ? `?${params.toString()}` : "";
 
   try {
+    // The biggest call on the page (shops + products): give it longer than the small ones
     const response = await fetchWithTimeout(`${API_BASE_URL}/public/homepage${qs}`, {
       cache: "no-store",
-    });
+    }, 8000);
     if (!response.ok) {
       return { data: emptyHomepage, ok: false, status: response.status };
     }

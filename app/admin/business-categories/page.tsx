@@ -221,7 +221,7 @@ export default function BusinessCategoriesPage() {
     if (!formData.name || !formData.value) {
       setErrors({
         name: formData.name ? undefined : "Add a name — sellers see it when they pick their kind of shop.",
-        value: formData.value ? undefined : "Add a code, e.g. GROCERY. It's saved on each seller's shop.",
+        value: formData.value ? undefined : "Add a code, e.g. SAREES. It's saved on each seller's shop.",
       });
       toast.error("Name and code are needed");
       return;
@@ -559,7 +559,7 @@ export default function BusinessCategoriesPage() {
       >
         <form id="category-form" onSubmit={handleSubmit} noValidate>
           <FormCard title="About the category">
-            <Field label="Name" htmlFor="cat-name" hint="Sellers see this, e.g. “Grocery / Kirana Store”." error={errors.name}>
+            <Field label="Name" htmlFor="cat-name" hint="Sellers see this, e.g. “Sarees & lehengas”." error={errors.name}>
               <input
                 id="cat-name"
                 type="text"
@@ -570,7 +570,7 @@ export default function BusinessCategoriesPage() {
                 }}
                 aria-invalid={!!errors.name}
                 className={inputClass}
-                placeholder="e.g. Grocery / Kirana Store"
+                placeholder="e.g. Sarees & lehengas"
               />
             </Field>
             <Field
@@ -590,7 +590,7 @@ export default function BusinessCategoriesPage() {
                 aria-invalid={!!errors.value}
                 autoCapitalize="characters"
                 className={`${inputClass} font-mono uppercase`}
-                placeholder="e.g. GROCERY"
+                placeholder="e.g. SAREES"
               />
             </Field>
             <Field label="Description" htmlFor="cat-description" optional>
@@ -600,7 +600,7 @@ export default function BusinessCategoriesPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={2}
                 className={textareaClass}
-                placeholder="e.g. Kirana, supermarket, daily essentials"
+                placeholder="e.g. Sarees, silks, lehengas, bridal wear"
               />
             </Field>
           </FormCard>

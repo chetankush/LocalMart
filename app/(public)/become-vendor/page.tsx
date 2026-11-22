@@ -90,6 +90,9 @@ const iconMap: { [key: string]: LucideIcon } = {
   PHARMACY: PillIcon,
   ELECTRONICS: Smartphone,
   FASHION: Shirt,
+  SAREES: Shirt,
+  CLOTHING: Shirt,
+  SHOES: Package,
   HOME_SERVICES: Home,
   COSMETICS: Sparkles,
   DAIRY: Milk,
@@ -99,13 +102,9 @@ const iconMap: { [key: string]: LucideIcon } = {
 
 // Default business categories fallback
 const defaultCategories = [
-  { value: "GROCERY", name: "Grocery & Daily Needs", description: "Kirana, supermarket, daily essentials" },
-  { value: "RESTAURANT", name: "Restaurant & Food", description: "Restaurant, cafe, food delivery" },
-  { value: "PHARMACY", name: "Pharmacy & Medical", description: "Medicine, healthcare products" },
-  { value: "ELECTRONICS", name: "Electronics", description: "Mobile, computer, gadgets" },
-  { value: "FASHION", name: "Fashion & Clothing", description: "Clothes, shoes, accessories" },
-  { value: "HOME_SERVICES", name: "Home & Kitchen", description: "Furniture, appliances, decor" },
-  { value: "OTHER", name: "Other", description: "Any other business type" },
+  { value: "SAREES", name: "Sarees & lehengas", description: "Sarees, silks, lehengas, bridal and ethnic wear" },
+  { value: "CLOTHING", name: "Clothes", description: "Kurtis, suits, western wear, kids and men's clothing" },
+  { value: "SHOES", name: "Shoes & footwear", description: "Shoes, sandals, chappals and bags" },
 ];
 
 const BENEFITS = [
@@ -648,7 +647,7 @@ export default function BecomeVendorPage() {
                     aria-invalid={!!fieldErrors.businessName}
                     autoComplete="organization"
                     className={inputClass}
-                    placeholder="e.g. Sharma Kirana Store"
+                    placeholder="e.g. Sharma Saree Centre"
                   />
                 </Field>
 
@@ -676,7 +675,7 @@ export default function BecomeVendorPage() {
                   label="About your shop"
                   htmlFor="bv-description"
                   optional
-                  hint="One or two lines, e.g. “Fresh groceries and daily needs since 1995”"
+                  hint="One or two lines, e.g. “Sarees, suits and lehengas for every occasion since 1995”"
                 >
                   <textarea
                     id="bv-description"

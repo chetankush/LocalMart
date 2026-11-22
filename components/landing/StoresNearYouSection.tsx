@@ -10,6 +10,7 @@ import StoreCardSkeleton from "./StoreCardSkeleton";
 import {
   isStoreOpen,
   calculateDistanceKm,
+  shopCoords,
   type BusinessHours,
   type BusinessAddress,
 } from "@/lib/landing/distance";
@@ -20,6 +21,7 @@ export interface Vendor {
   handle?: string | null;
   businessName: string;
   businessType: string;
+  storeTheme?: string | null;
   storeDescription: string | null;
   storeLogo: string | null;
   city: string;
@@ -82,7 +84,7 @@ export default function StoresNearYouSection({
       if (active === "rating") return Number(v.averageRating) >= 4.0;
       if (active === "fast") return v.canDeliver === true;
       if (active === "nearby" && hasUserCoords) {
-        const c = v.businessAddress?.coordinates;
+        const c = shopCoords(v);
         if (!c) return false;
         return calculateDistanceKm(userLat!, userLng!, c.lat, c.lng) <= 10;
       }
@@ -91,8 +93,8 @@ export default function StoresNearYouSection({
     .sort((a, b) => {
       if (active === "rating") return Number(b.averageRating || 0) - Number(a.averageRating || 0);
       if (active === "nearby" && hasUserCoords) {
-        const ca = a.businessAddress?.coordinates;
-        const cb = b.businessAddress?.coordinates;
+        const ca = shopCoords(a);
+        const cb = shopCoords(b);
         if (!ca && !cb) return 0;
         if (!ca) return 1;
         if (!cb) return -1;
@@ -146,7 +148,7 @@ export default function StoresNearYouSection({
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.slice(0, 9).map((v) => {
             const open = isStoreOpen(v.businessHours);
-            const c = v.businessAddress?.coordinates;
+            const c = shopCoords(v);
             const km =
               hasUserCoords && c ? Math.round(calculateDistanceKm(userLat!, userLng!, c.lat, c.lng) * 10) / 10 : null;
             const rating = Number(v.averageRating) || 0;
